@@ -1,8 +1,26 @@
-import { Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import AppShell from "@/components/AppShell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -20,23 +38,38 @@ import {
   useTransactions,
   useUpdateTransaction,
 } from "@/hooks/use-transactions";
+import { cn } from "@/lib/utils";
+import type { CreateCategoryInput, CreateTransactionInput, TransactionItem, UpdateTransactionInput } from "@/types/api";
 import { toast } from "@/components/ui/sonner";
 
-const transactionTypeOptions = [
-  { label: "Despesa", value: "expense" },
+type TransactionTypeFilter = "all" | "income" | "expense";
+type TransactionFormState = {
+  id?: string;
+  description: string;
+  amount: string;
+  occurredOn: string;
+  categoryId: string;
+  type: "income" | "expense";
+};
+
+const transactionTypeOptions: Array<{ label: string; value: "income" | "expense" }> = [
   { label: "Receita", value: "income" },
+  { label: "Despesa", value: "expense" },
 ];
 
-const categoryIconOptions = ["ShoppingCart", "Coffee", "Car", "Home", "Utensils", "Wallet", "Heart", "Sparkles"];
-const categoryColorOptions = ["text-primary", "text-warning", "text-info", "text-income", "text-expense"];
-const categoryGroupOptions = [
-  { label: "Alimentacao", color: "bg-warning" },
-  { label: "Moradia", color: "bg-primary" },
-  { label: "Transporte", color: "bg-info" },
-  { label: "Saude", color: "bg-income" },
-  { label: "Outros", color: "bg-muted-foreground" },
-  { label: "Lazer", color: "bg-expense" },
-  { label: "Receitas", color: "bg-income" },
+const colorSwatches = [
+  { text: "text-income", bg: "bg-income", ring: "ring-income/40" },
+  { text: "text-warning", bg: "bg-warning", ring: "ring-warning/40" },
+  { text: "text-info", bg: "bg-info", ring: "ring-info/40" },
+  { text: "text-expense", bg: "bg-expense", ring: "ring-expense/40" },
+  { text: "text-primary", bg: "bg-primary", ring: "ring-primary/40" },
+  { text: "text-muted-foreground", bg: "bg-muted-foreground", ring: "ring-muted-foreground/40" },
+];
+
+const typeFilters: Array<{ label: string; value: TransactionTypeFilter }> = [
+  { label: "Todas", value: "all" },
+  { label: "Receitas", value: "income" },
+  { label: "Despesas", value: "expense" },
 ];
 
 function formatCurrency(value: number) {
@@ -50,27 +83,88 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function textColorFromGroup(groupColor: string) {
+  if (groupColor.includes("warning")) {
+    return "text-warning";
+  }
+  if (groupColor.includes("info")) {
+    return "text-info";
+  }
+  if (groupColor.includes("expense")) {
+    return "text-expense";
+  }
+  if (groupColor.includes("income")) {
+    return "text-income";
+  }
+  if (groupColor.includes("muted")) {
+    return "text-muted-foreground";
+  }
+  return "text-primary";
+}
+
+function emptyTransactionForm(type: "income" | "expense" = "expense"): TransactionFormState {
+  return {
+    description: "",
+    amount: "",
+    occurredOn: new Date().toISOString().slice(0, 10),
+    categoryId: "",
+    type,
+  };
+}
+
+function mapTransactionToForm(transaction: TransactionItem): TransactionFormState {
+  return {
+    id: String(transaction.id),
+    description: transaction.description,
+    amount: String(Math.abs(transaction.amount)).replace(".", ","),
+    occurredOn: transaction.occurredOn,
+    categoryId: String(transaction.category.id),
+    type: transaction.amount >= 0 ? "income" : "expense",
+  };
+}
+
 function TransactionsSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="glass-card p-5">
+            <Skeleton className="mb-4 h-4 w-24" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+        ))}
+      </div>
+      <div className="glass-card p-4">
+        <Skeleton className="h-11 w-full" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_220px]">
         <div className="glass-card p-5">
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-10 w-full" />
+          <div className="space-y-4">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4 rounded-xl p-3">
+                <Skeleton className="h-9 w-9 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-4 w-24" />
+              </div>
             ))}
           </div>
         </div>
         <div className="glass-card p-5">
-          <div className="space-y-3">
-            {Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="flex items-center gap-3 rounded-lg p-3">
-                <Skeleton className="h-10 w-10 rounded-lg" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-28" />
-                </div>
-                <Skeleton className="h-10 w-24" />
+          <div className="space-y-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-5" />
               </div>
             ))}
           </div>
@@ -88,94 +182,154 @@ export default function TransactionsPage() {
   const removeTransaction = useDeleteTransaction();
   const createCategory = useCreateCategory();
 
-  const [transactionForm, setTransactionForm] = useState({
-    description: "",
-    amount: "",
-    occurredOn: new Date().toISOString().slice(0, 10),
-    categoryId: "",
-    type: "expense",
-  });
-  const [categoryForm, setCategoryForm] = useState({
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [transactionForm, setTransactionForm] = useState<TransactionFormState>(emptyTransactionForm("expense"));
+  const [categoryForm, setCategoryForm] = useState<CreateCategoryInput>({
     label: "",
-    icon: "ShoppingCart",
-    color: "text-primary",
-    groupLabel: "Outros",
+    icon: "Wallet",
+    color: "text-income",
+    groupLabel: "",
+    groupColor: "bg-income",
   });
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingDraft, setEditingDraft] = useState<Record<string, { description: string; amount: string; occurredOn: string; categoryId: string }>>(
-    {},
-  );
 
-  const expenses = transactions.filter((transaction) => transaction.amount < 0);
-  const incomes = transactions.filter((transaction) => transaction.amount > 0);
-  const totalExpenses = expenses.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
-  const totalIncomes = incomes.reduce((sum, transaction) => sum + transaction.amount, 0);
+  const summary = useMemo(() => {
+    const incomes = transactions.filter((transaction) => transaction.amount > 0);
+    const expenses = transactions.filter((transaction) => transaction.amount < 0);
+    const totalIncomes = incomes.reduce((sum, transaction) => sum + transaction.amount, 0);
+    const totalExpenses = expenses.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
 
-  const categoryOptions = useMemo(
-    () =>
-      categories.map((category) => ({
-        ...category,
-        value: String(category.id),
-      })),
-    [categories],
-  );
+    return {
+      totalIncomes,
+      totalExpenses,
+      balance: totalIncomes - totalExpenses,
+    };
+  }, [transactions]);
 
-  const categoryFormGroup = categoryGroupOptions.find((group) => group.label === categoryForm.groupLabel) ?? categoryGroupOptions[4];
+  const groupedCategories = useMemo(() => {
+    const counters = new Map<string, { label: string; color: string; count: number }>();
 
-  const handleCreateTransaction = async () => {
+    transactions.forEach((transaction) => {
+      const key = transaction.category.groupLabel;
+      const current = counters.get(key);
+
+      if (current) {
+        current.count += 1;
+      } else {
+        counters.set(key, {
+          label: transaction.category.groupLabel,
+          color: transaction.category.groupColor,
+          count: 1,
+        });
+      }
+    });
+
+    categories.forEach((category) => {
+      if (!counters.has(category.groupLabel)) {
+        counters.set(category.groupLabel, {
+          label: category.groupLabel,
+          color: category.groupColor,
+          count: 0,
+        });
+      }
+    });
+
+    return Array.from(counters.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [categories, transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    const normalizedSearch = normalizeText(search);
+
+    return transactions.filter((transaction) => {
+      const matchesType =
+        typeFilter === "all" ||
+        (typeFilter === "income" ? transaction.amount > 0 : transaction.amount < 0);
+      const matchesCategory =
+        categoryFilter === "all" || transaction.category.groupLabel === categoryFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        normalizeText(transaction.description).includes(normalizedSearch) ||
+        normalizeText(transaction.category.groupLabel).includes(normalizedSearch) ||
+        normalizeText(transaction.category.label).includes(normalizedSearch);
+
+      return matchesType && matchesCategory && matchesSearch;
+    });
+  }, [categoryFilter, search, transactions, typeFilter]);
+
+  const deleteTarget = transactions.find((transaction) => String(transaction.id) === deleteTargetId) ?? null;
+  const isEditing = Boolean(transactionForm.id);
+
+  const openCreateTransaction = (type: "income" | "expense") => {
+    setTransactionForm(emptyTransactionForm(type));
+    setTransactionDialogOpen(true);
+  };
+
+  const openEditTransaction = (transaction: TransactionItem) => {
+    setTransactionForm(mapTransactionToForm(transaction));
+    setTransactionDialogOpen(true);
+  };
+
+  const handleTransactionSave = async () => {
     const parsedAmount = Number(transactionForm.amount.replace(",", "."));
 
     if (!transactionForm.description.trim() || !Number.isFinite(parsedAmount) || !transactionForm.categoryId) {
-      toast.error("Preencha descricao, valor e categoria da transacao.");
+      toast.error("Preencha descricao, valor e categoria.");
       return;
     }
 
-    try {
-      await createTransaction.mutateAsync({
-        description: transactionForm.description.trim(),
-        amount: transactionForm.type === "expense" ? -Math.abs(parsedAmount) : Math.abs(parsedAmount),
-        occurredOn: transactionForm.occurredOn,
-        categoryId: transactionForm.categoryId,
-      });
+    const payload = {
+      description: transactionForm.description.trim(),
+      amount: transactionForm.type === "expense" ? -Math.abs(parsedAmount) : Math.abs(parsedAmount),
+      occurredOn: transactionForm.occurredOn,
+      categoryId: transactionForm.categoryId,
+    };
 
-      setTransactionForm({
-        description: "",
-        amount: "",
-        occurredOn: new Date().toISOString().slice(0, 10),
-        categoryId: "",
-        type: "expense",
-      });
-      toast.success("Transacao cadastrada com sucesso.");
+    try {
+      if (transactionForm.id) {
+        await updateTransaction.mutateAsync({
+          id: transactionForm.id,
+          ...payload,
+        } satisfies UpdateTransactionInput);
+        toast.success("Transacao atualizada.");
+      } else {
+        await createTransaction.mutateAsync(payload satisfies CreateTransactionInput);
+        toast.success("Transacao criada.");
+      }
+
+      setTransactionDialogOpen(false);
+      setTransactionForm(emptyTransactionForm("expense"));
     } catch (error) {
-      toast.error("Nao foi possivel cadastrar a transacao.", {
+      toast.error("Nao foi possivel salvar a transacao.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
   };
 
-  const handleCreateCategory = async () => {
+  const handleCategoryCreate = async () => {
     if (!categoryForm.label.trim()) {
       toast.error("Informe o nome da categoria.");
       return;
     }
 
     try {
-      const category = await createCategory.mutateAsync({
+      await createCategory.mutateAsync({
+        ...categoryForm,
         label: categoryForm.label.trim(),
-        icon: categoryForm.icon,
-        color: categoryForm.color,
-        groupLabel: categoryForm.groupLabel,
-        groupColor: categoryFormGroup.color,
+        groupLabel: categoryForm.label.trim(),
       });
-
+      setCategoryDialogOpen(false);
       setCategoryForm({
         label: "",
-        icon: "ShoppingCart",
-        color: "text-primary",
-        groupLabel: "Outros",
+        icon: "Wallet",
+        color: "text-income",
+        groupLabel: "",
+        groupColor: "bg-income",
       });
-      setTransactionForm((current) => ({ ...current, categoryId: String(category.id) }));
-      toast.success("Categoria criada com sucesso.");
+      toast.success("Categoria criada.");
     } catch (error) {
       toast.error("Nao foi possivel criar a categoria.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
@@ -183,52 +337,15 @@ export default function TransactionsPage() {
     }
   };
 
-  const startEditing = (transactionId: string, transaction: (typeof transactions)[number]) => {
-    setEditingId(transactionId);
-    setEditingDraft((current) => ({
-      ...current,
-      [transactionId]: {
-        description: transaction.description,
-        amount: String(Math.abs(transaction.amount)),
-        occurredOn: transaction.occurredOn,
-        categoryId: String(transaction.category.id),
-      },
-    }));
-  };
-
-  const handleUpdateTransaction = async (transactionId: string) => {
-    const draft = editingDraft[transactionId];
-    const currentTransaction = transactions.find((transaction) => String(transaction.id) === transactionId);
-    const parsedAmount = Number(draft?.amount?.replace(",", "."));
-
-    if (!draft || !currentTransaction || !draft.description.trim() || !Number.isFinite(parsedAmount) || !draft.categoryId) {
-      toast.error("Preencha os dados da transacao antes de salvar.");
+  const handleDeleteTransaction = async () => {
+    if (!deleteTargetId) {
       return;
     }
 
     try {
-      await updateTransaction.mutateAsync({
-        id: transactionId,
-        description: draft.description.trim(),
-        amount: currentTransaction.amount < 0 ? -Math.abs(parsedAmount) : Math.abs(parsedAmount),
-        occurredOn: draft.occurredOn,
-        categoryId: draft.categoryId,
-      });
-      setEditingId(null);
-      toast.success("Transacao atualizada.");
-    } catch (error) {
-      toast.error("Nao foi possivel atualizar a transacao.", {
-        description: getErrorMessage(error, "Tente novamente em instantes."),
-      });
-    }
-  };
-
-  const handleDeleteTransaction = async (transactionId: string) => {
-    try {
-      await removeTransaction.mutateAsync(transactionId);
-      if (editingId === transactionId) {
-        setEditingId(null);
-      }
+      await removeTransaction.mutateAsync(deleteTargetId);
+      setDeleteTargetId(null);
+      setTransactionDialogOpen(false);
       toast.success("Transacao removida.");
     } catch (error) {
       toast.error("Nao foi possivel remover a transacao.", {
@@ -239,284 +356,338 @@ export default function TransactionsPage() {
 
   if (isLoading) {
     return (
-      <AppShell title="Transacoes" description="Cadastre, categorize e gerencie suas movimentacoes">
+      <AppShell title="Transacoes" description="Gerencie suas despesas e receitas">
         <TransactionsSkeleton />
       </AppShell>
     );
   }
 
   return (
-    <AppShell title="Transacoes" description="Cadastre, categorize e gerencie suas movimentacoes">
+    <AppShell title="Transacoes" description="Gerencie suas despesas e receitas">
+      <AlertDialog open={Boolean(deleteTargetId)} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent className="border-warning/20 bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir transacao?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `A transacao "${deleteTarget.description}" sera excluida permanentemente.`
+                : "Esta transacao sera excluida permanentemente."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeTransaction.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteTransaction();
+              }}
+              disabled={removeTransaction.isPending}
+            >
+              {removeTransaction.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
+        <DialogContent className="max-w-[510px] border-border/70 bg-card p-6">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? "Editar Transacao" : "Nova Transacao"}</DialogTitle>
+            <DialogDescription className="sr-only">Formulario de transacao</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/60 p-1">
+              {transactionTypeOptions.map((option) => {
+                const active = transactionForm.type === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTransactionForm((current) => ({ ...current, type: option.value }))}
+                    className={cn(
+                      "rounded-xl px-4 py-2.5 text-sm transition-colors",
+                      active
+                        ? option.value === "expense"
+                          ? "bg-expense/20 text-expense"
+                          : "bg-income/20 text-income"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <Input
+              value={transactionForm.description}
+              onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))}
+              placeholder="Descricao"
+              className="h-11 rounded-xl border-border/60 bg-secondary/35"
+            />
+            <Input
+              value={transactionForm.amount}
+              onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))}
+              placeholder="Valor"
+              inputMode="decimal"
+              className="h-11 rounded-xl border-border/60 bg-secondary/35"
+            />
+            <Select
+              value={transactionForm.categoryId}
+              onValueChange={(value) => setTransactionForm((current) => ({ ...current, categoryId: value }))}
+            >
+              <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={String(category.id)}>
+                    {category.groupLabel}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              value={transactionForm.occurredOn}
+              onChange={(event) => setTransactionForm((current) => ({ ...current, occurredOn: event.target.value }))}
+              className="h-11 rounded-xl border-border/60 bg-secondary/35"
+            />
+          </div>
+
+          <DialogFooter className="justify-between sm:justify-between">
+            <div>
+              {isEditing ? (
+                <Button
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteTargetId(transactionForm.id ?? null)}
+                  disabled={removeTransaction.isPending}
+                >
+                  <Trash2 size={14} />
+                  Excluir
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={() => void handleTransactionSave()} disabled={createTransaction.isPending || updateTransaction.isPending}>
+                {createTransaction.isPending || updateTransaction.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="max-w-[510px] border-border/70 bg-card p-6">
+          <DialogHeader>
+            <DialogTitle>Nova Categoria</DialogTitle>
+            <DialogDescription className="sr-only">Formulario de categoria</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Input
+              value={categoryForm.label}
+              onChange={(event) =>
+                setCategoryForm((current) => ({
+                  ...current,
+                  label: event.target.value,
+                }))
+              }
+              placeholder="Nome da categoria"
+              className="h-11 rounded-xl border-border/60 bg-secondary/35"
+            />
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">Cor</p>
+              <div className="flex flex-wrap gap-3">
+                {colorSwatches.map((swatch) => (
+                  <button
+                    key={swatch.text}
+                    type="button"
+                    onClick={() =>
+                      setCategoryForm((current) => ({
+                        ...current,
+                        color: swatch.text,
+                        groupColor: swatch.bg,
+                      }))
+                    }
+                    className={cn(
+                      "h-8 w-8 rounded-full border-2 transition-transform hover:scale-105",
+                      swatch.bg,
+                      categoryForm.color === swatch.text ? `scale-105 border-white ring-2 ${swatch.ring}` : "border-transparent",
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleCategoryCreate()} disabled={createCategory.isPending}>
+              {createCategory.isPending ? "Criando..." : "Criar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          className="rounded-xl border-border/60 bg-secondary/20"
+          onClick={() => openCreateTransaction("income")}
+        >
+          <ArrowUpCircle size={14} />
+          Receita
+        </Button>
+        <Button className="rounded-xl bg-income text-background hover:bg-income/90" onClick={() => openCreateTransaction("expense")}>
+          <ArrowDownCircle size={14} />
+          Despesa
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="glass-card p-5">
-          <p className="text-sm text-muted-foreground">Movimentacoes</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{transactions.length}</p>
+        <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <p className="text-sm text-muted-foreground">Total Receitas</p>
+          <p className="mt-2 text-[2rem] font-semibold text-income">{formatCurrency(summary.totalIncomes)}</p>
         </div>
-        <div className="glass-card p-5">
-          <p className="text-sm text-muted-foreground">Entradas</p>
-          <p className="mt-1 text-2xl font-bold text-income">{formatCurrency(totalIncomes)}</p>
+        <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <p className="text-sm text-muted-foreground">Total Despesas</p>
+          <p className="mt-2 text-[2rem] font-semibold text-expense">- {formatCurrency(summary.totalExpenses)}</p>
         </div>
-        <div className="glass-card p-5">
-          <p className="text-sm text-muted-foreground">Saidas</p>
-          <p className="mt-1 text-2xl font-bold text-expense">{formatCurrency(totalExpenses)}</p>
+        <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <p className="text-sm text-muted-foreground">Saldo</p>
+          <p className="mt-2 text-[2rem] font-semibold text-income">{formatCurrency(summary.balance)}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <div className="space-y-6">
-          <div className="glass-card p-5">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Nova transacao</h2>
-            <div className="space-y-3">
-              <Input
-                value={transactionForm.description}
-                onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))}
-                placeholder="Descricao"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  value={transactionForm.amount}
-                  onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))}
-                  placeholder="Valor"
-                  inputMode="decimal"
-                />
-                <Input
-                  type="date"
-                  value={transactionForm.occurredOn}
-                  onChange={(event) => setTransactionForm((current) => ({ ...current, occurredOn: event.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  value={transactionForm.type}
-                  onValueChange={(value) => setTransactionForm((current) => ({ ...current, type: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {transactionTypeOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={transactionForm.categoryId}
-                  onValueChange={(value) => setTransactionForm((current) => ({ ...current, categoryId: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" onClick={handleCreateTransaction} disabled={createTransaction.isPending}>
-                <Plus size={16} />
-                {createTransaction.isPending ? "Salvando..." : "Adicionar transacao"}
-              </Button>
-            </div>
+      <div className="glass-card rounded-2xl border border-border/40 p-4">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <div className="relative flex-1">
+            <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar transacao..."
+              className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
+            />
           </div>
-
-          <div className="glass-card p-5">
-            <h2 className="mb-4 text-lg font-semibold text-foreground">Nova categoria</h2>
-            <div className="space-y-3">
-              <Input
-                value={categoryForm.label}
-                onChange={(event) => setCategoryForm((current) => ({ ...current, label: event.target.value }))}
-                placeholder="Nome da categoria"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Select value={categoryForm.icon} onValueChange={(value) => setCategoryForm((current) => ({ ...current, icon: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Icone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryIconOptions.map((icon) => (
-                      <SelectItem key={icon} value={icon}>
-                        {icon}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={categoryForm.color} onValueChange={(value) => setCategoryForm((current) => ({ ...current, color: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Cor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryColorOptions.map((color) => (
-                      <SelectItem key={color} value={color}>
-                        {color}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Select
-                value={categoryForm.groupLabel}
-                onValueChange={(value) => setCategoryForm((current) => ({ ...current, groupLabel: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Grupo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryGroupOptions.map((group) => (
-                    <SelectItem key={group.label} value={group.label}>
-                      {group.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="secondary" className="w-full" onClick={handleCreateCategory} disabled={createCategory.isPending}>
-                <Plus size={16} />
-                {createCategory.isPending ? "Criando..." : "Criar categoria"}
-              </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-secondary/35 text-muted-foreground">
+              <Filter size={16} />
             </div>
+            {typeFilters.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setTypeFilter(filter.value)}
+                className={cn(
+                  "rounded-2xl px-4 py-2.5 text-sm transition-colors",
+                  typeFilter === filter.value
+                    ? "bg-primary/15 text-primary"
+                    : "bg-secondary/50 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {filter.label}
+              </button>
+            ))}
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="h-11 min-w-[160px] rounded-xl border-border/60 bg-secondary/35">
+                <SelectValue placeholder="Todas categorias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas categorias</SelectItem>
+                {groupedCategories.map((group) => (
+                  <SelectItem key={group.label} value={group.label}>
+                    {group.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
+      </div>
 
-        <div className="glass-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Gerenciar transacoes</h2>
-            <span className="text-xs text-muted-foreground">{transactions.length} registros</span>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="text-[1.7rem] font-semibold text-foreground">Todas as Transacoes</h2>
+            <span className="text-sm text-muted-foreground">{filteredTransactions.length} transações</span>
           </div>
 
-          {!transactions.length ? (
-            <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-              {isError ? "Nao foi possivel carregar as transacoes agora." : "Nenhuma transacao encontrada."}
+          {!filteredTransactions.length ? (
+            <div className="rounded-xl border border-border/30 bg-secondary/20 p-4 text-sm text-muted-foreground">
+              {isError ? "Nao foi possivel carregar as transacoes agora." : "Nenhuma transacao encontrada para os filtros atuais."}
             </div>
           ) : (
-            <div className="space-y-3">
-              {transactions.map((transaction) => {
-                const transactionId = String(transaction.id);
-                const isEditing = editingId === transactionId;
-                const draft = editingDraft[transactionId] ?? {
-                  description: transaction.description,
-                  amount: String(Math.abs(transaction.amount)),
-                  occurredOn: transaction.occurredOn,
-                  categoryId: String(transaction.category.id),
-                };
-                const Icon = transaction.category.icon;
+            <div className="space-y-2">
+              {filteredTransactions.map((transaction) => {
+                const Icon = transaction.amount >= 0 ? ArrowUpCircle : ArrowDownCircle;
+                const accentColor = transaction.amount >= 0 ? "text-income" : "text-expense";
+                const categoryTextColor = textColorFromGroup(transaction.category.groupColor);
 
                 return (
-                  <div key={transactionId} className="rounded-xl border border-border/30 bg-secondary/20 p-4">
-                    <div className="mb-3 flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                        <Icon size={16} className={transaction.category.color} />
+                  <button
+                    key={transaction.id}
+                    type="button"
+                    onClick={() => openEditTransaction(transaction)}
+                    className="group flex w-full items-center gap-4 rounded-xl px-4 py-4 text-left transition-colors hover:bg-secondary/30"
+                  >
+                    <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", accentColor)}>
+                      <Icon size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-[1.15rem] font-medium text-foreground">{transaction.description}</p>
+                        <Pencil size={14} className="opacity-0 transition-opacity text-muted-foreground group-hover:opacity-100" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">{transaction.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {transaction.category.label} • {transaction.relativeDate}
-                        </p>
+                      <div className="mt-1 flex items-center gap-3 text-sm">
+                        <span className={cn("font-medium", categoryTextColor)}>{transaction.category.groupLabel}</span>
+                        <span className="text-muted-foreground">{transaction.occurredOn.split("-").reverse().join("/")}</span>
                       </div>
-                      <p className={`text-sm font-semibold ${transaction.amount < 0 ? "text-expense" : "text-income"}`}>
-                        {transaction.formattedAmount}
-                      </p>
                     </div>
-
-                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_120px_140px_160px]">
-                      <Input
-                        value={draft.description}
-                        disabled={!isEditing}
-                        onChange={(event) =>
-                          setEditingDraft((current) => ({
-                            ...current,
-                            [transactionId]: { ...draft, description: event.target.value },
-                          }))
-                        }
-                      />
-                      <Input
-                        value={draft.amount}
-                        disabled={!isEditing}
-                        inputMode="decimal"
-                        onChange={(event) =>
-                          setEditingDraft((current) => ({
-                            ...current,
-                            [transactionId]: { ...draft, amount: event.target.value },
-                          }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        value={draft.occurredOn}
-                        disabled={!isEditing}
-                        onChange={(event) =>
-                          setEditingDraft((current) => ({
-                            ...current,
-                            [transactionId]: { ...draft, occurredOn: event.target.value },
-                          }))
-                        }
-                      />
-                      <Select
-                        value={draft.categoryId}
-                        disabled={!isEditing}
-                        onValueChange={(value) =>
-                          setEditingDraft((current) => ({
-                            ...current,
-                            [transactionId]: { ...draft, categoryId: value },
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categoryOptions.map((category) => (
-                            <SelectItem key={category.value} value={category.value}>
-                              {category.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className={cn("text-lg font-semibold", accentColor)}>
+                      {transaction.amount >= 0 ? "+ " : "- "}
+                      {formatCurrency(Math.abs(transaction.amount))}
                     </div>
-
-                    <div className="mt-3 flex items-center justify-end gap-2">
-                      {isEditing ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setEditingId(null)}
-                            disabled={updateTransaction.isPending}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => void handleUpdateTransaction(transactionId)}
-                            disabled={updateTransaction.isPending}
-                          >
-                            <Save size={14} />
-                            Salvar
-                          </Button>
-                        </>
-                      ) : (
-                        <Button size="sm" variant="secondary" onClick={() => startEditing(transactionId, transaction)}>
-                          Editar
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => void handleDeleteTransaction(transactionId)}
-                        disabled={removeTransaction.isPending}
-                      >
-                        <Trash2 size={14} />
-                        Excluir
-                      </Button>
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
+        </div>
+
+        <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-[1.35rem] font-semibold text-foreground">Categorias</h3>
+            <button
+              type="button"
+              onClick={() => setCategoryDialogOpen(true)}
+              className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+
+          <div className="space-y-5">
+            {groupedCategories.map((group) => (
+              <div key={group.label} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className={cn("h-3 w-3 rounded-full", group.color)} />
+                  <span className="text-lg text-foreground">{group.label}</span>
+                </div>
+                <span className="text-base text-muted-foreground">{group.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </AppShell>

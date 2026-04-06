@@ -12,6 +12,9 @@ import type {
   ApiDashboardResponse,
   ApiErrorResponse,
   ApiHealthResponse,
+  ApiImportCommitResponse,
+  ApiImportPreviewItem,
+  ApiImportPreviewResponse,
   ApiInsight,
   ApiInsightsResponse,
   ApiSpendingItem,
@@ -28,6 +31,10 @@ import type {
   CreateTransactionInput,
   DashboardData,
   HealthStatus,
+  ImportCommitData,
+  ImportCommitItem,
+  ImportPreviewData,
+  ImportPreviewItem,
   InsightItem,
   SpendingItem,
   SummaryCard,
@@ -98,8 +105,9 @@ async function parseResponseBody(response: Response) {
 
 async function request<T>(path: string, init?: RequestInit) {
   const headers = new Headers(init?.headers);
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
 
-  if (init?.body && !headers.has("Content-Type")) {
+  if (init?.body && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -134,6 +142,10 @@ function resolveSummaryCardIcon(label: string) {
 
 function normalizeChatRole(role?: string): ChatRole {
   return role === "user" ? "user" : "assistant";
+}
+
+function normalizeImportType(type?: string): "income" | "expense" {
+  return type === "income" ? "income" : "expense";
 }
 
 function normalizeInsightColors(insight: ApiInsight) {
@@ -306,6 +318,60 @@ export function mapChatReplyResponse(response: ApiChatReplyResponse): ChatReply 
   };
 }
 
+function mapImportPreviewItem(item: ApiImportPreviewItem): ImportPreviewItem {
+  return {
+    rowIndex: safeNumber(item.rowIndex),
+    description: safeString(item.description),
+    normalizedDescription: safeString(item.normalizedDescription),
+    amount: safeString(item.amount, "0.00"),
+    normalizedAmount: safeString(item.normalizedAmount, safeString(item.amount, "0.00")),
+    occurredOn: safeString(item.occurredOn),
+    normalizedOccurredOn: safeString(item.normalizedOccurredOn, safeString(item.occurredOn)),
+    type: normalizeImportType(item.type),
+    suggestedCategoryId: item.suggestedCategoryId ?? null,
+    suggestedCategoryLabel: item.suggestedCategoryLabel ?? null,
+    matchedRuleId: item.matchedRuleId ?? null,
+    possibleDuplicate: Boolean(item.possibleDuplicate),
+    duplicateReason: safeString(item.duplicateReason),
+    canImport: Boolean(item.canImport),
+    requiresCategorySelection: Boolean(item.requiresCategorySelection),
+    requiresUserAction: Boolean(item.requiresUserAction),
+    warnings: Array.isArray(item.warnings) ? item.warnings.map((value) => safeString(value)).filter(Boolean) : [],
+    errors: Array.isArray(item.errors) ? item.errors.map((value) => safeString(value)).filter(Boolean) : [],
+    sourceRow: item.sourceRow,
+  };
+}
+
+export function mapImportPreviewResponse(response: ApiImportPreviewResponse): ImportPreviewData {
+  return {
+    previewToken: safeString(response.previewToken),
+    expiresAt: safeString(response.expiresAt),
+    fileSummary: {
+      totalRows: safeNumber(response.fileSummary?.totalRows),
+      importableRows: safeNumber(response.fileSummary?.importableRows),
+      errorRows: safeNumber(response.fileSummary?.errorRows),
+      duplicateRows: safeNumber(response.fileSummary?.duplicateRows),
+      actionRequiredRows: safeNumber(response.fileSummary?.actionRequiredRows),
+    },
+    items: (response.items ?? []).map(mapImportPreviewItem),
+  };
+}
+
+export function mapImportCommitResponse(response: ApiImportCommitResponse): ImportCommitData {
+  return {
+    importedCount: safeNumber(response.importedCount),
+    skippedCount: safeNumber(response.skippedCount),
+    failedCount: safeNumber(response.failedCount),
+    results: (response.results ?? []).map((item) => ({
+      rowIndex: safeNumber(item.rowIndex),
+      status: item.status === "imported" || item.status === "failed" ? item.status : "skipped",
+      reason: safeString(item.reason),
+      message: safeString(item.message),
+      transaction: item.transaction ? mapTransaction(item.transaction) : undefined,
+    })),
+  };
+}
+
 export function mapDashboardResponse(response: ApiDashboardResponse): DashboardData {
   return {
     user: {
@@ -415,4 +481,28 @@ export async function deleteTransaction(id: number | string) {
   await request<null>(`/api/transactions/${id}`, {
     method: "DELETE",
   });
+}
+
+export async function previewTransactionImport(file: File) {
+  const body = new FormData();
+  body.set("file", file);
+
+  const response = await request<ApiImportPreviewResponse>("/api/transactions/import/preview", {
+    method: "POST",
+    body,
+  });
+
+  return mapImportPreviewResponse(response);
+}
+
+export async function commitTransactionImport(previewToken: string, items: ImportCommitItem[]) {
+  const response = await request<ApiImportCommitResponse>("/api/transactions/import/commit", {
+    method: "POST",
+    body: JSON.stringify({
+      previewToken,
+      items,
+    }),
+  });
+
+  return mapImportCommitResponse(response);
 }

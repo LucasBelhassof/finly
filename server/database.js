@@ -2,6 +2,14 @@ import dotenv from "dotenv";
 import pg from "pg";
 
 import { runMigrations } from "./migrations.js";
+import {
+  buildImportSeedKey,
+  createImportPreview,
+  getPreviewSession,
+  normalizeDescription,
+  validateCommitItemsShape,
+  validateCommitLine,
+} from "./transaction-import.js";
 
 dotenv.config();
 
@@ -425,6 +433,38 @@ async function getCategoryById(categoryId) {
   return result.rows[0] ?? null;
 }
 
+async function listTransactionFingerprintRows(userId) {
+  const result = await pool.query(
+    `
+      SELECT occurred_on, amount, description
+      FROM transactions
+      WHERE user_id = $1
+    `,
+    [userId],
+  );
+
+  return result.rows;
+}
+
+async function createImportedTransaction({ userId, categoryId, description, amount, occurredOn, seedKey }) {
+  const result = await pool.query(
+    `
+      INSERT INTO transactions (user_id, category_id, description, amount, occurred_on, seed_key)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (user_id, seed_key) DO NOTHING
+      RETURNING id
+    `,
+    [userId, categoryId, description, amount, occurredOn, seedKey],
+  );
+
+  if (!result.rowCount) {
+    return null;
+  }
+
+  const row = await getTransactionById(userId, result.rows[0].id);
+  return mapTransactionRow(row, occurredOn);
+}
+
 async function getTransactionById(userId, transactionId) {
   const result = await pool.query(
     `
@@ -536,6 +576,123 @@ export async function deleteTransaction(transactionId) {
   if (!result.rowCount) {
     throw new Error("transaction not found");
   }
+}
+
+export async function previewTransactionImport(fileBuffer) {
+  const user = await getPrimaryUser();
+  const [categories, fingerprintRows] = await Promise.all([listCategories(), listTransactionFingerprintRows(user.id)]);
+
+  const existingFingerprints = new Set(
+    fingerprintRows.map((row) =>
+      buildImportSeedKey(user.id, normalizeDateValue(row.occurred_on), parseNumeric(row.amount), normalizeDescription(row.description)),
+    ),
+  );
+
+  return createImportPreview({
+    categories,
+    existingFingerprints,
+    fileBuffer,
+    userId: user.id,
+  });
+}
+
+export async function commitTransactionImport(input) {
+  const user = await getPrimaryUser();
+  const session = getPreviewSession(input.previewToken, user.id);
+  validateCommitItemsShape(input.items, session);
+
+  const [categories, fingerprintRows] = await Promise.all([listCategories(), listTransactionFingerprintRows(user.id)]);
+  const existingFingerprints = new Set(
+    fingerprintRows.map((row) =>
+      buildImportSeedKey(user.id, normalizeDateValue(row.occurred_on), parseNumeric(row.amount), normalizeDescription(row.description)),
+    ),
+  );
+  const commitFingerprints = new Set(existingFingerprints);
+  const results = [];
+  let importedCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const item of input.items) {
+    try {
+      const normalized = validateCommitLine(item, categories);
+
+      if (normalized.exclude) {
+        skippedCount += 1;
+        results.push({
+          rowIndex: item.rowIndex,
+          status: "skipped",
+          reason: "excluded",
+          message: "Linha removida pelo usuario.",
+        });
+        continue;
+      }
+
+      const seedKey = buildImportSeedKey(
+        user.id,
+        normalized.normalizedOccurredOn,
+        normalized.signedAmount,
+        normalized.normalizedFinalDescription,
+      );
+
+      if (commitFingerprints.has(seedKey) && !normalized.ignoreDuplicate) {
+        skippedCount += 1;
+        results.push({
+          rowIndex: item.rowIndex,
+          status: "skipped",
+          reason: "duplicate",
+          message: "Linha pulada por duplicata provavel.",
+        });
+        continue;
+      }
+
+      const transaction = await createImportedTransaction({
+        userId: user.id,
+        categoryId: normalized.categoryId,
+        description: normalized.description,
+        amount: normalized.signedAmount,
+        occurredOn: normalized.normalizedOccurredOn,
+        seedKey,
+      });
+
+      commitFingerprints.add(seedKey);
+
+      if (!transaction) {
+        skippedCount += 1;
+        results.push({
+          rowIndex: item.rowIndex,
+          status: "skipped",
+          reason: "already_imported",
+          message: "Linha ja importada anteriormente.",
+        });
+        continue;
+      }
+
+      importedCount += 1;
+      results.push({
+        rowIndex: item.rowIndex,
+        status: "imported",
+        reason: "success",
+        message: "Linha importada com sucesso.",
+        transaction,
+      });
+    } catch (error) {
+      failedCount += 1;
+      results.push({
+        rowIndex: item.rowIndex,
+        status: "failed",
+        reason: "invalid",
+        message: error instanceof Error ? error.message : "Linha invalida.",
+      });
+    }
+  }
+
+  return {
+    importedCount,
+    skippedCount,
+    failedCount,
+    results,
+  };
 }
 
 export async function listSpendingByCategory() {

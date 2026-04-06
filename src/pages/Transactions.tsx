@@ -2,6 +2,7 @@ import { ArrowDownCircle, ArrowUpCircle, Filter, Pencil, Plus, Search, Trash2 } 
 import { useMemo, useState } from "react";
 
 import AppShell from "@/components/AppShell";
+import ImportTransactionsModal from "@/components/transactions/ImportTransactionsModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -186,6 +187,7 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [transactionForm, setTransactionForm] = useState<TransactionFormState>(emptyTransactionForm("expense"));
@@ -364,6 +366,8 @@ export default function TransactionsPage() {
 
   return (
     <AppShell title="Transacoes" description="Gerencie suas despesas e receitas">
+      <ImportTransactionsModal open={importDialogOpen} onOpenChange={setImportDialogOpen} categories={categories} />
+
       <AlertDialog open={Boolean(deleteTargetId)} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent className="border-warning/20 bg-card">
           <AlertDialogHeader>
@@ -539,7 +543,14 @@ export default function TransactionsPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          className="rounded-xl border-border/60 bg-secondary/20"
+          onClick={() => setImportDialogOpen(true)}
+        >
+          Importar CSV
+        </Button>
         <Button
           variant="outline"
           className="rounded-xl border-border/60 bg-secondary/20"

@@ -1,18 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
+  commitTransactionImport,
   deleteTransaction,
   getCategories,
   getTransactions,
   patchTransaction,
   postCategory,
   postTransaction,
+  previewTransactionImport,
 } from "@/lib/api";
-import type { CategoryItem, CreateCategoryInput, CreateTransactionInput, TransactionItem, UpdateTransactionInput } from "@/types/api";
+import { insightsQueryKey, spendingQueryKey } from "@/hooks/use-insights";
+import type {
+  CategoryItem,
+  CreateCategoryInput,
+  CreateTransactionInput,
+  ImportCommitItem,
+  ImportPreviewData,
+  TransactionItem,
+  UpdateTransactionInput,
+} from "@/types/api";
 import { dashboardQueryKey } from "@/hooks/use-dashboard";
 
 export const transactionsQueryKey = (limit?: number) => ["transactions", limit ?? "all"] as const;
 export const categoriesQueryKey = ["categories"] as const;
+export const transactionImportPreviewQueryKey = ["transactions", "import", "preview"] as const;
 
 export function useTransactions(limit?: number) {
   return useQuery({
@@ -94,6 +106,28 @@ export function useDeleteTransaction(limit?: number) {
         items.filter((item) => String(item.id) !== String(id)),
       );
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+    },
+  });
+}
+
+export function usePreviewTransactionImport() {
+  return useMutation({
+    mutationFn: (file: File) => previewTransactionImport(file),
+  });
+}
+
+export function useCommitTransactionImport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ previewToken, items }: { previewToken: string; items: ImportCommitItem[] }) =>
+      commitTransactionImport(previewToken, items),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+      queryClient.invalidateQueries({ queryKey: spendingQueryKey });
+      queryClient.invalidateQueries({ queryKey: insightsQueryKey });
+      queryClient.removeQueries({ queryKey: transactionImportPreviewQueryKey });
     },
   });
 }

@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 
 import {
+  commitTransactionImport,
   createCategory,
   createChatReply,
   createTransaction,
@@ -16,8 +17,10 @@ import {
   listRecentTransactions,
   listSpendingByCategory,
   pingDatabase,
+  previewTransactionImport,
   updateTransaction,
 } from "./database.js";
+import { MAX_IMPORT_BYTES, parseMultipartCsvUpload } from "./transaction-import.js";
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? "3001", 10);
@@ -64,6 +67,29 @@ app.post("/api/transactions", async (request, response, next) => {
   try {
     const transaction = await createTransaction(request.body ?? {});
     response.status(201).json(transaction);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/transactions/import/preview",
+  express.raw({ type: "multipart/form-data", limit: `${MAX_IMPORT_BYTES}b` }),
+  async (request, response, next) => {
+    try {
+      const upload = parseMultipartCsvUpload(request.headers["content-type"], request.body);
+      const preview = await previewTransactionImport(upload.buffer);
+      response.status(201).json(preview);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+app.post("/api/transactions/import/commit", async (request, response, next) => {
+  try {
+    const result = await commitTransactionImport(request.body ?? {});
+    response.status(201).json(result);
   } catch (error) {
     next(error);
   }
@@ -181,7 +207,10 @@ app.use((error, _request, response, _next) => {
   const lowerMessage = String(message).toLowerCase();
   const status = lowerMessage.includes("not found")
     ? 404
-    : lowerMessage.includes("required") || lowerMessage.includes("invalid")
+    : lowerMessage.includes("required") ||
+        lowerMessage.includes("invalid") ||
+        lowerMessage.includes("expirou") ||
+        lowerMessage.includes("nao foi possivel identificar")
       ? 400
       : 500;
 

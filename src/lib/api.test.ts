@@ -2,6 +2,8 @@ import { CircleHelp } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
 import {
+  mapImportCommitResponse,
+  mapImportPreviewResponse,
   mapChatMessagesResponse,
   mapChatReplyResponse,
   mapSpendingResponse,
@@ -104,5 +106,75 @@ describe("api mappers", () => {
     expect(reply.userMessage.role).toBe("user");
     expect(reply.assistantMessage.role).toBe("assistant");
     expect(reply.assistantMessage.content).toBe("Comece pelo delivery.");
+  });
+
+  it("maps import preview and commit payloads", () => {
+    const preview = mapImportPreviewResponse({
+      previewToken: "preview-1",
+      expiresAt: "2026-04-06T10:15:00.000Z",
+      fileSummary: {
+        totalRows: 3,
+        importableRows: 1,
+        errorRows: 1,
+        duplicateRows: 1,
+        actionRequiredRows: 2,
+      },
+      items: [
+        {
+          rowIndex: 1,
+          description: "iFood",
+          normalizedDescription: "ifood",
+          amount: "67.90",
+          normalizedAmount: "67.90",
+          occurredOn: "2026-04-06",
+          normalizedOccurredOn: "2026-04-06",
+          type: "expense",
+          suggestedCategoryId: 12,
+          suggestedCategoryLabel: "Restaurantes",
+          matchedRuleId: "ifood",
+          possibleDuplicate: true,
+          duplicateReason: "Ja existe uma transacao importada com os mesmos dados.",
+          canImport: true,
+          requiresCategorySelection: false,
+          requiresUserAction: true,
+          warnings: ["Duplicata provavel encontrada."],
+          errors: [],
+        },
+      ],
+    });
+
+    const commit = mapImportCommitResponse({
+      importedCount: 1,
+      skippedCount: 1,
+      failedCount: 0,
+      results: [
+        {
+          rowIndex: 1,
+          status: "imported",
+          reason: "success",
+          message: "Linha importada com sucesso.",
+          transaction: {
+            id: 40,
+            description: "iFood",
+            amount: -67.9,
+            occurredOn: "2026-04-06",
+            category: {
+              id: 12,
+              slug: "restaurantes",
+              label: "Restaurantes",
+            },
+          },
+        },
+      ],
+    });
+
+    expect(preview.previewToken).toBe("preview-1");
+    expect(preview.fileSummary.duplicateRows).toBe(1);
+    expect(preview.items[0].matchedRuleId).toBe("ifood");
+    expect(preview.items[0].possibleDuplicate).toBe(true);
+
+    expect(commit.importedCount).toBe(1);
+    expect(commit.results[0].status).toBe("imported");
+    expect(commit.results[0].transaction?.description).toBe("iFood");
   });
 });

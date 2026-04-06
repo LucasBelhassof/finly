@@ -17,6 +17,7 @@ export interface ApiSummaryCard {
 }
 
 export interface ApiTransactionCategory {
+  id?: number | string;
   slug?: string;
   label?: string;
   icon?: string;
@@ -31,6 +32,17 @@ export interface ApiTransaction {
   occurredOn?: string;
   relativeDate?: string;
   category?: ApiTransactionCategory;
+}
+
+export interface ApiCategory {
+  id?: number | string;
+  slug?: string;
+  label?: string;
+  icon?: string;
+  color?: string;
+  groupSlug?: string;
+  groupLabel?: string;
+  groupColor?: string;
 }
 
 export interface ApiSpendingItem {
@@ -85,6 +97,10 @@ export interface ApiTransactionsResponse {
   transactions?: ApiTransaction[];
 }
 
+export interface ApiCategoriesResponse {
+  categories?: ApiCategory[];
+}
+
 export interface ApiSpendingResponse {
   spending?: ApiSpendingItem[];
 }
@@ -128,11 +144,15 @@ export interface SummaryCard {
 }
 
 export interface TransactionCategory {
+  id: number | string;
   slug: string;
   label: string;
   iconName: string;
   icon: LucideIcon;
   color: string;
+  groupSlug: string;
+  groupLabel: string;
+  groupColor: string;
 }
 
 export interface TransactionItem {
@@ -143,6 +163,37 @@ export interface TransactionItem {
   occurredOn: string;
   relativeDate: string;
   category: TransactionCategory;
+}
+
+export interface CategoryItem {
+  id: number | string;
+  slug: string;
+  label: string;
+  iconName: string;
+  icon: LucideIcon;
+  color: string;
+  groupSlug: string;
+  groupLabel: string;
+  groupColor: string;
+}
+
+export interface CreateCategoryInput {
+  label: string;
+  icon: string;
+  color: string;
+  groupLabel: string;
+  groupColor: string;
+}
+
+export interface CreateTransactionInput {
+  description: string;
+  amount: number;
+  occurredOn: string;
+  categoryId: number | string;
+}
+
+export interface UpdateTransactionInput extends CreateTransactionInput {
+  id: number | string;
 }
 
 export interface SpendingItem {

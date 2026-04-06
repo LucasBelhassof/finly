@@ -34,6 +34,16 @@ function parseNumeric(value) {
   return Number.parseFloat(value ?? 0);
 }
 
+function slugify(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function formatCurrency(value) {
   return currencyFormatter.format(parseNumeric(value));
 }
@@ -121,6 +131,42 @@ function mapToneToColors(tone) {
         tagColor: "bg-primary/15 text-primary",
       };
   }
+}
+
+function mapTransactionRow(row, referenceDate) {
+  const amount = parseNumeric(row.amount);
+
+  return {
+    id: row.id,
+    description: row.description,
+    amount,
+    formattedAmount: `${amount < 0 ? "- " : "+ "}${formatCurrency(Math.abs(amount))}`,
+    occurredOn: normalizeDateValue(row.occurred_on),
+    relativeDate: referenceDate ? formatRelativeDate(row.occurred_on, referenceDate) : normalizeDateValue(row.occurred_on),
+    category: {
+      id: row.category_id,
+      slug: row.category_slug,
+      label: row.category_label,
+      icon: row.category_icon,
+      color: row.category_color,
+      groupSlug: row.group_slug,
+      groupLabel: row.group_label,
+      groupColor: row.group_color,
+    },
+  };
+}
+
+function mapCategoryRow(row) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    label: row.label,
+    icon: row.icon,
+    color: row.color,
+    groupSlug: row.group_slug,
+    groupLabel: row.group_label,
+    groupColor: row.group_color,
+  };
 }
 
 async function getPrimaryUserRecord(client = pool) {
@@ -256,10 +302,14 @@ export async function listRecentTransactions(limit = 8) {
         t.description,
         t.amount,
         t.occurred_on,
+        c.id AS category_id,
         c.slug AS category_slug,
         c.label AS category_label,
         c.icon AS category_icon,
-        c.color AS category_color
+        c.color AS category_color,
+        c.group_slug,
+        c.group_label,
+        c.group_color
       FROM transactions t
       INNER JOIN categories c ON c.id = t.category_id
       WHERE t.user_id = $1
@@ -271,20 +321,221 @@ export async function listRecentTransactions(limit = 8) {
 
   const referenceDate = normalizeDateValue(result.rows[0]?.occurred_on);
 
-  return result.rows.map((row) => ({
-    id: row.id,
-    description: row.description,
-    amount: parseNumeric(row.amount),
-    formattedAmount: `${parseNumeric(row.amount) < 0 ? "- " : "+ "}${formatCurrency(Math.abs(parseNumeric(row.amount)))}`,
-    occurredOn: normalizeDateValue(row.occurred_on),
-    relativeDate: referenceDate ? formatRelativeDate(row.occurred_on, referenceDate) : normalizeDateValue(row.occurred_on),
-    category: {
-      slug: row.category_slug,
-      label: row.category_label,
-      icon: row.category_icon,
-      color: row.category_color,
-    },
-  }));
+  return result.rows.map((row) => mapTransactionRow(row, referenceDate));
+}
+
+export async function listTransactions(limit) {
+  const user = await getPrimaryUser();
+  const hasLimit = Number.isInteger(limit) && limit > 0;
+  const result = await pool.query(
+    `
+      SELECT
+        t.id,
+        t.description,
+        t.amount,
+        t.occurred_on,
+        c.id AS category_id,
+        c.slug AS category_slug,
+        c.label AS category_label,
+        c.icon AS category_icon,
+        c.color AS category_color,
+        c.group_slug,
+        c.group_label,
+        c.group_color
+      FROM transactions t
+      INNER JOIN categories c ON c.id = t.category_id
+      WHERE t.user_id = $1
+      ORDER BY t.occurred_on DESC, t.id DESC
+      LIMIT COALESCE($2, 1000)
+    `,
+    [user.id, hasLimit ? limit : null],
+  );
+
+  const referenceDate = normalizeDateValue(result.rows[0]?.occurred_on);
+  return result.rows.map((row) => mapTransactionRow(row, referenceDate));
+}
+
+export async function listCategories() {
+  await initializeDatabase();
+  const result = await pool.query(
+    `
+      SELECT id, slug, label, icon, color, group_slug, group_label, group_color
+      FROM categories
+      ORDER BY sort_order ASC, label ASC, id ASC
+    `,
+  );
+
+  return result.rows.map(mapCategoryRow);
+}
+
+export async function createCategory(input) {
+  const label = String(input.label ?? "").trim();
+  const icon = String(input.icon ?? "").trim();
+  const color = String(input.color ?? "").trim();
+  const groupLabel = String(input.groupLabel ?? "").trim();
+  const groupColor = String(input.groupColor ?? "").trim();
+
+  if (!label || !icon || !color || !groupLabel || !groupColor) {
+    throw new Error("label, icon, color, groupLabel and groupColor are required");
+  }
+
+  const slugBase = slugify(label);
+  const groupSlug = slugify(groupLabel);
+
+  if (!slugBase || !groupSlug) {
+    throw new Error("invalid category label");
+  }
+
+  const slugResult = await pool.query(
+    `
+      SELECT COUNT(*)::INT AS total
+      FROM categories
+      WHERE slug = $1 OR slug LIKE $2
+    `,
+    [slugBase, `${slugBase}-%`],
+  );
+
+  const total = Number(slugResult.rows[0]?.total ?? 0);
+  const slug = total === 0 ? slugBase : `${slugBase}-${total + 1}`;
+  const sortOrderResult = await pool.query(`SELECT COALESCE(MAX(sort_order), 0) + 10 AS next_sort_order FROM categories`);
+
+  const result = await pool.query(
+    `
+      INSERT INTO categories (slug, label, icon, color, group_slug, group_label, group_color, sort_order)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, slug, label, icon, color, group_slug, group_label, group_color
+    `,
+    [slug, label, icon, color, groupSlug, groupLabel, groupColor, sortOrderResult.rows[0].next_sort_order],
+  );
+
+  return mapCategoryRow(result.rows[0]);
+}
+
+async function getCategoryById(categoryId) {
+  const result = await pool.query(
+    `
+      SELECT id, slug, label, icon, color, group_slug, group_label, group_color
+      FROM categories
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [categoryId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getTransactionById(userId, transactionId) {
+  const result = await pool.query(
+    `
+      SELECT
+        t.id,
+        t.description,
+        t.amount,
+        t.occurred_on,
+        c.id AS category_id,
+        c.slug AS category_slug,
+        c.label AS category_label,
+        c.icon AS category_icon,
+        c.color AS category_color,
+        c.group_slug,
+        c.group_label,
+        c.group_color
+      FROM transactions t
+      INNER JOIN categories c ON c.id = t.category_id
+      WHERE t.user_id = $1
+        AND t.id = $2
+      LIMIT 1
+    `,
+    [userId, transactionId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function createTransaction(input) {
+  const user = await getPrimaryUser();
+  const description = String(input.description ?? "").trim();
+  const amount = Number(input.amount);
+  const occurredOn = normalizeDateValue(input.occurredOn);
+  const categoryId = Number(input.categoryId);
+
+  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId)) {
+    throw new Error("description, amount, occurredOn and categoryId are required");
+  }
+
+  const category = await getCategoryById(categoryId);
+
+  if (!category) {
+    throw new Error("category not found");
+  }
+
+  const result = await pool.query(
+    `
+      INSERT INTO transactions (user_id, category_id, description, amount, occurred_on)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+    `,
+    [user.id, categoryId, description, amount, occurredOn],
+  );
+
+  const row = await getTransactionById(user.id, result.rows[0].id);
+  return mapTransactionRow(row, occurredOn);
+}
+
+export async function updateTransaction(transactionId, input) {
+  const user = await getPrimaryUser();
+  const description = String(input.description ?? "").trim();
+  const amount = Number(input.amount);
+  const occurredOn = normalizeDateValue(input.occurredOn);
+  const categoryId = Number(input.categoryId);
+
+  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId)) {
+    throw new Error("description, amount, occurredOn and categoryId are required");
+  }
+
+  const category = await getCategoryById(categoryId);
+
+  if (!category) {
+    throw new Error("category not found");
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE transactions
+      SET category_id = $3,
+          description = $4,
+          amount = $5,
+          occurred_on = $6
+      WHERE user_id = $1
+        AND id = $2
+      RETURNING id
+    `,
+    [user.id, transactionId, categoryId, description, amount, occurredOn],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("transaction not found");
+  }
+
+  const row = await getTransactionById(user.id, transactionId);
+  return mapTransactionRow(row, occurredOn);
+}
+
+export async function deleteTransaction(transactionId) {
+  const user = await getPrimaryUser();
+  const result = await pool.query(
+    `
+      DELETE FROM transactions
+      WHERE user_id = $1
+        AND id = $2
+    `,
+    [user.id, transactionId],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("transaction not found");
+  }
 }
 
 export async function listSpendingByCategory() {

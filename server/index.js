@@ -2,15 +2,21 @@ import cors from "cors";
 import express from "express";
 
 import {
+  createCategory,
   createChatReply,
+  createTransaction,
+  deleteTransaction,
   getDashboardData,
   initializeDatabase,
   listBanks,
+  listCategories,
   listChatMessages,
   listInsights,
+  listTransactions,
   listRecentTransactions,
   listSpendingByCategory,
   pingDatabase,
+  updateTransaction,
 } from "./database.js";
 
 const app = express();
@@ -44,9 +50,70 @@ app.get("/api/dashboard", async (_request, response, next) => {
 
 app.get("/api/transactions", async (request, response, next) => {
   try {
-    const limit = Number.parseInt(request.query.limit ?? "8", 10);
-    const transactions = await listRecentTransactions(Number.isNaN(limit) ? 8 : limit);
+    const limitValue = request.query.limit;
+    const limit = limitValue === undefined ? undefined : Number.parseInt(limitValue, 10);
+    const transactions =
+      limitValue === undefined ? await listTransactions() : await listTransactions(Number.isNaN(limit) ? 8 : limit);
     response.json({ transactions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/transactions", async (request, response, next) => {
+  try {
+    const transaction = await createTransaction(request.body ?? {});
+    response.status(201).json(transaction);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/transactions/:id", async (request, response, next) => {
+  try {
+    const transactionId = Number.parseInt(request.params.id, 10);
+
+    if (!Number.isInteger(transactionId)) {
+      response.status(400).json({ error: "invalid_transaction_id" });
+      return;
+    }
+
+    const transaction = await updateTransaction(transactionId, request.body ?? {});
+    response.json(transaction);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/transactions/:id", async (request, response, next) => {
+  try {
+    const transactionId = Number.parseInt(request.params.id, 10);
+
+    if (!Number.isInteger(transactionId)) {
+      response.status(400).json({ error: "invalid_transaction_id" });
+      return;
+    }
+
+    await deleteTransaction(transactionId);
+    response.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/categories", async (_request, response, next) => {
+  try {
+    const categories = await listCategories();
+    response.json({ categories });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/categories", async (request, response, next) => {
+  try {
+    const category = await createCategory(request.body ?? {});
+    response.status(201).json(category);
   } catch (error) {
     next(error);
   }
@@ -110,11 +177,19 @@ app.post("/api/chat/messages", async (request, response, next) => {
 app.use((error, _request, response, _next) => {
   console.error(error);
 
-  response.status(500).json({
+  const message = error?.message ?? "The backend failed while processing the request.";
+  const lowerMessage = String(message).toLowerCase();
+  const status = lowerMessage.includes("not found")
+    ? 404
+    : lowerMessage.includes("required") || lowerMessage.includes("invalid")
+      ? 400
+      : 500;
+
+  response.status(status).json({
     error: "internal_server_error",
     message:
       process.env.NODE_ENV === "development"
-        ? error.message
+        ? message
         : "The backend failed while processing the request.",
   });
 });

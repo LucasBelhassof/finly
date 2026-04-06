@@ -4,6 +4,8 @@ import { resolveInsightIcon, resolveLucideIcon } from "@/lib/icons";
 import type {
   ApiBank,
   ApiBanksResponse,
+  ApiCategoriesResponse,
+  ApiCategory,
   ApiChatMessage,
   ApiChatMessagesResponse,
   ApiChatReplyResponse,
@@ -18,15 +20,19 @@ import type {
   ApiTransaction,
   ApiTransactionsResponse,
   BankItem,
+  CategoryItem,
   ChatMessage,
   ChatReply,
   ChatRole,
+  CreateCategoryInput,
+  CreateTransactionInput,
   DashboardData,
   HealthStatus,
   InsightItem,
   SpendingItem,
   SummaryCard,
   TransactionItem,
+  UpdateTransactionInput,
 } from "@/types/api";
 
 const DEFAULT_API_URL = "http://localhost:3001";
@@ -174,6 +180,20 @@ export function mapSummaryCard(card: ApiSummaryCard): SummaryCard {
   };
 }
 
+export function mapCategory(category: ApiCategory): CategoryItem {
+  return {
+    id: category.id ?? safeString(category.slug, "category"),
+    slug: safeString(category.slug, "category"),
+    label: safeString(category.label, "Sem categoria"),
+    iconName: safeString(category.icon),
+    icon: resolveLucideIcon(category.icon),
+    color: safeString(category.color, "text-muted-foreground"),
+    groupSlug: safeString(category.groupSlug, "outros"),
+    groupLabel: safeString(category.groupLabel, "Outros"),
+    groupColor: safeString(category.groupColor, "bg-muted-foreground"),
+  };
+}
+
 export function mapTransaction(transaction: ApiTransaction): TransactionItem {
   const amount = safeNumber(transaction.amount);
   const category = transaction.category ?? {};
@@ -189,11 +209,15 @@ export function mapTransaction(transaction: ApiTransaction): TransactionItem {
     occurredOn: safeString(transaction.occurredOn),
     relativeDate: safeString(transaction.relativeDate, safeString(transaction.occurredOn, "--")),
     category: {
+      id: category.id ?? safeString(category.slug, "outros"),
       slug: safeString(category.slug, "outros"),
       label: safeString(category.label, "Sem categoria"),
       iconName: safeString(category.icon),
       icon: resolveLucideIcon(category.icon),
       color: safeString(category.color, "text-muted-foreground"),
+      groupSlug: safeString((category as ApiCategory).groupSlug, "outros"),
+      groupLabel: safeString((category as ApiCategory).groupLabel, "Outros"),
+      groupColor: safeString((category as ApiCategory).groupColor, "bg-muted-foreground"),
     },
   };
 }
@@ -253,6 +277,10 @@ export function mapChatMessage(message: ApiChatMessage): ChatMessage {
 
 export function mapTransactionsResponse(response: ApiTransactionsResponse) {
   return (response.transactions ?? []).map(mapTransaction);
+}
+
+export function mapCategoriesResponse(response: ApiCategoriesResponse) {
+  return (response.categories ?? []).map(mapCategory);
 }
 
 export function mapSpendingResponse(response: ApiSpendingResponse) {
@@ -317,6 +345,11 @@ export async function getTransactions(limit?: number) {
   return mapTransactionsResponse(response);
 }
 
+export async function getCategories() {
+  const response = await request<ApiCategoriesResponse>("/api/categories");
+  return mapCategoriesResponse(response);
+}
+
 export async function getSpending() {
   const response = await request<ApiSpendingResponse>("/api/spending");
   return mapSpendingResponse(response);
@@ -344,4 +377,42 @@ export async function postChatMessage(message: string) {
   });
 
   return mapChatReplyResponse(response);
+}
+
+export async function postCategory(input: CreateCategoryInput) {
+  const response = await request<ApiCategory>("/api/categories", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return mapCategory(response);
+}
+
+export async function postTransaction(input: CreateTransactionInput) {
+  const response = await request<ApiTransaction>("/api/transactions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return mapTransaction(response);
+}
+
+export async function patchTransaction(input: UpdateTransactionInput) {
+  const response = await request<ApiTransaction>(`/api/transactions/${input.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      description: input.description,
+      amount: input.amount,
+      occurredOn: input.occurredOn,
+      categoryId: input.categoryId,
+    }),
+  });
+
+  return mapTransaction(response);
+}
+
+export async function deleteTransaction(id: number | string) {
+  await request<null>(`/api/transactions/${id}`, {
+    method: "DELETE",
+  });
 }

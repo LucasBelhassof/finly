@@ -106,6 +106,12 @@ export interface ApiChatReplyResponse {
   assistantMessage?: ApiChatMessage;
 }
 
+export interface ApiHealthResponse {
+  status?: string;
+  database?: string;
+  serverTime?: string;
+}
+
 export interface ApiErrorResponse {
   error?: string;
   message?: string;
@@ -180,6 +186,12 @@ export interface ChatMessage {
 export interface ChatReply {
   userMessage: ChatMessage;
   assistantMessage: ChatMessage;
+}
+
+export interface HealthStatus {
+  status: string;
+  database: string;
+  serverTime: string;
 }
 
 export interface DashboardData {

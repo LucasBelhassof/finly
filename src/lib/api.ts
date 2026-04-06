@@ -9,6 +9,7 @@ import type {
   ApiChatReplyResponse,
   ApiDashboardResponse,
   ApiErrorResponse,
+  ApiHealthResponse,
   ApiInsight,
   ApiInsightsResponse,
   ApiSpendingItem,
@@ -21,6 +22,7 @@ import type {
   ChatReply,
   ChatRole,
   DashboardData,
+  HealthStatus,
   InsightItem,
   SpendingItem,
   SummaryCard,
@@ -292,9 +294,22 @@ export function mapDashboardResponse(response: ApiDashboardResponse): DashboardD
   };
 }
 
+export function mapHealthResponse(response: ApiHealthResponse): HealthStatus {
+  return {
+    status: safeString(response.status, "unknown"),
+    database: safeString(response.database, "unknown"),
+    serverTime: safeString(response.serverTime, ""),
+  };
+}
+
 export async function getDashboard() {
   const response = await request<ApiDashboardResponse>("/api/dashboard");
   return mapDashboardResponse(response);
+}
+
+export async function getHealth() {
+  const response = await request<ApiHealthResponse>("/api/health");
+  return mapHealthResponse(response);
 }
 
 export async function getTransactions(limit?: number) {

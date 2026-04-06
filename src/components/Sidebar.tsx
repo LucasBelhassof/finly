@@ -1,15 +1,28 @@
 import { LayoutDashboard, CreditCard, MessageSquare, Lightbulb, Building2, Settings, LogOut } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: CreditCard, label: "Transações", active: false },
-  { icon: MessageSquare, label: "Chat IA", active: false },
-  { icon: Lightbulb, label: "Insights", active: false },
-  { icon: Building2, label: "Contas", active: false },
-  { icon: Settings, label: "Configurações", active: false },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
+  { icon: CreditCard, label: "Transações", path: "/transacoes" },
+  { icon: MessageSquare, label: "Chat IA", path: "/chat" },
+  { icon: Lightbulb, label: "Insights", path: "/insights" },
+  { icon: Building2, label: "Contas", path: "/contas" },
+  { icon: Settings, label: "Configurações", path: "/configuracoes" },
 ];
 
-const Sidebar = () => {
+interface SidebarProps {
+  activeItem?: string;
+}
+
+const Sidebar = ({ activeItem }: SidebarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isActive = (item: typeof navItems[0]) => {
+    if (activeItem) return item.label === activeItem;
+    return location.pathname === item.path;
+  };
+
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col p-4 shrink-0">
       <div className="flex items-center gap-3 px-3 mb-8">
@@ -23,8 +36,9 @@ const Sidebar = () => {
         {navItems.map((item) => (
           <button
             key={item.label}
+            onClick={() => navigate(item.path)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              item.active
+              isActive(item)
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}

@@ -1070,7 +1070,7 @@ export async function deleteTransaction(transactionId) {
   }
 }
 
-export async function previewTransactionImport(fileBuffer, importSource = "bank_statement", bankConnectionId) {
+export async function previewTransactionImport(fileBuffer, importSource = "bank_statement", bankConnectionId, filename) {
   const user = await getPrimaryUser();
   const parsedBankConnectionId = Number(bankConnectionId);
 
@@ -1111,6 +1111,7 @@ export async function previewTransactionImport(fileBuffer, importSource = "bank_
     bankConnectionId: parsedBankConnectionId,
     bankConnectionName: bankConnection.name,
     fileBuffer,
+    filename,
     historicalRows,
     importSource,
     recurringRules,

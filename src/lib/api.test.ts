@@ -125,6 +125,12 @@ describe("api mappers", () => {
       importSource: "credit_card_statement",
       bankConnectionId: 9,
       bankConnectionName: "Nubank",
+      fileMetadata: {
+        originalFilename: "Nubank_2026-03-27.csv",
+        issuerName: "Nubank",
+        statementDueDate: "2026-03-27",
+        statementReferenceMonth: "2026-03",
+      },
       fileSummary: {
         totalRows: 3,
         importableRows: 1,
@@ -202,6 +208,9 @@ describe("api mappers", () => {
     expect(preview.previewToken).toBe("preview-1");
     expect(preview.importSource).toBe("credit_card_statement");
     expect(preview.bankConnectionName).toBe("Nubank");
+    expect(preview.fileMetadata.issuerName).toBe("Nubank");
+    expect(preview.fileMetadata.statementDueDate).toBe("2026-03-27");
+    expect(preview.fileMetadata.statementReferenceMonth).toBe("2026-03");
     expect(preview.fileSummary.duplicateRows).toBe(1);
     expect(preview.items[0].matchedRuleId).toBe("ifood");
     expect(preview.items[0].possibleDuplicate).toBe(true);

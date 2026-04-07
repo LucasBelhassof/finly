@@ -247,6 +247,24 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
     return preview.items.slice(startIndex, startIndex + PAGE_SIZE);
   }, [page, preview]);
 
+  const statementReferenceLabel = useMemo(() => {
+    if (!preview?.fileMetadata.statementReferenceMonth) {
+      return null;
+    }
+
+    const [year, month] = preview.fileMetadata.statementReferenceMonth.split("-");
+    const date = new Date(`${year}-${month}-01T12:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return preview.fileMetadata.statementReferenceMonth;
+    }
+
+    return date.toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+  }, [preview]);
+
   const handlePreview = async () => {
     if (!selectedFile) {
       toast.error("Selecione um arquivo CSV para gerar a previa.");
@@ -476,10 +494,22 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                   </div>
 
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Previa de {preview.bankConnectionName} expira em{" "}
-                      {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
-                    </p>
+                    <div className="text-sm text-muted-foreground">
+                      <p>
+                        Previa de {preview.bankConnectionName} expira em{" "}
+                        {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+                      </p>
+                      {preview.importSource === "credit_card_statement" ? (
+                        <p className="mt-1">
+                          Arquivo: {preview.fileMetadata.originalFilename ?? "fatura.csv"}
+                          {preview.fileMetadata.issuerName ? ` · emissor: ${preview.fileMetadata.issuerName}` : ""}
+                          {statementReferenceLabel ? ` · competencia: ${statementReferenceLabel}` : ""}
+                          {preview.fileMetadata.statementDueDate
+                            ? ` · vencimento: ${preview.fileMetadata.statementDueDate.split("-").reverse().join("/")}`
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
                     <Button variant="outline" onClick={() => handleOpenCategoryDialog(currentItems[0]?.rowIndex ?? 1)}>
                       Criar categoria
                     </Button>

@@ -160,6 +160,91 @@ function decodeCsvBuffer(buffer) {
   return buffer.toString("latin1").replace(/^\uFEFF/, "");
 }
 
+function titleCaseWords(value) {
+  return String(value ?? "")
+    .split(/[\s_-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function normalizeMonthReference(year, month) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return null;
+  }
+
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+}
+
+export function extractImportFileMetadata(filename) {
+  const rawFilename = String(filename ?? "").trim();
+  const basename = rawFilename.replace(/\.[^.]+$/, "");
+
+  if (!basename) {
+    return {
+      originalFilename: rawFilename || "extrato.csv",
+      issuerName: null,
+      statementDueDate: null,
+      statementReferenceMonth: null,
+    };
+  }
+
+  const fullDateMatch = basename.match(/(.+?)[-_ ](\d{4})[-_ ](\d{2})[-_ ](\d{2})$/);
+
+  if (fullDateMatch) {
+    const issuerName = titleCaseWords(fullDateMatch[1]);
+    const year = Number(fullDateMatch[2]);
+    const month = Number(fullDateMatch[3]);
+    const day = Number(fullDateMatch[4]);
+    const statementDueDate = parseOccurredOnInput(`${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+
+    return {
+      originalFilename: rawFilename,
+      issuerName: issuerName || null,
+      statementDueDate,
+      statementReferenceMonth: normalizeMonthReference(year, month),
+    };
+  }
+
+  const yearMonthMatch = basename.match(/(.+?)[-_ ](\d{4})[-_ ](\d{2})$/);
+
+  if (yearMonthMatch) {
+    const issuerName = titleCaseWords(yearMonthMatch[1]);
+    const year = Number(yearMonthMatch[2]);
+    const month = Number(yearMonthMatch[3]);
+
+    return {
+      originalFilename: rawFilename,
+      issuerName: issuerName || null,
+      statementDueDate: null,
+      statementReferenceMonth: normalizeMonthReference(year, month),
+    };
+  }
+
+  const monthYearMatch = basename.match(/(.+?)[-_ ](\d{2})[-_ ](\d{4})$/);
+
+  if (monthYearMatch) {
+    const issuerName = titleCaseWords(monthYearMatch[1]);
+    const month = Number(monthYearMatch[2]);
+    const year = Number(monthYearMatch[3]);
+
+    return {
+      originalFilename: rawFilename,
+      issuerName: issuerName || null,
+      statementDueDate: null,
+      statementReferenceMonth: normalizeMonthReference(year, month),
+    };
+  }
+
+  return {
+    originalFilename: rawFilename,
+    issuerName: titleCaseWords(basename) || null,
+    statementDueDate: null,
+    statementReferenceMonth: null,
+  };
+}
+
 function isBlankCsvRow(row) {
   return row.every((cell) => !String(cell ?? "").trim());
 }
@@ -1131,6 +1216,7 @@ export function createImportPreview({
   bankConnectionId,
   bankConnectionName,
   fileBuffer,
+  filename = "extrato.csv",
   historicalRows = [],
   importSource = "bank_statement",
   recurringRules = [],
@@ -1170,6 +1256,7 @@ export function createImportPreview({
     bankConnectionId,
     bankConnectionName,
   }));
+  const fileMetadata = extractImportFileMetadata(filename);
 
   const previewToken = crypto.randomUUID();
   const expiresAtMs = Date.now() + PREVIEW_TTL_MS;
@@ -1179,6 +1266,7 @@ export function createImportPreview({
     expiresAtMs,
     bankConnectionId,
     bankConnectionName,
+    fileMetadata,
     userId: String(userId),
     items: items.map((item) => ({
       rowIndex: item.rowIndex,
@@ -1193,6 +1281,7 @@ export function createImportPreview({
     importSource,
     bankConnectionId,
     bankConnectionName,
+    fileMetadata,
     fileSummary: {
       totalRows: items.length,
       importableRows: items.filter((item) => item.canImport && !item.possibleDuplicate).length,

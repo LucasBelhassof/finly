@@ -418,6 +418,14 @@ export function mapImportPreviewResponse(response: ApiImportPreviewResponse): Im
     importSource: response.importSource === "credit_card_statement" ? "credit_card_statement" : "bank_statement",
     bankConnectionId: response.bankConnectionId ?? "",
     bankConnectionName: safeString(response.bankConnectionName, "Conta"),
+    fileMetadata: {
+      originalFilename: response.fileMetadata?.originalFilename ? safeString(response.fileMetadata.originalFilename) : null,
+      issuerName: response.fileMetadata?.issuerName ? safeString(response.fileMetadata.issuerName) : null,
+      statementDueDate: response.fileMetadata?.statementDueDate ? safeString(response.fileMetadata.statementDueDate) : null,
+      statementReferenceMonth: response.fileMetadata?.statementReferenceMonth
+        ? safeString(response.fileMetadata.statementReferenceMonth)
+        : null,
+    },
     fileSummary: {
       totalRows: safeNumber(response.fileSummary?.totalRows),
       importableRows: safeNumber(response.fileSummary?.importableRows),

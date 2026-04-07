@@ -200,6 +200,12 @@ export interface ApiImportPreviewResponse {
   importSource?: string;
   bankConnectionId?: number | string | null;
   bankConnectionName?: string | null;
+  fileMetadata?: {
+    originalFilename?: string | null;
+    issuerName?: string | null;
+    statementDueDate?: string | null;
+    statementReferenceMonth?: string | null;
+  };
   fileSummary?: {
     totalRows?: number;
     importableRows?: number;
@@ -350,6 +356,12 @@ export interface ImportPreviewData {
   importSource: "bank_statement" | "credit_card_statement";
   bankConnectionId: number | string;
   bankConnectionName: string;
+  fileMetadata: {
+    originalFilename: string | null;
+    issuerName: string | null;
+    statementDueDate: string | null;
+    statementReferenceMonth: string | null;
+  };
   fileSummary: ImportPreviewSummary;
   items: ImportPreviewItem[];
 }

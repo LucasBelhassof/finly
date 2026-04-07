@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBanks } from "@/hooks/use-banks";
 import { useFilteredTransactionsData } from "@/hooks/use-filtered-transactions-data";
 import {
   useCategories,
@@ -53,6 +54,7 @@ type TransactionFormState = {
   description: string;
   amount: string;
   occurredOn: string;
+  bankConnectionId: string;
   categoryId: string;
   type: "income" | "expense";
 };
@@ -112,6 +114,7 @@ function emptyTransactionForm(type: "income" | "expense" = "expense"): Transacti
     description: "",
     amount: "",
     occurredOn: new Date().toISOString().slice(0, 10),
+    bankConnectionId: "",
     categoryId: "",
     type,
   };
@@ -123,6 +126,7 @@ function mapTransactionToForm(transaction: TransactionItem): TransactionFormStat
     description: transaction.description,
     amount: String(Math.abs(transaction.amount)).replace(".", ","),
     occurredOn: transaction.occurredOn,
+    bankConnectionId: String(transaction.account.id),
     categoryId: String(transaction.category.id),
     type: transaction.amount >= 0 ? "income" : "expense",
   };
@@ -175,6 +179,7 @@ function TransactionsSkeleton() {
 export default function TransactionsPage() {
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
+  const { data: banks = [] } = useBanks();
   const createTransaction = useCreateTransaction();
   const updateTransaction = useUpdateTransaction();
   const removeTransaction = useDeleteTransaction();
@@ -226,8 +231,8 @@ export default function TransactionsPage() {
   const handleTransactionSave = async () => {
     const parsedAmount = Number(transactionForm.amount.replace(",", "."));
 
-    if (!transactionForm.description.trim() || !Number.isFinite(parsedAmount) || !transactionForm.categoryId) {
-      toast.error("Preencha descricao, valor e categoria.");
+    if (!transactionForm.description.trim() || !Number.isFinite(parsedAmount) || !transactionForm.bankConnectionId || !transactionForm.categoryId) {
+      toast.error("Preencha descricao, valor, conta e categoria.");
       return;
     }
 
@@ -235,6 +240,7 @@ export default function TransactionsPage() {
       description: transactionForm.description.trim(),
       amount: transactionForm.type === "expense" ? -Math.abs(parsedAmount) : Math.abs(parsedAmount),
       occurredOn: transactionForm.occurredOn,
+      bankConnectionId: transactionForm.bankConnectionId,
       categoryId: transactionForm.categoryId,
     };
 
@@ -325,7 +331,7 @@ export default function TransactionsPage() {
 
   return (
     <AppShell title="Transacoes" description="Gerencie suas despesas e receitas">
-      <ImportTransactionsModal open={importDialogOpen} onOpenChange={setImportDialogOpen} categories={categories} />
+      <ImportTransactionsModal open={importDialogOpen} onOpenChange={setImportDialogOpen} categories={categories} banks={banks} />
 
       <AlertDialog open={Boolean(deleteTargetId)} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent className="border-warning/20 bg-card">
@@ -398,6 +404,21 @@ export default function TransactionsPage() {
               inputMode="decimal"
               className="h-11 rounded-xl border-border/60 bg-secondary/35"
             />
+            <Select
+              value={transactionForm.bankConnectionId}
+              onValueChange={(value) => setTransactionForm((current) => ({ ...current, bankConnectionId: value }))}
+            >
+              <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
+                <SelectValue placeholder="Banco ou conta" />
+              </SelectTrigger>
+              <SelectContent>
+                {banks.map((bank) => (
+                  <SelectItem key={bank.id} value={String(bank.id)}>
+                    {bank.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select
               value={transactionForm.categoryId}
               onValueChange={(value) => setTransactionForm((current) => ({ ...current, categoryId: value }))}
@@ -653,6 +674,7 @@ export default function TransactionsPage() {
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-sm">
                         <span className={cn("font-medium", categoryTextColor)}>{transaction.category.groupLabel}</span>
+                        <span className="text-muted-foreground">{transaction.account.name}</span>
                         <span className="text-muted-foreground">{transaction.occurredOn.split("-").reverse().join("/")}</span>
                       </div>
                     </div>

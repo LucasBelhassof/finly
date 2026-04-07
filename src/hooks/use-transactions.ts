@@ -114,8 +114,15 @@ export function useDeleteTransaction(limit?: number) {
 
 export function usePreviewTransactionImport() {
   return useMutation({
-    mutationFn: ({ file, importSource }: { file: File; importSource: "bank_statement" | "credit_card_statement" }) =>
-      previewTransactionImport(file, importSource),
+    mutationFn: ({
+      file,
+      importSource,
+      bankConnectionId,
+    }: {
+      file: File;
+      importSource: "bank_statement" | "credit_card_statement";
+      bankConnectionId: number | string;
+    }) => previewTransactionImport(file, importSource, bankConnectionId),
   });
 }
 

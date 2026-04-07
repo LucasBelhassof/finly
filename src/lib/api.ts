@@ -23,6 +23,7 @@ import type {
   ApiSpendingResponse,
   ApiSummaryCard,
   ApiTransaction,
+  ApiTransactionAccount,
   ApiTransactionsResponse,
   BankItem,
   CategoryItem,
@@ -42,6 +43,7 @@ import type {
   InsightItem,
   SpendingItem,
   SummaryCard,
+  TransactionAccount,
   TransactionItem,
   UpdateTransactionInput,
 } from "@/types/api";
@@ -214,6 +216,7 @@ export function mapCategory(category: ApiCategory): CategoryItem {
 export function mapTransaction(transaction: ApiTransaction): TransactionItem {
   const amount = safeNumber(transaction.amount);
   const category = transaction.category ?? {};
+  const account = transaction.account ?? {};
 
   return {
     id: transaction.id ?? `${safeString(transaction.description, "transaction")}-${safeString(transaction.occurredOn, "0")}`,
@@ -235,6 +238,14 @@ export function mapTransaction(transaction: ApiTransaction): TransactionItem {
       groupSlug: safeString((category as ApiCategory).groupSlug, "outros"),
       groupLabel: safeString((category as ApiCategory).groupLabel, "Outros"),
       groupColor: safeString((category as ApiCategory).groupColor, "bg-muted-foreground"),
+    },
+    account: {
+      id: account.id ?? safeString(account.slug, "account"),
+      slug: safeString(account.slug, "account"),
+      name: safeString(account.name, "Conta"),
+      accountType:
+        account.accountType === "credit_card" || account.accountType === "cash" ? account.accountType : "bank_account",
+      color: safeString(account.color, "bg-secondary"),
     },
   };
 }
@@ -276,6 +287,7 @@ export function mapBank(bank: ApiBank): BankItem {
     id: bank.id ?? safeString(bank.slug, safeString(bank.name, "bank")),
     slug: safeString(bank.slug, "bank"),
     name: safeString(bank.name, "Banco"),
+    accountType: bank.accountType === "credit_card" || bank.accountType === "cash" ? bank.accountType : "bank_account",
     connected: Boolean(bank.connected),
     color: safeString(bank.color, "bg-secondary"),
     currentBalance,
@@ -352,6 +364,8 @@ function mapImportPreviewItem(item: ApiImportPreviewItem): ImportPreviewItem {
         ? item.suggestionSource
         : null,
     importSource: item.importSource === "credit_card_statement" ? "credit_card_statement" : "bank_statement",
+    bankConnectionId: item.bankConnectionId ?? "",
+    bankConnectionName: safeString(item.bankConnectionName, "Conta"),
     matchedRuleId: item.matchedRuleId ?? null,
     aiSuggestedType: item.aiSuggestedType === "income" || item.aiSuggestedType === "expense" ? item.aiSuggestedType : null,
     aiSuggestedCategoryId: item.aiSuggestedCategoryId ?? null,
@@ -396,6 +410,8 @@ export function mapImportPreviewResponse(response: ApiImportPreviewResponse): Im
     previewToken: safeString(response.previewToken),
     expiresAt: safeString(response.expiresAt),
     importSource: response.importSource === "credit_card_statement" ? "credit_card_statement" : "bank_statement",
+    bankConnectionId: response.bankConnectionId ?? "",
+    bankConnectionName: safeString(response.bankConnectionName, "Conta"),
     fileSummary: {
       totalRows: safeNumber(response.fileSummary?.totalRows),
       importableRows: safeNumber(response.fileSummary?.importableRows),
@@ -525,7 +541,13 @@ export async function postCategory(input: CreateCategoryInput) {
 export async function postTransaction(input: CreateTransactionInput) {
   const response = await request<ApiTransaction>("/api/transactions", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      description: input.description,
+      amount: input.amount,
+      occurredOn: input.occurredOn,
+      bankConnectionId: input.bankConnectionId,
+      categoryId: input.categoryId,
+    }),
   });
 
   return mapTransaction(response);
@@ -538,6 +560,7 @@ export async function patchTransaction(input: UpdateTransactionInput) {
       description: input.description,
       amount: input.amount,
       occurredOn: input.occurredOn,
+      bankConnectionId: input.bankConnectionId,
       categoryId: input.categoryId,
     }),
   });
@@ -551,14 +574,21 @@ export async function deleteTransaction(id: number | string) {
   });
 }
 
-export async function previewTransactionImport(file: File, importSource: "bank_statement" | "credit_card_statement") {
+export async function previewTransactionImport(
+  file: File,
+  importSource: "bank_statement" | "credit_card_statement",
+  bankConnectionId: number | string,
+) {
   const body = new FormData();
   body.set("file", file);
 
-  const response = await request<ApiImportPreviewResponse>(buildPath("/api/transactions/import/preview", { importSource }), {
-    method: "POST",
-    body,
-  });
+  const response = await request<ApiImportPreviewResponse>(
+    buildPath("/api/transactions/import/preview", { importSource, bankConnectionId }),
+    {
+      method: "POST",
+      body,
+    },
+  );
 
   return mapImportPreviewResponse(response);
 }

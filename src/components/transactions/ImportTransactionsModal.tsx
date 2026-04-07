@@ -12,6 +12,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -22,6 +29,7 @@ import {
 } from "@/hooks/use-transactions";
 import { cn } from "@/lib/utils";
 import type {
+  BankItem,
   CategoryItem,
   CreateCategoryInput,
   ImportCommitItem,
@@ -46,6 +54,7 @@ type ImportTransactionsModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: CategoryItem[];
+  banks: BankItem[];
 };
 
 type ImportSource = "bank_statement" | "credit_card_statement" | "";
@@ -68,7 +77,7 @@ function buildDrafts(preview: ImportPreviewData) {
   );
 }
 
-export default function ImportTransactionsModal({ open, onOpenChange, categories }: ImportTransactionsModalProps) {
+export default function ImportTransactionsModal({ open, onOpenChange, categories, banks }: ImportTransactionsModalProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const attemptedAiPreviewTokensRef = useRef<Set<string>>(new Set());
   const previewImport = usePreviewTransactionImport();
@@ -78,6 +87,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importSource, setImportSource] = useState<ImportSource>("");
+  const [bankConnectionId, setBankConnectionId] = useState("");
   const [preview, setPreview] = useState<ImportPreviewData | null>(null);
   const [drafts, setDrafts] = useState<Record<number, ImportCommitItem>>({});
   const [page, setPage] = useState(1);
@@ -96,6 +106,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
     if (!open) {
       setSelectedFile(null);
       setImportSource("");
+      setBankConnectionId("");
       setPreview(null);
       setDrafts({});
       setPage(1);
@@ -116,6 +127,13 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
   const originalPreviewTypeByRowIndex = useMemo(
     () => new Map((preview?.items ?? []).map((item) => [item.rowIndex, item.type])),
     [preview],
+  );
+  const importableBanks = useMemo(
+    () =>
+      importSource === "credit_card_statement"
+        ? banks.filter((bank) => bank.accountType === "credit_card")
+        : banks.filter((bank) => bank.accountType === "bank_account"),
+    [banks, importSource],
   );
 
   useEffect(() => {
@@ -235,8 +253,8 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
       return;
     }
 
-    if (!importSource) {
-      toast.error("Escolha se o CSV e extrato bancario ou fatura do cartao.");
+    if (!importSource || !bankConnectionId) {
+      toast.error("Escolha o tipo do CSV e o banco ou conta antes de gerar a previa.");
       return;
     }
 
@@ -244,6 +262,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
       const nextPreview = await previewImport.mutateAsync({
         file: selectedFile,
         importSource,
+        bankConnectionId,
       });
       setPreview(nextPreview);
       setDrafts(buildDrafts(nextPreview));
@@ -365,7 +384,10 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                   <div className="grid grid-cols-1 gap-2 rounded-2xl bg-secondary/60 p-1 lg:grid-cols-2">
                     <button
                       type="button"
-                      onClick={() => setImportSource("bank_statement")}
+                      onClick={() => {
+                        setImportSource("bank_statement");
+                        setBankConnectionId("");
+                      }}
                       className={cn(
                         "rounded-xl px-4 py-3 text-left text-sm transition-colors",
                         importSource === "bank_statement"
@@ -380,7 +402,10 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                     </button>
                     <button
                       type="button"
-                      onClick={() => setImportSource("credit_card_statement")}
+                      onClick={() => {
+                        setImportSource("credit_card_statement");
+                        setBankConnectionId("");
+                      }}
                       className={cn(
                         "rounded-xl px-4 py-3 text-left text-sm transition-colors",
                         importSource === "credit_card_statement"
@@ -394,6 +419,19 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                       </div>
                     </button>
                   </div>
+
+                    <Select value={bankConnectionId} onValueChange={setBankConnectionId}>
+                      <SelectTrigger className="h-12 rounded-xl border-border/60 bg-card">
+                        <SelectValue placeholder={importSource === "credit_card_statement" ? "Selecione o cartao" : "Selecione a conta bancaria"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {importableBanks.map((bank) => (
+                          <SelectItem key={bank.id} value={String(bank.id)}>
+                            {bank.name}
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                   <div className="flex-1">
@@ -439,7 +477,8 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
 
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <p className="text-sm text-muted-foreground">
-                      Previa expira em {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+                      Previa de {preview.bankConnectionName} expira em{" "}
+                      {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
                     </p>
                     <Button variant="outline" onClick={() => handleOpenCategoryDialog(currentItems[0]?.rowIndex ?? 1)}>
                       Criar categoria

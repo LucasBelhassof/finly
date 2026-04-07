@@ -26,12 +26,21 @@ describe("api mappers", () => {
         icon: "UnknownIcon",
         color: "text-primary",
       },
+      account: {
+        id: 2,
+        slug: "caixa",
+        name: "Caixa/Dinheiro",
+        accountType: "cash",
+        color: "bg-amber-500",
+      },
     });
 
     expect(transaction.formattedAmount).toBe("- R$ 42,90");
     expect(transaction.relativeDate).toBe("Hoje");
     expect(transaction.category.icon).toBe(CircleHelp);
     expect(transaction.category.color).toBe("text-primary");
+    expect(transaction.account.name).toBe("Caixa/Dinheiro");
+    expect(transaction.account.accountType).toBe("cash");
   });
 
   it("maps spending payloads with sane defaults", () => {
@@ -114,6 +123,8 @@ describe("api mappers", () => {
       previewToken: "preview-1",
       expiresAt: "2026-04-06T10:15:00.000Z",
       importSource: "credit_card_statement",
+      bankConnectionId: 9,
+      bankConnectionName: "Nubank",
       fileSummary: {
         totalRows: 3,
         importableRows: 1,
@@ -131,6 +142,8 @@ describe("api mappers", () => {
           occurredOn: "2026-04-06",
           normalizedOccurredOn: "2026-04-06",
           type: "expense",
+          bankConnectionId: 9,
+          bankConnectionName: "Nubank",
           suggestedCategoryId: 12,
           suggestedCategoryLabel: "Restaurantes",
           suggestionSource: "rule",
@@ -169,6 +182,13 @@ describe("api mappers", () => {
             description: "iFood",
             amount: -67.9,
             occurredOn: "2026-04-06",
+            account: {
+              id: 9,
+              slug: "nubank",
+              name: "Nubank",
+              accountType: "credit_card",
+              color: "bg-purple-500",
+            },
             category: {
               id: 12,
               slug: "restaurantes",
@@ -181,6 +201,7 @@ describe("api mappers", () => {
 
     expect(preview.previewToken).toBe("preview-1");
     expect(preview.importSource).toBe("credit_card_statement");
+    expect(preview.bankConnectionName).toBe("Nubank");
     expect(preview.fileSummary.duplicateRows).toBe(1);
     expect(preview.items[0].matchedRuleId).toBe("ifood");
     expect(preview.items[0].possibleDuplicate).toBe(true);
@@ -189,12 +210,15 @@ describe("api mappers", () => {
     expect(commit.importedCount).toBe(1);
     expect(commit.results[0].status).toBe("imported");
     expect(commit.results[0].transaction?.description).toBe("iFood");
+    expect(commit.results[0].transaction?.account.name).toBe("Nubank");
   });
 
   it("maps preview suggestion sources from history and recurring rules", () => {
     const preview = mapImportPreviewResponse({
       previewToken: "preview-2",
       expiresAt: "2026-04-06T10:15:00.000Z",
+      bankConnectionId: 1,
+      bankConnectionName: "Itau",
       fileSummary: {
         totalRows: 2,
         importableRows: 2,
@@ -212,6 +236,8 @@ describe("api mappers", () => {
           occurredOn: "2026-04-06",
           normalizedOccurredOn: "2026-04-06",
           type: "income",
+          bankConnectionId: 1,
+          bankConnectionName: "Itau",
           suggestedCategoryId: 3,
           suggestedCategoryLabel: "Salario",
           suggestionSource: "history",
@@ -233,6 +259,8 @@ describe("api mappers", () => {
           occurredOn: "2026-04-06",
           normalizedOccurredOn: "2026-04-06",
           type: "income",
+          bankConnectionId: 1,
+          bankConnectionName: "Itau",
           suggestedCategoryId: 3,
           suggestedCategoryLabel: "Salario",
           suggestionSource: "recurring_rule",

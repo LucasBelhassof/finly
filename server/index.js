@@ -81,7 +81,7 @@ app.post(
       const upload = parseMultipartCsvUpload(request.headers["content-type"], request.body);
       const importSource =
         request.query.importSource === "credit_card_statement" ? "credit_card_statement" : "bank_statement";
-      const preview = await previewTransactionImport(upload.buffer, importSource);
+      const preview = await previewTransactionImport(upload.buffer, importSource, request.query.bankConnectionId);
       response.status(201).json(preview);
     } catch (error) {
       next(error);

@@ -24,6 +24,14 @@ export interface ApiTransactionCategory {
   color?: string;
 }
 
+export interface ApiTransactionAccount {
+  id?: number | string;
+  slug?: string;
+  name?: string;
+  accountType?: string;
+  color?: string;
+}
+
 export interface ApiTransaction {
   id?: number | string;
   description?: string;
@@ -32,6 +40,7 @@ export interface ApiTransaction {
   occurredOn?: string;
   relativeDate?: string;
   category?: ApiTransactionCategory;
+  account?: ApiTransactionAccount;
 }
 
 export interface ApiCategory {
@@ -70,6 +79,7 @@ export interface ApiBank {
   id?: number | string;
   slug?: string;
   name?: string;
+  accountType?: string;
   connected?: boolean;
   color?: string;
   currentBalance?: number;
@@ -132,6 +142,8 @@ export interface ApiImportPreviewItem {
   occurredOn?: string;
   normalizedOccurredOn?: string;
   type?: string;
+  bankConnectionId?: number | string | null;
+  bankConnectionName?: string | null;
   suggestedCategoryId?: number | string | null;
   suggestedCategoryLabel?: string | null;
   suggestionSource?: string | null;
@@ -182,6 +194,8 @@ export interface ApiImportPreviewResponse {
   previewToken?: string;
   expiresAt?: string;
   importSource?: string;
+  bankConnectionId?: number | string | null;
+  bankConnectionName?: string | null;
   fileSummary?: {
     totalRows?: number;
     importableRows?: number;
@@ -248,6 +262,7 @@ export interface TransactionItem {
   occurredOn: string;
   relativeDate: string;
   category: TransactionCategory;
+  account: TransactionAccount;
 }
 
 export interface CategoryItem {
@@ -277,6 +292,7 @@ export interface CreateTransactionInput {
   amount: number;
   occurredOn: string;
   categoryId: number | string;
+  bankConnectionId: number | string;
 }
 
 export interface UpdateTransactionInput extends CreateTransactionInput {
@@ -296,6 +312,8 @@ export interface ImportPreviewItem {
   suggestedCategoryLabel: string | null;
   suggestionSource: "rule" | "history" | "recurring_rule" | "ai" | null;
   importSource: "bank_statement" | "credit_card_statement";
+  bankConnectionId: number | string;
+  bankConnectionName: string;
   matchedRuleId: string | null;
   aiSuggestedType: "income" | "expense" | null;
   aiSuggestedCategoryId: number | string | null;
@@ -326,6 +344,8 @@ export interface ImportPreviewData {
   previewToken: string;
   expiresAt: string;
   importSource: "bank_statement" | "credit_card_statement";
+  bankConnectionId: number | string;
+  bankConnectionName: string;
   fileSummary: ImportPreviewSummary;
   items: ImportPreviewItem[];
 }
@@ -405,10 +425,19 @@ export interface BankItem {
   id: number | string;
   slug: string;
   name: string;
+  accountType: "bank_account" | "credit_card" | "cash";
   connected: boolean;
   color: string;
   currentBalance: number;
   formattedBalance: string;
+}
+
+export interface TransactionAccount {
+  id: number | string;
+  slug: string;
+  name: string;
+  accountType: "bank_account" | "credit_card" | "cash";
+  color: string;
 }
 
 export interface ChatMessage {

@@ -42,6 +42,9 @@ vi.mock("@/components/ui/sonner", () => ({
 const previewData: ImportPreviewData = {
   previewToken: "preview-1",
   expiresAt: "2026-04-06T21:32:00.000Z",
+  importSource: "bank_statement",
+  bankConnectionId: 2,
+  bankConnectionName: "Caixa/Dinheiro",
   fileSummary: {
     totalRows: 17,
     importableRows: 4,
@@ -59,6 +62,8 @@ const previewData: ImportPreviewData = {
       occurredOn: "2026-03-28",
       normalizedOccurredOn: "2026-03-28",
       type: "income",
+      bankConnectionId: 2,
+      bankConnectionName: "Caixa/Dinheiro",
       suggestedCategoryId: null,
       suggestedCategoryLabel: null,
       suggestionSource: null,
@@ -74,6 +79,7 @@ const previewData: ImportPreviewData = {
       canImport: false,
       requiresCategorySelection: true,
       requiresUserAction: true,
+      defaultExclude: false,
       warnings: ["Duplicata provavel encontrada."],
       errors: [],
     },
@@ -138,6 +144,18 @@ describe("ImportTransactionsModal", () => {
             groupColor: "bg-warning",
           },
         ]}
+        banks={[
+          {
+            id: 2,
+            slug: "itau",
+            name: "Itau",
+            accountType: "bank_account",
+            connected: true,
+            color: "bg-orange-500",
+            currentBalance: 0,
+            formattedBalance: "R$ 0,00",
+          },
+        ]}
       />,
     );
 
@@ -149,6 +167,8 @@ describe("ImportTransactionsModal", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /Extrato bancario/i }));
+    fireEvent.click(screen.getByRole("combobox", { name: "" }));
+    fireEvent.click(screen.getByText("Itau"));
     fireEvent.click(screen.getByRole("button", { name: /Gerar previa/i }));
 
     await waitFor(() => {
@@ -169,6 +189,7 @@ describe("ImportTransactionsModal", () => {
     expect(previewMutateAsync).toHaveBeenCalledWith({
       file: expect.any(File),
       importSource: "bank_statement",
+      bankConnectionId: "2",
     });
     expect(aiSuggestionsMutateAsync).toHaveBeenCalledWith({
       previewToken: "preview-1",
@@ -195,6 +216,18 @@ describe("ImportTransactionsModal", () => {
             groupColor: "bg-warning",
           },
         ]}
+        banks={[
+          {
+            id: 2,
+            slug: "itau",
+            name: "Itau",
+            accountType: "bank_account",
+            connected: true,
+            color: "bg-orange-500",
+            currentBalance: 0,
+            formattedBalance: "R$ 0,00",
+          },
+        ]}
       />,
     );
 
@@ -205,6 +238,8 @@ describe("ImportTransactionsModal", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: /Extrato bancario/i }));
+    fireEvent.click(screen.getByRole("combobox", { name: "" }));
+    fireEvent.click(screen.getByText("Itau"));
     fireEvent.click(screen.getByRole("button", { name: /Gerar previa/i }));
 
     await waitFor(() => {
@@ -270,6 +305,18 @@ describe("ImportTransactionsModal", () => {
             groupColor: "bg-warning",
           },
         ]}
+        banks={[
+          {
+            id: 7,
+            slug: "nubank",
+            name: "Nubank",
+            accountType: "credit_card",
+            connected: true,
+            color: "bg-purple-500",
+            currentBalance: 0,
+            formattedBalance: "R$ 0,00",
+          },
+        ]}
       />,
     );
 
@@ -280,6 +327,8 @@ describe("ImportTransactionsModal", () => {
       },
     });
     fireEvent.click(screen.getByRole("button", { name: /Fatura do cartao/i }));
+    fireEvent.click(screen.getByRole("combobox", { name: "" }));
+    fireEvent.click(screen.getByText("Nubank"));
     fireEvent.click(screen.getByRole("button", { name: /Gerar previa/i }));
 
     await waitFor(() => {

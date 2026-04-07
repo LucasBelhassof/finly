@@ -168,6 +168,13 @@ function mapTransactionRow(row, referenceDate) {
       groupLabel: row.group_label,
       groupColor: row.group_color,
     },
+    account: {
+      id: row.bank_connection_id,
+      slug: row.bank_slug,
+      name: row.bank_name,
+      accountType: row.bank_account_type,
+      color: row.bank_color,
+    },
   };
 }
 
@@ -290,7 +297,7 @@ export async function listBanks() {
   const user = await getPrimaryUser();
   const result = await pool.query(
     `
-      SELECT id, slug, name, connected, color, current_balance, sort_order
+      SELECT id, slug, name, account_type, connected, color, current_balance, sort_order
       FROM bank_connections
       WHERE user_id = $1
       ORDER BY sort_order ASC, id ASC
@@ -302,6 +309,7 @@ export async function listBanks() {
     id: row.id,
     slug: row.slug,
     name: row.name,
+    accountType: row.account_type,
     connected: row.connected,
     color: row.color,
     currentBalance: parseNumeric(row.current_balance),
@@ -318,6 +326,11 @@ export async function listRecentTransactions(limit = 8) {
         t.description,
         t.amount,
         t.occurred_on,
+        b.id AS bank_connection_id,
+        b.slug AS bank_slug,
+        b.name AS bank_name,
+        b.account_type AS bank_account_type,
+        b.color AS bank_color,
         c.id AS category_id,
         c.slug AS category_slug,
         c.label AS category_label,
@@ -327,6 +340,7 @@ export async function listRecentTransactions(limit = 8) {
         c.group_label,
         c.group_color
       FROM transactions t
+      INNER JOIN bank_connections b ON b.id = t.bank_connection_id
       INNER JOIN categories c ON c.id = t.category_id
       WHERE t.user_id = $1
       ORDER BY t.occurred_on DESC, t.id DESC
@@ -350,6 +364,11 @@ export async function listTransactions(limit) {
         t.description,
         t.amount,
         t.occurred_on,
+        b.id AS bank_connection_id,
+        b.slug AS bank_slug,
+        b.name AS bank_name,
+        b.account_type AS bank_account_type,
+        b.color AS bank_color,
         c.id AS category_id,
         c.slug AS category_slug,
         c.label AS category_label,
@@ -359,6 +378,7 @@ export async function listTransactions(limit) {
         c.group_label,
         c.group_color
       FROM transactions t
+      INNER JOIN bank_connections b ON b.id = t.bank_connection_id
       INNER JOIN categories c ON c.id = t.category_id
       WHERE t.user_id = $1
       ORDER BY t.occurred_on DESC, t.id DESC
@@ -437,6 +457,21 @@ async function getCategoryById(categoryId) {
       LIMIT 1
     `,
     [categoryId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getBankConnectionById(userId, bankConnectionId) {
+  const result = await pool.query(
+    `
+      SELECT id, slug, name, account_type, connected, color, current_balance
+      FROM bank_connections
+      WHERE user_id = $1
+        AND id = $2
+      LIMIT 1
+    `,
+    [userId, bankConnectionId],
   );
 
   return result.rows[0] ?? null;
@@ -540,15 +575,15 @@ async function upsertTransactionCategorizationRule({ categoryId, matchKey, type,
   );
 }
 
-async function createImportedTransaction({ userId, categoryId, description, amount, occurredOn, seedKey }) {
+async function createImportedTransaction({ userId, bankConnectionId, categoryId, description, amount, occurredOn, seedKey }) {
   const result = await pool.query(
     `
-      INSERT INTO transactions (user_id, category_id, description, amount, occurred_on, seed_key)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO transactions (user_id, bank_connection_id, category_id, description, amount, occurred_on, seed_key)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (user_id, seed_key) DO NOTHING
       RETURNING id
     `,
-    [userId, categoryId, description, amount, occurredOn, seedKey],
+    [userId, bankConnectionId, categoryId, description, amount, occurredOn, seedKey],
   );
 
   if (!result.rowCount) {
@@ -567,6 +602,11 @@ async function getTransactionById(userId, transactionId) {
         t.description,
         t.amount,
         t.occurred_on,
+        b.id AS bank_connection_id,
+        b.slug AS bank_slug,
+        b.name AS bank_name,
+        b.account_type AS bank_account_type,
+        b.color AS bank_color,
         c.id AS category_id,
         c.slug AS category_slug,
         c.label AS category_label,
@@ -576,6 +616,7 @@ async function getTransactionById(userId, transactionId) {
         c.group_label,
         c.group_color
       FROM transactions t
+      INNER JOIN bank_connections b ON b.id = t.bank_connection_id
       INNER JOIN categories c ON c.id = t.category_id
       WHERE t.user_id = $1
         AND t.id = $2
@@ -593,9 +634,10 @@ export async function createTransaction(input) {
   const amount = Number(input.amount);
   const occurredOn = normalizeDateValue(input.occurredOn);
   const categoryId = Number(input.categoryId);
+  const bankConnectionId = Number(input.bankConnectionId);
 
-  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId)) {
-    throw new Error("description, amount, occurredOn and categoryId are required");
+  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId) || !Number.isInteger(bankConnectionId)) {
+    throw new Error("description, amount, occurredOn, categoryId and bankConnectionId are required");
   }
 
   const category = await getCategoryById(categoryId);
@@ -608,13 +650,19 @@ export async function createTransaction(input) {
     throw new Error("category does not match transaction type");
   }
 
+  const bankConnection = await getBankConnectionById(user.id, bankConnectionId);
+
+  if (!bankConnection) {
+    throw new Error("bank connection not found");
+  }
+
   const result = await pool.query(
     `
-      INSERT INTO transactions (user_id, category_id, description, amount, occurred_on)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO transactions (user_id, bank_connection_id, category_id, description, amount, occurred_on)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id
     `,
-    [user.id, categoryId, description, amount, occurredOn],
+    [user.id, bankConnectionId, categoryId, description, amount, occurredOn],
   );
 
   const row = await getTransactionById(user.id, result.rows[0].id);
@@ -627,9 +675,10 @@ export async function updateTransaction(transactionId, input) {
   const amount = Number(input.amount);
   const occurredOn = normalizeDateValue(input.occurredOn);
   const categoryId = Number(input.categoryId);
+  const bankConnectionId = Number(input.bankConnectionId);
 
-  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId)) {
-    throw new Error("description, amount, occurredOn and categoryId are required");
+  if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(categoryId) || !Number.isInteger(bankConnectionId)) {
+    throw new Error("description, amount, occurredOn, categoryId and bankConnectionId are required");
   }
 
   const category = await getCategoryById(categoryId);
@@ -642,18 +691,25 @@ export async function updateTransaction(transactionId, input) {
     throw new Error("category does not match transaction type");
   }
 
+  const bankConnection = await getBankConnectionById(user.id, bankConnectionId);
+
+  if (!bankConnection) {
+    throw new Error("bank connection not found");
+  }
+
   const result = await pool.query(
     `
       UPDATE transactions
-      SET category_id = $3,
-          description = $4,
-          amount = $5,
-          occurred_on = $6
+      SET bank_connection_id = $3,
+          category_id = $4,
+          description = $5,
+          amount = $6,
+          occurred_on = $7
       WHERE user_id = $1
         AND id = $2
       RETURNING id
     `,
-    [user.id, transactionId, categoryId, description, amount, occurredOn],
+    [user.id, transactionId, bankConnectionId, categoryId, description, amount, occurredOn],
   );
 
   if (!result.rowCount) {
@@ -680,8 +736,28 @@ export async function deleteTransaction(transactionId) {
   }
 }
 
-export async function previewTransactionImport(fileBuffer, importSource = "bank_statement") {
+export async function previewTransactionImport(fileBuffer, importSource = "bank_statement", bankConnectionId) {
   const user = await getPrimaryUser();
+  const parsedBankConnectionId = Number(bankConnectionId);
+
+  if (!Number.isInteger(parsedBankConnectionId)) {
+    throw new Error("bankConnectionId is required");
+  }
+
+  const bankConnection = await getBankConnectionById(user.id, parsedBankConnectionId);
+
+  if (!bankConnection) {
+    throw new Error("bank connection not found");
+  }
+
+  if (importSource === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
+    throw new Error("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+  }
+
+  if (importSource === "bank_statement" && bankConnection.account_type !== "bank_account") {
+    throw new Error("O extrato bancario precisa ser vinculado a uma conta bancaria.");
+  }
+
   const [categories, fingerprintRows, historicalRows, recurringRules] = await Promise.all([
     listCategories(),
     listTransactionFingerprintRows(user.id),
@@ -698,6 +774,8 @@ export async function previewTransactionImport(fileBuffer, importSource = "bank_
   return createImportPreview({
     categories,
     existingFingerprints,
+    bankConnectionId: parsedBankConnectionId,
+    bankConnectionName: bankConnection.name,
     fileBuffer,
     historicalRows,
     importSource,
@@ -803,6 +881,7 @@ export async function commitTransactionImport(input) {
 
       const transaction = await createImportedTransaction({
         userId: user.id,
+        bankConnectionId: session.bankConnectionId,
         categoryId: normalized.categoryId,
         description: normalized.description,
         amount: normalized.signedAmount,

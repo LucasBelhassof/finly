@@ -632,6 +632,8 @@ function buildPreviewItem({
     suggestedCategoryLabel: finalSuggestedCategory?.label ?? null,
     suggestionSource: finalSuggestionSource,
     importSource: importLayout,
+    bankConnectionId: null,
+    bankConnectionName: "",
     matchedRuleId: suggestion.matchedRuleId,
     aiSuggestedType: null,
     aiSuggestedCategoryId: null,
@@ -1126,6 +1128,8 @@ export function parseMultipartCsvUpload(contentType, bodyBuffer) {
 export function createImportPreview({
   categories,
   existingFingerprints,
+  bankConnectionId,
+  bankConnectionName,
   fileBuffer,
   historicalRows = [],
   importSource = "bank_statement",
@@ -1161,7 +1165,11 @@ export function createImportPreview({
     recurringRules,
     rows: nonEmptyRows.slice(1),
     userId,
-  });
+  }).map((item) => ({
+    ...item,
+    bankConnectionId,
+    bankConnectionName,
+  }));
 
   const previewToken = crypto.randomUUID();
   const expiresAtMs = Date.now() + PREVIEW_TTL_MS;
@@ -1169,6 +1177,8 @@ export function createImportPreview({
   previewSessions.set(previewToken, {
     createdAtMs: Date.now(),
     expiresAtMs,
+    bankConnectionId,
+    bankConnectionName,
     userId: String(userId),
     items: items.map((item) => ({
       rowIndex: item.rowIndex,
@@ -1181,6 +1191,8 @@ export function createImportPreview({
     previewToken,
     expiresAt: new Date(expiresAtMs).toISOString(),
     importSource,
+    bankConnectionId,
+    bankConnectionName,
     fileSummary: {
       totalRows: items.length,
       importableRows: items.filter((item) => item.canImport && !item.possibleDuplicate).length,

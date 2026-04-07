@@ -19,16 +19,16 @@ export default function ImportPreviewTable({
   onCreateCategory,
 }: ImportPreviewTableProps) {
   return (
-    <Table className="min-w-[1200px]">
+    <Table className="min-w-[1020px]">
       <TableHeader>
         <TableRow>
-          <TableHead>Linha</TableHead>
-          <TableHead>Descricao</TableHead>
-          <TableHead>Valor</TableHead>
-          <TableHead>Data</TableHead>
-          <TableHead>Tipo</TableHead>
-          <TableHead>Categoria</TableHead>
-          <TableHead>Acoes</TableHead>
+          <TableHead className="w-[72px]">Linha</TableHead>
+          <TableHead className="min-w-[240px]">Descricao</TableHead>
+          <TableHead className="w-[132px]">Valor</TableHead>
+          <TableHead className="w-[144px]">Data</TableHead>
+          <TableHead className="w-[176px]">Tipo</TableHead>
+          <TableHead className="min-w-[180px]">Categoria</TableHead>
+          <TableHead className="min-w-[200px]">Acoes</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

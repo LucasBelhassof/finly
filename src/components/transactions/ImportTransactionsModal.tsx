@@ -205,8 +205,8 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[1180px] border-border/70 bg-card p-0">
-          <DialogHeader className="border-b border-border/50 px-6 py-5">
+        <DialogContent className="!top-6 !translate-y-0 max-h-[calc(100vh-48px)] w-[calc(100vw-32px)] max-w-[1180px] overflow-hidden border-border/70 bg-card p-0 sm:rounded-2xl">
+          <DialogHeader className="shrink-0 border-b border-border/50 px-6 py-5">
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet size={18} />
               Importar extrato CSV
@@ -216,93 +216,98 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 px-6 py-5">
-            <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="flex-1">
-                  <input
-                    ref={inputRef}
-                    type="file"
-                    accept=".csv,text/csv"
-                    className="hidden"
-                    onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="flex h-12 w-full items-center gap-3 rounded-xl border border-dashed border-border/60 bg-card px-4 text-left text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
-                  >
-                    <Upload size={16} />
-                    {selectedFile ? selectedFile.name : "Selecione um arquivo CSV de extrato"}
-                  </button>
-                </div>
-                <Button onClick={() => void handlePreview()} disabled={previewImport.isPending}>
-                  {previewImport.isPending ? "Gerando previa..." : "Gerar previa"}
-                </Button>
-              </div>
-            </div>
-
-            {preview ? (
-              <>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-                  {[
-                    { label: "Linhas", value: preview.fileSummary.totalRows },
-                    { label: "Importaveis", value: preview.fileSummary.importableRows },
-                    { label: "Com erro", value: preview.fileSummary.errorRows },
-                    { label: "Duplicatas", value: preview.fileSummary.duplicateRows },
-                    { label: "Exigem acao", value: preview.fileSummary.actionRequiredRows },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{item.label}</p>
-                      <p className="mt-2 text-2xl font-semibold text-foreground">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Previa expira em {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
-                  </p>
-                  <Button variant="outline" onClick={() => handleOpenCategoryDialog(currentItems[0]?.rowIndex ?? 1)}>
-                    Criar categoria
+          <div data-testid="import-preview-body" className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                  <div className="flex-1">
+                    <input
+                      ref={inputRef}
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                      className="flex h-12 w-full items-center gap-3 rounded-xl border border-dashed border-border/60 bg-card px-4 text-left text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                    >
+                      <Upload size={16} />
+                      {selectedFile ? selectedFile.name : "Selecione um arquivo CSV de extrato"}
+                    </button>
+                  </div>
+                  <Button onClick={() => void handlePreview()} disabled={previewImport.isPending}>
+                    {previewImport.isPending ? "Gerando previa..." : "Gerar previa"}
                   </Button>
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-border/50 bg-card">
-                  <ScrollArea className="h-[520px]">
-                    <ImportPreviewTable
-                      categories={categories}
-                      items={currentItems}
-                      drafts={drafts}
-                      onChangeDraft={handleChangeDraft}
-                      onCreateCategory={handleOpenCategoryDialog}
-                    />
-                  </ScrollArea>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Pagina {page} de {pageCount}
+              {preview ? (
+                <>
+                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    {[
+                      { label: "Linhas", value: preview.fileSummary.totalRows },
+                      { label: "Importaveis", value: preview.fileSummary.importableRows },
+                      { label: "Com erro", value: preview.fileSummary.errorRows },
+                      { label: "Duplicatas", value: preview.fileSummary.duplicateRows },
+                      { label: "Exigem acao", value: preview.fileSummary.actionRequiredRows },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{item.label}</p>
+                        <p className="mt-2 text-2xl font-semibold text-foreground">{item.value}</p>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
-                      <ChevronLeft size={16} />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={page >= pageCount}
-                      onClick={() => setPage((current) => current + 1)}
-                    >
-                      <ChevronRight size={16} />
+
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Previa expira em {new Date(preview.expiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+                    </p>
+                    <Button variant="outline" onClick={() => handleOpenCategoryDialog(currentItems[0]?.rowIndex ?? 1)}>
+                      Criar categoria
                     </Button>
                   </div>
-                </div>
-              </>
-            ) : null}
+
+                  <div className="rounded-2xl border border-border/50 bg-card">
+                    <ScrollArea className="h-[min(34vh,320px)] min-h-[260px] w-full">
+                      <ImportPreviewTable
+                        categories={categories}
+                        items={currentItems}
+                        drafts={drafts}
+                        onChangeDraft={handleChangeDraft}
+                        onCreateCategory={handleOpenCategoryDialog}
+                      />
+                    </ScrollArea>
+                  </div>
+
+                  <div className="flex items-center justify-between pb-1">
+                    <div className="text-sm text-muted-foreground">
+                      Pagina {page} de {pageCount}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="icon" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+                        <ChevronLeft size={16} />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        disabled={page >= pageCount}
+                        onClick={() => setPage((current) => current + 1)}
+                      >
+                        <ChevronRight size={16} />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
           </div>
 
-          <DialogFooter className="border-t border-border/50 px-6 py-4">
+          <DialogFooter
+            data-testid="import-preview-footer"
+            className="shrink-0 border-t border-border/50 bg-card px-6 py-4 sm:justify-end"
+          >
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Fechar
             </Button>

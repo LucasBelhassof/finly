@@ -35,8 +35,8 @@ export default function ImportPreviewRow({
 
   return (
     <TableRow className={cn(draft.exclude && "opacity-55")}>
-      <TableCell className="w-[76px] text-xs text-muted-foreground">#{item.rowIndex}</TableCell>
-      <TableCell className="min-w-[220px]">
+      <TableCell className="w-[72px] px-4 py-4 align-top text-xs text-muted-foreground">#{item.rowIndex}</TableCell>
+      <TableCell className="min-w-[240px] px-4 py-4 align-top">
         <Input
           value={draft.description}
           onChange={(event) => onChange(item.rowIndex, { description: event.target.value })}
@@ -61,7 +61,7 @@ export default function ImportPreviewRow({
           <p className="mt-2 text-xs text-warning">{item.warnings[0]}</p>
         ) : null}
       </TableCell>
-      <TableCell className="w-[140px]">
+      <TableCell className="w-[132px] px-4 py-4 align-top">
         <Input
           value={draft.amount}
           onChange={(event) => onChange(item.rowIndex, { amount: event.target.value })}
@@ -69,7 +69,7 @@ export default function ImportPreviewRow({
           className="h-9 rounded-lg border-border/50 bg-secondary/30"
         />
       </TableCell>
-      <TableCell className="w-[148px]">
+      <TableCell className="w-[144px] px-4 py-4 align-top">
         <Input
           type="date"
           value={draft.occurredOn}
@@ -77,14 +77,16 @@ export default function ImportPreviewRow({
           className="h-9 rounded-lg border-border/50 bg-secondary/30"
         />
       </TableCell>
-      <TableCell className="w-[140px]">
-        <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary/50 p-1">
+      <TableCell className="w-[176px] px-4 py-4 align-top">
+        <div className="flex rounded-xl border border-border/50 bg-secondary/35 p-1">
           <button
             type="button"
             onClick={() => onChange(item.rowIndex, { type: "expense" })}
             className={cn(
-              "rounded-lg px-2 py-1.5 text-xs transition-colors",
-              draft.type === "expense" ? "bg-expense/15 text-expense" : "text-muted-foreground",
+              "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              draft.type === "expense"
+                ? "bg-expense text-white shadow-sm"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
             )}
           >
             Despesa
@@ -93,15 +95,17 @@ export default function ImportPreviewRow({
             type="button"
             onClick={() => onChange(item.rowIndex, { type: "income" })}
             className={cn(
-              "rounded-lg px-2 py-1.5 text-xs transition-colors",
-              draft.type === "income" ? "bg-income/15 text-income" : "text-muted-foreground",
+              "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              draft.type === "income"
+                ? "bg-income text-background shadow-sm"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
             )}
           >
             Receita
           </button>
         </div>
       </TableCell>
-      <TableCell className="min-w-[220px]">
+      <TableCell className="min-w-[180px] px-4 py-4 align-top">
         <div className="flex items-center gap-2">
           <Select value={String(draft.categoryId ?? "")} onValueChange={(value) => onChange(item.rowIndex, { categoryId: value })}>
             <SelectTrigger className="h-9 rounded-lg border-border/50 bg-secondary/30">
@@ -120,8 +124,8 @@ export default function ImportPreviewRow({
           </Button>
         </div>
       </TableCell>
-      <TableCell className="min-w-[190px]">
-        <div className="space-y-3">
+      <TableCell className="min-w-[200px] px-4 py-4 align-top">
+        <div className="space-y-2">
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={draft.exclude}
@@ -138,7 +142,7 @@ export default function ImportPreviewRow({
             Importar mesmo com duplicata
           </label>
           {item.possibleDuplicate ? (
-            <div className="flex items-start gap-2 text-xs text-warning">
+            <div className="flex items-start gap-2 rounded-lg bg-warning/5 px-2 py-1.5 text-xs text-warning">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>{item.duplicateReason || "Linha semelhante encontrada."}</span>
             </div>

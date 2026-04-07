@@ -16,6 +16,8 @@ export function getImportAiConfig() {
   return {
     enabled: parseBooleanFlag(process.env.IMPORT_AI_ENABLED),
     mode: process.env.IMPORT_AI_MODE?.trim() === "webhook" ? "webhook" : "direct",
+    provider: process.env.IMPORT_AI_PROVIDER?.trim() === "gemini" ? "gemini" : "openai",
+    model: process.env.IMPORT_AI_MODEL?.trim() || "",
     autoApplyThreshold: Math.max(0, Math.min(1, parseNumber(process.env.IMPORT_AI_AUTO_APPLY_THRESHOLD, 0.8))),
     maxRowsPerRequest: Math.max(1, Math.floor(parseNumber(process.env.IMPORT_AI_MAX_ROWS_PER_REQUEST, 100))),
   };
@@ -28,9 +30,21 @@ export async function suggestImportCategories(payload) {
     return {
       status: "disabled",
       items: [],
+      provider: config.provider,
+      model: config.model,
       autoApplyThreshold: config.autoApplyThreshold,
       maxRowsPerRequest: config.maxRowsPerRequest,
     };
+  }
+
+  if (config.mode === "direct") {
+    if (config.provider === "gemini" && !String(process.env.GEMINI_API_KEY ?? "").trim()) {
+      throw new Error("GEMINI_API_KEY is required when IMPORT_AI_MODE=direct and IMPORT_AI_PROVIDER=gemini.");
+    }
+
+    if (config.provider === "openai" && !String(process.env.OPENAI_API_KEY ?? "").trim()) {
+      throw new Error("OPENAI_API_KEY is required when IMPORT_AI_MODE=direct and IMPORT_AI_PROVIDER=openai.");
+    }
   }
 
   const items =
@@ -41,6 +55,8 @@ export async function suggestImportCategories(payload) {
   return {
     status: "completed",
     items,
+    provider: config.provider,
+    model: config.model,
     autoApplyThreshold: config.autoApplyThreshold,
     maxRowsPerRequest: config.maxRowsPerRequest,
   };

@@ -1,71 +1,70 @@
-import { LayoutDashboard, CreditCard, MessageSquare, Lightbulb, Building2, Settings, LogOut } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Building2, CreditCard, LayoutDashboard, Lightbulb, LogOut, MessageSquare, Settings } from "lucide-react";
+
+import { NavLink } from "@/components/NavLink";
+import { useDashboard } from "@/hooks/use-dashboard";
+import { appRoutes } from "@/lib/routes";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: CreditCard, label: "Transações", path: "/transacoes" },
-  { icon: MessageSquare, label: "Chat IA", path: "/chat" },
-  { icon: Lightbulb, label: "Insights", path: "/insights" },
-  { icon: Building2, label: "Contas", path: "/contas" },
-  { icon: Settings, label: "Configurações", path: "/configuracoes" },
+  { icon: LayoutDashboard, label: "Dashboard", to: appRoutes.dashboard, end: true },
+  { icon: CreditCard, label: "Transacoes", to: appRoutes.transactions },
+  { icon: MessageSquare, label: "Chat IA", to: appRoutes.chat },
+  { icon: Lightbulb, label: "Insights", to: appRoutes.insights },
+  { icon: Building2, label: "Contas", to: appRoutes.accounts },
+  { icon: Settings, label: "Configuracoes", to: appRoutes.settings },
 ];
 
-interface SidebarProps {
-  activeItem?: string;
-}
-
-const Sidebar = ({ activeItem }: SidebarProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  const isActive = (item: typeof navItems[0]) => {
-    if (activeItem) return item.label === activeItem;
-    return location.pathname === item.path;
-  };
+export default function Sidebar() {
+  const { data } = useDashboard();
+  const userName = data?.user.name ?? "Joao";
+  const initials = userName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 
   return (
-    <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col p-4 shrink-0">
-      <div className="flex items-center gap-3 px-3 mb-8">
-        <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm">F</span>
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4">
+      <div className="mb-8 flex items-center gap-3 px-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+          <span className="text-sm font-bold text-primary-foreground">F</span>
         </div>
-        <span className="text-foreground font-semibold text-lg">FinAI</span>
+        <span className="text-lg font-semibold text-foreground">FinAI</span>
       </div>
 
       <nav className="flex-1 space-y-1">
         {navItems.map((item) => (
-          <button
+          <NavLink
             key={item.label}
-            onClick={() => navigate(item.path)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              isActive(item)
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
+            to={item.to}
+            end={item.end}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+            activeClassName="bg-primary/10 text-primary"
           >
             <item.icon size={18} />
             {item.label}
-          </button>
+          </NavLink>
         ))}
       </nav>
 
-      <div className="border-t border-sidebar-border pt-4 mt-4">
-        <div className="flex items-center gap-3 px-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-            <span className="text-xs text-secondary-foreground font-medium">JD</span>
+      <div className="mt-4 border-t border-sidebar-border pt-4">
+        <div className="mb-3 flex items-center gap-3 px-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
+            <span className="text-xs font-medium text-secondary-foreground">{initials || "JD"}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">João D.</p>
-            <p className="text-xs text-muted-foreground truncate">joao@email.com</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+            <p className="truncate text-xs text-muted-foreground">joao@email.com</p>
           </div>
         </div>
-        <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-all">
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-secondary hover:text-foreground"
+        >
           <LogOut size={16} />
           Sair
         </button>
       </div>
     </aside>
   );
-};
-
-export default Sidebar;
+}

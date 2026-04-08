@@ -1,72 +1,36 @@
-import { Lightbulb, TrendingDown, AlertTriangle, Target, Sparkles } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 
-const insights = [
-  {
-    icon: AlertTriangle,
-    iconColor: "text-warning",
-    bgColor: "bg-warning/10",
-    title: "Gasto acima do orçamento",
-    desc: "Seus gastos com restaurantes ultrapassaram o limite mensal de R$ 500 em 23%.",
-    tag: "Atenção",
-    tagColor: "bg-warning/15 text-warning",
-  },
-  {
-    icon: TrendingDown,
-    iconColor: "text-income",
-    bgColor: "bg-income/10",
-    title: "Economia identificada",
-    desc: "Você pode economizar R$ 180/mês cancelando 2 assinaturas pouco utilizadas.",
-    tag: "Oportunidade",
-    tagColor: "bg-income/15 text-income",
-  },
-  {
-    icon: Target,
-    iconColor: "text-info",
-    bgColor: "bg-info/10",
-    title: "Meta de reserva",
-    desc: "Com o ritmo atual, você atinge sua reserva de emergência em 4 meses.",
-    tag: "Meta",
-    tagColor: "bg-info/15 text-info",
-  },
-  {
-    icon: Sparkles,
-    iconColor: "text-primary",
-    bgColor: "bg-primary/10",
-    title: "Padrão detectado",
-    desc: "Seus gastos com Uber aumentam 40% às sextas. Considere alternativas.",
-    tag: "Padrão",
-    tagColor: "bg-primary/15 text-primary",
-  },
-];
+import { Skeleton } from "@/components/ui/skeleton";
+import type { InsightItem } from "@/types/api";
 
-const AiInsights = () => {
+interface AiInsightsProps {
+  insights?: InsightItem[];
+  isLoading?: boolean;
+  isError?: boolean;
+}
+
+function AiInsightsSkeleton() {
   return (
     <div className="glass-card p-5 animate-fade-in">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
           <Lightbulb size={14} className="text-primary" />
         </div>
         <h3 className="font-semibold text-foreground">Insights da IA</h3>
       </div>
 
       <div className="space-y-3">
-        {insights.map((item, i) => (
-          <div
-            key={i}
-            className="p-3.5 rounded-xl bg-secondary/50 hover:bg-secondary/80 transition-colors border border-border/30"
-          >
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="rounded-xl border border-border/30 bg-secondary/50 p-3.5">
             <div className="flex items-start gap-3">
-              <div className={`w-8 h-8 rounded-lg ${item.bgColor} flex items-center justify-center shrink-0 mt-0.5`}>
-                <item.icon size={15} className={item.iconColor} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="text-sm font-medium text-foreground">{item.title}</h4>
-                  <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${item.tagColor}`}>
-                    {item.tag}
-                  </span>
+              <Skeleton className="mt-0.5 h-8 w-8 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-14 rounded-full" />
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
               </div>
             </div>
           </div>
@@ -74,6 +38,55 @@ const AiInsights = () => {
       </div>
     </div>
   );
-};
+}
 
-export default AiInsights;
+export default function AiInsights({ insights = [], isLoading, isError }: AiInsightsProps) {
+  if (isLoading) {
+    return <AiInsightsSkeleton />;
+  }
+
+  return (
+    <div className="glass-card p-5 animate-fade-in">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+          <Lightbulb size={14} className="text-primary" />
+        </div>
+        <h3 className="font-semibold text-foreground">Insights da IA</h3>
+      </div>
+
+      {!insights.length ? (
+        <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
+          {isError ? "Nao foi possivel carregar os insights agora." : "Nenhum insight disponivel por enquanto."}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {insights.map((item) => {
+            const Icon = item.icon;
+
+            return (
+              <div
+                key={item.id}
+                className="rounded-xl border border-border/30 bg-secondary/50 p-3.5 transition-colors hover:bg-secondary/80"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${item.bgColor}`}>
+                    <Icon size={15} className={item.iconColor} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-foreground">{item.title}</h4>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${item.tagColor}`}>
+                        {item.tag}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{item.description}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

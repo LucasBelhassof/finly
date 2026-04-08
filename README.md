@@ -1,13 +1,13 @@
 # Finance
 
-Projeto originalmente criado como um frontend Vite/React com dados mockados.
-Para rodar localmente com backend funcional, foi adicionada uma API Node + Express conectada ao Postgres da `.env`.
+Projeto full-stack com frontend Vite/React e backend Express/Postgres.
+Os dados do dashboard e do chat agora saem do banco, e o bootstrap do banco foi movido para migrations SQL versionadas.
 
 ## O que existe agora
 
 - Frontend Vite/React mantido sem alteracoes visuais.
 - Backend local em `server/` com leitura de `DATABASE_URL`.
-- Criacao automatica de schema e seed idempotente no Postgres.
+- Migrations SQL em `server/migrations/` para schema e carga inicial.
 - Endpoints REST para dashboard, transacoes, bancos, insights e chat.
 
 ## Requisitos
@@ -23,10 +23,16 @@ Para rodar localmente com backend funcional, foi adicionada uma API Node + Expre
 npm install
 ```
 
-2. Inicialize o banco com schema e seed:
+2. Aplique as migrations:
 
 ```bash
-npm run db:init
+npm run db:migrate
+```
+
+Se quiser recriar o schema `public` do banco e reaplicar tudo do zero:
+
+```bash
+npm run db:fresh
 ```
 
 3. Suba o backend em um terminal:
@@ -41,9 +47,6 @@ npm run server:dev
 npm run dev
 ```
 
-Backend local: `http://localhost:3001`
-Frontend local: `http://localhost:8080`
-
 ## Endpoints principais
 
 - `GET /api/health`
@@ -54,7 +57,3 @@ Frontend local: `http://localhost:8080`
 - `GET /api/banks`
 - `GET /api/chat/messages`
 - `POST /api/chat/messages`
-
-## Observacao
-
-O frontend ainda usa dados hardcoded. O backend ja esta funcional e pronto para ser integrado sem precisar redesenhar a interface.

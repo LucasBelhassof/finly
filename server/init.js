@@ -1,5 +1,5 @@
 import { closeDatabase, initializeDatabase } from "./database.js";
 
 await initializeDatabase();
-console.log("Database initialized and seed applied.");
+console.log("Database migrations applied and database ready.");
 await closeDatabase();

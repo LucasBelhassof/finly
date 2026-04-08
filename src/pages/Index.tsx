@@ -1,55 +1,33 @@
-import Sidebar from "@/components/Sidebar";
-import BalanceCards from "@/components/BalanceCards";
-import ExpensesList from "@/components/ExpensesList";
-import SpendingChart from "@/components/SpendingChart";
+import AppShell from "@/components/AppShell";
 import AiChat from "@/components/AiChat";
 import AiInsights from "@/components/AiInsights";
+import BalanceCards from "@/components/BalanceCards";
 import BankConnection from "@/components/BankConnection";
-import { Bell } from "lucide-react";
+import ExpensesList from "@/components/ExpensesList";
+import SpendingChart from "@/components/SpendingChart";
+import { useDashboard } from "@/hooks/use-dashboard";
 
-const Index = () => {
+export default function Index() {
+  const { data, isLoading, isError } = useDashboard();
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+    <AppShell title="Bom dia" description="Aqui esta o resumo das suas financas" showGreeting>
+      <BalanceCards cards={data?.summaryCards} isLoading={isLoading} isError={isError} />
 
-      <main className="flex-1 overflow-y-auto scrollbar-thin">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border/50 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Bom dia, João 👋</h1>
-              <p className="text-sm text-muted-foreground">Aqui está o resumo das suas finanças</p>
-            </div>
-            <button className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors relative">
-              <Bell size={16} className="text-muted-foreground" />
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-expense border-2 border-background" />
-            </button>
-          </div>
-        </header>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <ExpensesList transactions={data?.recentTransactions} isLoading={isLoading} isError={isError} />
+          <AiInsights insights={data?.insights} isLoading={isLoading} isError={isError} />
+        </div>
 
-        <div className="p-6 space-y-6">
-          <BalanceCards />
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Transactions + Chart */}
-            <div className="lg:col-span-2 space-y-6">
-              <ExpensesList />
-              <AiInsights />
-            </div>
-
-            {/* Right: Chat + Bank + Chart */}
-            <div className="space-y-6">
-              <BankConnection />
-              <SpendingChart />
-              <div className="h-[420px]">
-                <AiChat />
-              </div>
-            </div>
+        <div className="space-y-6">
+          <BankConnection banks={data?.banks} isLoading={isLoading} isError={isError} />
+          <SpendingChart spending={data?.spendingByCategory} isLoading={isLoading} isError={isError} />
+          <div className="h-[420px]">
+            <AiChat initialMessages={data?.chatMessages} />
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
-};
-
-export default Index;
+}

@@ -1,94 +1,197 @@
-import { Send, Bot, User } from "lucide-react";
-import { useState } from "react";
+import { Bot, Loader2, Send, User } from "lucide-react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
-const initialMessages = [
-  {
-    role: "assistant" as const,
-    content: "Olá João! 👋 Analisei suas finanças deste mês. Você gastou 12% a mais em alimentação comparado ao mês passado. Quer que eu sugira formas de economizar?",
-  },
-  {
-    role: "user" as const,
-    content: "Sim, por favor! Quero reduzir meus gastos com delivery.",
-  },
-  {
-    role: "assistant" as const,
-    content: "Ótimo! Aqui vão 3 dicas:\n\n1. **Cozinhe em lotes** no domingo — economize ~R$ 400/mês\n2. **Use cupons** nos apps de delivery para pedidos essenciais\n3. **Defina um limite semanal** de R$ 80 para delivery\n\nIsso pode gerar uma economia de até R$ 600/mês! 💰",
-  },
-];
+import { toast } from "@/components/ui/sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DEFAULT_CHAT_LIMIT, useChatMessages, useSendChatMessage } from "@/hooks/use-chat";
+import type { ChatMessage } from "@/types/api";
 
-const AiChat = () => {
-  const [input, setInput] = useState("");
+interface AiChatProps {
+  initialMessages?: ChatMessage[];
+}
 
+function ChatLoadingState() {
   return (
-    <div className="glass-card flex flex-col h-full animate-fade-in">
-      <div className="p-4 border-b border-border/50">
+    <div className="glass-card flex h-full flex-col animate-fade-in">
+      <div className="border-b border-border/50 p-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
             <Bot size={14} className="text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground text-sm">Assistente FinAI</h3>
+            <h3 className="text-sm font-semibold text-foreground">Assistente FinAI</h3>
             <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-income pulse-glow" />
+              <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
               <span className="text-xs text-muted-foreground">Online</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-        {initialMessages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-          >
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === "assistant" ? "bg-primary/10" : "bg-secondary"
-            }`}>
-              {msg.role === "assistant" ? (
-                <Bot size={13} className="text-primary" />
-              ) : (
-                <User size={13} className="text-muted-foreground" />
-              )}
-            </div>
-            <div
-              className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                msg.role === "assistant"
-                  ? "bg-secondary text-secondary-foreground rounded-tl-sm"
-                  : "bg-primary text-primary-foreground rounded-tr-sm"
-              }`}
-            >
-              {msg.content.split("\n").map((line, j) => (
-                <p key={j} className={j > 0 ? "mt-1" : ""}>
-                  {line.split(/(\*\*.*?\*\*)/).map((part, k) =>
-                    part.startsWith("**") && part.endsWith("**") ? (
-                      <strong key={k}>{part.slice(2, -2)}</strong>
-                    ) : (
-                      part
-                    )
-                  )}
-                </p>
-              ))}
-            </div>
+      <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className={`flex gap-2.5 ${index % 2 === 1 ? "flex-row-reverse" : ""}`}>
+            <Skeleton className="h-7 w-7 rounded-full" />
+            <Skeleton className={`h-20 rounded-2xl ${index % 2 === 1 ? "w-40" : "w-52"}`} />
           </div>
         ))}
       </div>
 
-      <div className="p-3 border-t border-border/50">
-        <div className="flex items-center gap-2 bg-secondary rounded-xl px-3 py-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Pergunte sobre suas finanças..."
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-          />
-          <button className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center hover:bg-primary/90 transition-colors shrink-0">
-            <Send size={14} className="text-primary-foreground" />
-          </button>
+      <div className="border-t border-border/50 p-3">
+        <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-8 w-8 rounded-lg" />
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default AiChat;
+function renderMessageContent(content: string) {
+  return content.split("\n").map((line, lineIndex) => (
+    <p key={`${lineIndex}-${line}`} className={lineIndex > 0 ? "mt-1" : ""}>
+      {line.split(/(\*\*.*?\*\*)/).map((part, partIndex) =>
+        part.startsWith("**") && part.endsWith("**") ? (
+          <strong key={`${partIndex}-${part}`}>{part.slice(2, -2)}</strong>
+        ) : (
+          <span key={`${partIndex}-${part}`}>{part}</span>
+        ),
+      )}
+    </p>
+  ));
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+export default function AiChat({ initialMessages }: AiChatProps) {
+  const [input, setInput] = useState("");
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const { data: messages = [], isLoading, isError, error } = useChatMessages(DEFAULT_CHAT_LIMIT, initialMessages);
+  const sendMessage = useSendChatMessage(DEFAULT_CHAT_LIMIT);
+
+  useEffect(() => {
+    if (!isError) {
+      return;
+    }
+
+    toast.error("Nao foi possivel carregar o historico do chat.", {
+      description: getErrorMessage(error, "Tente novamente em instantes."),
+    });
+  }, [error, isError]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    container.scrollTop = container.scrollHeight;
+  }, [messages.length]);
+
+  const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    const message = input.trim();
+
+    if (!message || sendMessage.isPending) {
+      return;
+    }
+
+    setInput("");
+
+    try {
+      await sendMessage.mutateAsync(message);
+    } catch (mutationError) {
+      setInput(message);
+      toast.error("Nao foi possivel enviar sua mensagem.", {
+        description: getErrorMessage(mutationError, "Tente novamente em instantes."),
+      });
+    }
+  };
+
+  if (isLoading && !messages.length) {
+    return <ChatLoadingState />;
+  }
+
+  return (
+    <div className="glass-card flex h-full flex-col animate-fade-in">
+      <div className="border-b border-border/50 p-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+            <Bot size={14} className="text-primary" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Assistente FinAI</h3>
+            <div className="flex items-center gap-1">
+              <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
+              <span className="text-xs text-muted-foreground">Online</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div ref={scrollContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
+        {!messages.length ? (
+          <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
+            {isError ? "Nao foi possivel carregar a conversa agora." : "Comece uma conversa com o assistente."}
+          </div>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex gap-2.5 ${message.role === "user" ? "flex-row-reverse" : ""}`}
+            >
+              <div
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                  message.role === "assistant" ? "bg-primary/10" : "bg-secondary"
+                }`}
+              >
+                {message.role === "assistant" ? (
+                  <Bot size={13} className="text-primary" />
+                ) : (
+                  <User size={13} className="text-muted-foreground" />
+                )}
+              </div>
+              <div
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  message.role === "assistant"
+                    ? "rounded-tl-sm bg-secondary text-secondary-foreground"
+                    : "rounded-tr-sm bg-primary text-primary-foreground"
+                }`}
+              >
+                {renderMessageContent(message.content)}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="border-t border-border/50 p-3">
+        <form onSubmit={handleSubmit}>
+          <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-2">
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Pergunte sobre suas financas..."
+              className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            <button
+              type="submit"
+              disabled={sendMessage.isPending || !input.trim()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {sendMessage.isPending ? (
+                <Loader2 size={14} className="animate-spin text-primary-foreground" />
+              ) : (
+                <Send size={14} className="text-primary-foreground" />
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

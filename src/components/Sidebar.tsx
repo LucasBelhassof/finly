@@ -1,5 +1,5 @@
 import { Building2, CreditCard, LayoutDashboard, Lightbulb, LogOut, MessageSquare, UserCircle2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
 import {
@@ -35,6 +35,7 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { state } = useSidebar();
   const { data } = useDashboard();
@@ -61,20 +62,27 @@ export default function Sidebar() {
 
       <SidebarContent className="px-2">
         <SidebarMenu>
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <SidebarMenuButton
-                asChild
-                tooltip={item.label}
-                className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-              >
-                <NavLink to={item.to} end={item.end}>
-                  <item.icon size={18} className="shrink-0" />
-                  <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
-                </NavLink>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {navItems.map((item) => {
+            const isActive = item.end
+              ? location.pathname === item.to
+              : Boolean(matchPath({ path: `${item.to}/*`, end: false }, location.pathname) || location.pathname === item.to);
+
+            return (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.label}
+                  className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                >
+                  <NavLink to={item.to} end={item.end}>
+                    <item.icon size={18} className="shrink-0" />
+                    <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
 

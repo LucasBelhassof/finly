@@ -669,9 +669,9 @@ export default function TransactionsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-secondary/35 text-muted-foreground">
+            {/*<div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-secondary/35 text-muted-foreground">
               <Filter size={16} />
-            </div>
+            </div>*/}
             {typeFilters.map((filter) => (
               <button
                 key={filter.value}

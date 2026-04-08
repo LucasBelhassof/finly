@@ -1,5 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { appRoutes } from "@/lib/routes";
 import type { TransactionItem } from "@/types/api";
+import { Link } from "react-router-dom";
 
 interface ExpensesListProps {
   transactions?: TransactionItem[];
@@ -43,9 +45,9 @@ export default function ExpensesList({ transactions = [], isLoading, isError }: 
     <div className="glass-card p-5 animate-fade-in">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold text-foreground">Ultimas Transacoes</h3>
-        <button type="button" className="text-xs text-primary hover:underline">
+        <Link to={appRoutes.transactions} className="text-xs text-primary hover:underline">
           Ver todas
-        </button>
+        </Link>
       </div>
 
       {!transactions.length ? (
@@ -60,16 +62,20 @@ export default function ExpensesList({ transactions = [], isLoading, isError }: 
             const Icon = transaction.category.icon;
 
             return (
-              <div
+              <Link
                 key={transaction.id}
+                to={appRoutes.transactions}
                 className="flex items-center gap-3 rounded-lg p-2.5 transition-colors hover:bg-secondary/50"
+                aria-label={`Abrir transacoes e ver ${transaction.description}`}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
                   <Icon size={16} className={transaction.category.color} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{transaction.description}</p>
-                  <p className="text-xs text-muted-foreground">{transaction.category.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {transaction.category.label} · {transaction.account.name}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p
@@ -81,7 +87,7 @@ export default function ExpensesList({ transactions = [], isLoading, isError }: 
                   </p>
                   <p className="text-xs text-muted-foreground">{transaction.relativeDate}</p>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

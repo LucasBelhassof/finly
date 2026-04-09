@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addMonthsToOccurredOn,
   buildImportSeedKey,
+  buildImportedTransactionEntries,
   createImportPreview,
   detectPdfIssuer,
   extractCategorizationMatchKey,
+  extractInstallmentMetadata,
   enrichPreviewSessionWithAi,
   getPreviewSession,
   isPreviewItemEligibleForAi,
@@ -111,6 +114,80 @@ describe("transaction import helpers", () => {
     expect(preview.items[0].occurredOn).toBe("2026-03-20");
     expect(preview.items[1].occurredOn).toBe("2026-03-25");
     expect(preview.items[0].description).toContain("Parcela 3/3");
+    expect(preview.items[0].isInstallment).toBe(true);
+    expect(preview.items[0].installmentIndex).toBe(3);
+    expect(preview.items[0].installmentCount).toBe(3);
+    expect(preview.items[0].generatedInstallmentCount).toBe(1);
+    expect(preview.items[1].generatedInstallmentCount).toBe(10);
+  });
+
+  it("extracts installment metadata from supported description patterns", () => {
+    expect(extractInstallmentMetadata("Mlp *Kabum-Kabum - Parcela 1/10")).toEqual({
+      isInstallment: true,
+      installmentIndex: 1,
+      installmentCount: 10,
+      generatedInstallmentCount: 10,
+    });
+    expect(extractInstallmentMetadata("DL *Alipay Ali 10/12")).toEqual({
+      isInstallment: true,
+      installmentIndex: 10,
+      installmentCount: 12,
+      generatedInstallmentCount: 3,
+    });
+    expect(extractInstallmentMetadata("COMMCENTER (Parcela 07 de 15)")).toEqual({
+      isInstallment: true,
+      installmentIndex: 7,
+      installmentCount: 15,
+      generatedInstallmentCount: 9,
+    });
+    expect(extractInstallmentMetadata("Compra a vista")).toEqual({
+      isInstallment: false,
+      installmentIndex: null,
+      installmentCount: null,
+      generatedInstallmentCount: null,
+    });
+  });
+
+  it("builds monthly installment entries from the statement month onwards", () => {
+    const normalizedLine = validateCommitLine(
+      {
+        description: "Kabum - Parcela 3/10",
+        amount: "154.25",
+        occurredOn: "2026-03-25",
+        type: "expense",
+        categoryId: 4,
+      },
+      categories,
+    );
+
+    const entries = buildImportedTransactionEntries({
+      normalizedLine,
+      previewItem: {
+        importSource: "credit_card_statement",
+        isInstallment: true,
+        installmentIndex: 3,
+        installmentCount: 10,
+        generatedInstallmentCount: 8,
+      },
+    });
+
+    expect(entries).toHaveLength(8);
+    expect(entries[0].occurredOn).toBe("2026-03-25");
+    expect(entries[1].occurredOn).toBe("2026-04-25");
+    expect(entries[7].occurredOn).toBe("2026-10-25");
+    expect(entries[0].amount).toBe(-154.25);
+  });
+
+  it("increments installment dates month by month with day clamping", () => {
+    expect(addMonthsToOccurredOn("2026-01-31", 1)).toBe("2026-02-28");
+    expect(addMonthsToOccurredOn("2026-01-31", 2)).toBe("2026-03-31");
+  });
+
+  it("generates distinct seed keys for expanded installments", () => {
+    const marchKey = buildImportSeedKey(1, "2026-03-25", -154.25, "kabum parcela 3 10");
+    const aprilKey = buildImportSeedKey(1, "2026-04-25", -154.25, "kabum parcela 3 10");
+
+    expect(marchKey).not.toBe(aprilKey);
   });
 
   it("reuses the user's historical categorization before AI", async () => {

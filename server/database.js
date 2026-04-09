@@ -3,6 +3,7 @@ import pg from "pg";
 
 import { runMigrations } from "./migrations.js";
 import {
+  buildImportedTransactionEntries,
   buildImportSeedKey,
   createImportPreview,
   extractCategorizationMatchKey,
@@ -1018,6 +1019,10 @@ async function createImportedTransaction({ userId, bankConnectionId, categoryId,
   return mapTransactionRow(row, occurredOn);
 }
 
+function formatImportEntryCount(count, singularLabel, pluralLabel = `${singularLabel}s`) {
+  return `${count} ${count === 1 ? singularLabel : pluralLabel}`;
+}
+
 async function getTransactionById(userId, transactionId) {
   const result = await pool.query(
     `
@@ -1241,6 +1246,7 @@ export async function commitTransactionImport(input) {
   const user = await getPrimaryUser();
   const session = getPreviewSession(input.previewToken, user.id);
   validateCommitItemsShape(input.items, session);
+  const sessionItemsByRowIndex = new Map(session.items.map((item) => [item.rowIndex, item.original]));
 
   const [categories, fingerprintRows] = await Promise.all([listCategories(), listTransactionFingerprintRows(user.id)]);
   const existingFingerprints = new Set(
@@ -1257,60 +1263,80 @@ export async function commitTransactionImport(input) {
   for (const item of input.items) {
     try {
       const normalized = validateCommitLine(item, categories);
+      const previewItem = sessionItemsByRowIndex.get(item.rowIndex) ?? null;
+      const entriesToImport = buildImportedTransactionEntries({
+        normalizedLine: normalized,
+        previewItem,
+      });
+      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transacao";
+      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transacoes";
 
       if (normalized.exclude) {
-        skippedCount += 1;
+        skippedCount += entriesToImport.length;
         results.push({
           rowIndex: item.rowIndex,
           status: "skipped",
           reason: "excluded",
-          message: "Linha removida pelo usuario.",
+          message: `${formatImportEntryCount(entriesToImport.length, entryLabelSingular, entryLabelPlural)} removida${
+            entriesToImport.length === 1 ? "" : "s"
+          } pelo usuario.`,
         });
         continue;
       }
+      const importedTransactions = [];
+      let duplicateEntries = 0;
 
-      const seedKey = buildImportSeedKey(
-        user.id,
-        normalized.normalizedOccurredOn,
-        normalized.signedAmount,
-        normalized.normalizedFinalDescription,
-      );
+      for (const entry of entriesToImport) {
+        const seedKey = buildImportSeedKey(
+          user.id,
+          entry.occurredOn,
+          entry.amount,
+          normalized.normalizedFinalDescription,
+        );
 
-      if (commitFingerprints.has(seedKey) && !normalized.ignoreDuplicate) {
-        skippedCount += 1;
+        if (commitFingerprints.has(seedKey) && !normalized.ignoreDuplicate) {
+          duplicateEntries += 1;
+          continue;
+        }
+
+        const transaction = await createImportedTransaction({
+          userId: user.id,
+          bankConnectionId: session.bankConnectionId,
+          categoryId: entry.categoryId,
+          description: entry.description,
+          amount: entry.amount,
+          occurredOn: entry.occurredOn,
+          seedKey,
+        });
+
+        commitFingerprints.add(seedKey);
+
+        if (!transaction) {
+          duplicateEntries += 1;
+          continue;
+        }
+
+        importedTransactions.push(transaction);
+      }
+
+      if (!importedTransactions.length) {
+        skippedCount += duplicateEntries;
         results.push({
           rowIndex: item.rowIndex,
           status: "skipped",
           reason: "duplicate",
-          message: "Linha pulada por duplicata provavel.",
+          message:
+            duplicateEntries > 0
+              ? `${formatImportEntryCount(duplicateEntries, entryLabelSingular, entryLabelPlural)} pulada${
+                  duplicateEntries === 1 ? "" : "s"
+                } por duplicata provavel.`
+              : "Linha ja importada anteriormente.",
         });
         continue;
       }
 
-      const transaction = await createImportedTransaction({
-        userId: user.id,
-        bankConnectionId: session.bankConnectionId,
-        categoryId: normalized.categoryId,
-        description: normalized.description,
-        amount: normalized.signedAmount,
-        occurredOn: normalized.normalizedOccurredOn,
-        seedKey,
-      });
-
-      commitFingerprints.add(seedKey);
-
-      if (!transaction) {
-        skippedCount += 1;
-        results.push({
-          rowIndex: item.rowIndex,
-          status: "skipped",
-          reason: "already_imported",
-          message: "Linha ja importada anteriormente.",
-        });
-        continue;
-      }
-
-      importedCount += 1;
+      importedCount += importedTransactions.length;
+      skippedCount += duplicateEntries;
       await upsertTransactionCategorizationRule({
         userId: user.id,
         matchKey: extractCategorizationMatchKey(normalized.description),
@@ -1320,9 +1346,18 @@ export async function commitTransactionImport(input) {
       results.push({
         rowIndex: item.rowIndex,
         status: "imported",
-        reason: "success",
-        message: "Linha importada com sucesso.",
-        transaction,
+        reason: duplicateEntries > 0 ? "partial_success" : "success",
+        message:
+          duplicateEntries > 0
+            ? `${formatImportEntryCount(importedTransactions.length, entryLabelSingular, entryLabelPlural)} importada${
+                importedTransactions.length === 1 ? "" : "s"
+              } e ${formatImportEntryCount(duplicateEntries, entryLabelSingular, entryLabelPlural)} ignorada${
+                duplicateEntries === 1 ? "" : "s"
+              } por duplicata.`
+            : `${formatImportEntryCount(importedTransactions.length, entryLabelSingular, entryLabelPlural)} importada${
+                importedTransactions.length === 1 ? "" : "s"
+              } com sucesso.`,
+        transaction: importedTransactions[0],
       });
     } catch (error) {
       failedCount += 1;

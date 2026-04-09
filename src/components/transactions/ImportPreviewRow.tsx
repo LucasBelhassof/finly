@@ -45,6 +45,11 @@ export default function ImportPreviewRow({
         />
         <div className="mt-2 flex flex-wrap gap-2">
           {isInvalid ? <Badge variant="destructive">Erro</Badge> : null}
+          {item.isInstallment ? (
+            <Badge variant="secondary" className="bg-info/10 text-info">
+              {item.installmentIndex}/{item.installmentCount} parcelas
+            </Badge>
+          ) : null}
           {item.possibleDuplicate ? (
             <Badge variant="secondary" className="bg-warning/15 text-warning">
               Duplicata
@@ -68,6 +73,12 @@ export default function ImportPreviewRow({
         </div>
         {item.errors.length > 0 ? <p className="mt-2 text-xs text-destructive">{item.errors[0]}</p> : null}
         {item.errors.length === 0 && item.warnings[0] ? <p className="mt-2 text-xs text-warning">{item.warnings[0]}</p> : null}
+        {item.errors.length === 0 && item.isInstallment && item.generatedInstallmentCount ? (
+          <p className="mt-2 text-xs text-info">
+            Esta linha sera expandida em {item.generatedInstallmentCount} despesa{item.generatedInstallmentCount > 1 ? "s" : ""} mensa
+            {item.generatedInstallmentCount > 1 ? "is" : "l"} ao confirmar a importacao.
+          </p>
+        ) : null}
         {item.errors.length === 0 &&
         (item.suggestionSource === "history" || item.suggestionSource === "recurring_rule") &&
         item.suggestedCategoryLabel ? (

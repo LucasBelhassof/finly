@@ -232,6 +232,79 @@ export function normalizeOccurredOnToStatementMonth(occurredOn, fileMetadata) {
   return `${String(statementYear).padStart(4, "0")}-${String(statementMonth).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
 }
 
+export function addMonthsToOccurredOn(occurredOn, monthsToAdd) {
+  if (!occurredOn || !/^\d{4}-\d{2}-\d{2}$/.test(occurredOn) || !Number.isInteger(monthsToAdd)) {
+    throw new Error("Data base invalida para calcular parcelas.");
+  }
+
+  const [year, month, day] = occurredOn.split("-").map(Number);
+  const nextMonthIndex = month - 1 + monthsToAdd;
+  const nextYear = year + Math.floor(nextMonthIndex / 12);
+  const normalizedMonthIndex = ((nextMonthIndex % 12) + 12) % 12;
+  const nextMonth = normalizedMonthIndex + 1;
+  const clampedDay = Math.min(day, getDaysInMonth(nextYear, nextMonth));
+
+  return `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`;
+}
+
+export function extractInstallmentMetadata(description) {
+  const normalizedDescription = String(description ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalizedDescription) {
+    return {
+      isInstallment: false,
+      installmentIndex: null,
+      installmentCount: null,
+      generatedInstallmentCount: null,
+    };
+  }
+
+  const patterns = [
+    /\bparcela\s+(\d{1,2})\s*(?:de|\/)\s*(\d{1,2})\b/i,
+    /\b(\d{1,2})\/(\d{1,2})\b/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalizedDescription.match(pattern);
+
+    if (!match) {
+      continue;
+    }
+
+    const installmentIndex = Number(match[1]);
+    const installmentCount = Number(match[2]);
+
+    if (
+      !Number.isInteger(installmentIndex) ||
+      !Number.isInteger(installmentCount) ||
+      installmentIndex < 1 ||
+      installmentCount < 2 ||
+      installmentIndex > installmentCount
+    ) {
+      continue;
+    }
+
+    return {
+      isInstallment: true,
+      installmentIndex,
+      installmentCount,
+      generatedInstallmentCount: installmentCount - installmentIndex + 1,
+    };
+  }
+
+  return {
+    isInstallment: false,
+    installmentIndex: null,
+    installmentCount: null,
+    generatedInstallmentCount: null,
+  };
+}
+
 export function extractImportFileMetadata(filename) {
   const rawFilename = String(filename ?? "").trim();
   const basename = rawFilename.replace(/\.[^.]+$/, "");
@@ -1031,6 +1104,12 @@ function buildPreviewItem({
   let absoluteAmount = null;
   let occurredOn = "";
   let defaultExclude = false;
+  let installmentMetadata = {
+    isInstallment: false,
+    installmentIndex: null,
+    installmentCount: null,
+    generatedInstallmentCount: null,
+  };
 
   if (!rawDescription) {
     errors.push("Descricao ausente.");
@@ -1095,6 +1174,16 @@ function buildPreviewItem({
     warnings.push("Pagamento recebido de fatura sera ignorado por padrao.");
   }
 
+  if (importLayout === "credit_card_statement" && type === "expense") {
+    installmentMetadata = extractInstallmentMetadata(rawDescription);
+
+    if (installmentMetadata.isInstallment && installmentMetadata.generatedInstallmentCount) {
+      warnings.push(
+        `Compra parcelada detectada: ${installmentMetadata.generatedInstallmentCount} despesas mensais serao geradas ao importar.`,
+      );
+    }
+  }
+
   let normalizedAmount = absoluteAmount !== null ? normalizeAmountString(absoluteAmount) : "";
   let signedAmount = absoluteAmount !== null ? signedAmountFromType(type, absoluteAmount) : null;
 
@@ -1137,6 +1226,10 @@ function buildPreviewItem({
     normalizedAmount,
     occurredOn,
     normalizedOccurredOn: occurredOn,
+    isInstallment: installmentMetadata.isInstallment,
+    installmentIndex: installmentMetadata.installmentIndex,
+    installmentCount: installmentMetadata.installmentCount,
+    generatedInstallmentCount: installmentMetadata.generatedInstallmentCount,
     type,
     suggestedCategoryId: finalSuggestedCategory?.id ?? null,
     suggestedCategoryLabel: finalSuggestedCategory?.label ?? null,
@@ -1831,6 +1924,28 @@ export function validateCommitLine(input, categories) {
     exclude: Boolean(input.exclude),
     ignoreDuplicate: Boolean(input.ignoreDuplicate),
   };
+}
+
+export function buildImportedTransactionEntries({ normalizedLine, previewItem }) {
+  const generatedInstallmentCount =
+    previewItem?.importSource === "credit_card_statement" &&
+    previewItem?.isInstallment &&
+    Number.isInteger(previewItem.generatedInstallmentCount) &&
+    Number(previewItem.generatedInstallmentCount) > 0
+      ? Number(previewItem.generatedInstallmentCount)
+      : 1;
+
+  return Array.from({ length: generatedInstallmentCount }, (_, index) => ({
+    description: normalizedLine.description,
+    categoryId: normalizedLine.categoryId,
+    amount: normalizedLine.signedAmount,
+    occurredOn: addMonthsToOccurredOn(normalizedLine.normalizedOccurredOn, index),
+    type: normalizedLine.type,
+    installmentNumber:
+      previewItem?.isInstallment && Number.isInteger(previewItem.installmentIndex)
+        ? Number(previewItem.installmentIndex) + index
+        : null,
+  }));
 }
 
 export function buildImportSeedKey(userId, occurredOn, signedAmount, normalizedFinalDescription) {

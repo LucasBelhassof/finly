@@ -145,6 +145,10 @@ export interface ApiImportPreviewItem {
   normalizedAmount?: string;
   occurredOn?: string;
   normalizedOccurredOn?: string;
+  isInstallment?: boolean;
+  installmentIndex?: number | null;
+  installmentCount?: number | null;
+  generatedInstallmentCount?: number | null;
   type?: string;
   bankConnectionId?: number | string | null;
   bankConnectionName?: string | null;
@@ -321,6 +325,10 @@ export interface ImportPreviewItem {
   normalizedAmount: string;
   occurredOn: string;
   normalizedOccurredOn: string;
+  isInstallment: boolean;
+  installmentIndex: number | null;
+  installmentCount: number | null;
+  generatedInstallmentCount: number | null;
   type: "income" | "expense";
   suggestedCategoryId: number | string | null;
   suggestedCategoryLabel: string | null;

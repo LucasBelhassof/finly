@@ -134,7 +134,7 @@ export default function Sidebar() {
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border/60" />
               <DropdownMenuItem
-                className="gap-2 text-destructive focus:text-destructive"
+                className="gap-2 text-destructive hover:bg-destructive hover:text-black focus:bg-destructive focus:text-black"
                 onClick={() =>
                   toast.info("Logout ainda nao esta disponivel.", {
                     description: "A acao sera conectada quando o fluxo de autenticacao for implementado.",

@@ -58,7 +58,7 @@ describe("BankConnection", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Contas do usuario")).toBeInTheDocument();
+    expect(screen.getByText("Contas")).toBeInTheDocument();
     expect(screen.getByText("Nubank")).toBeInTheDocument();
     expect(screen.getByText("Cartao Visa")).toBeInTheDocument();
     expect(screen.getByText("Carteira")).toBeInTheDocument();

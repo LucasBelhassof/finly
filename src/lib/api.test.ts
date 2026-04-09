@@ -5,6 +5,7 @@ import {
   mapImportAiSuggestionsResponse,
   mapImportCommitResponse,
   mapImportPreviewResponse,
+  mapInstallmentsOverviewResponse,
   mapChatMessagesResponse,
   mapChatReplyResponse,
   mapSpendingResponse,
@@ -337,5 +338,77 @@ describe("api mappers", () => {
     expect(result.items[0].aiConfidence).toBe(0.88);
     expect(result.items[0].aiSuggestedType).toBe("income");
     expect(result.items[0].suggestionSource).toBe("ai");
+  });
+
+  it("maps installments overview payloads", () => {
+    const result = mapInstallmentsOverviewResponse({
+      applied_filters: {
+        cardId: 2,
+        categoryId: "all",
+        status: "overdue",
+        installmentAmountMin: 50,
+        installmentAmountMax: 300,
+        purchaseStart: "2026-01-01",
+        purchaseEnd: "2026-12-31",
+        sortBy: "smart",
+        sortOrder: "desc",
+      },
+      active_installments_count: 2,
+      monthly_commitment: 450,
+      remaining_balance_total: 1200,
+      original_amount_total: 1800,
+      payoff_projection_month: "2026-08",
+      alerts: {
+        concentration: {
+          threshold_ratio: 0.5,
+          triggered: true,
+          card_id: 2,
+          card_name: "Nubank",
+          share_ratio: 0.6,
+          monthly_amount: 270,
+        },
+      },
+      charts: {
+        next_3_months_projection: [{ month: "2026-04", amount: 450 }],
+        monthly_commitment_evolution: [{ month: "2026-04", amount: 450 }],
+        card_distribution: [{ card_id: 2, card_name: "Nubank", amount: 270, share_ratio: 0.6 }],
+        top_categories: [{ category_id: 1, category: "Eletronicos", amount: 270 }],
+      },
+      filter_options: {
+        cards: [{ id: 2, name: "Nubank" }],
+        categories: [{ id: 1, label: "Eletronicos" }],
+        statuses: ["active", "paid", "overdue"],
+        installment_amount_range: {
+          min: 50,
+          max: 300,
+        },
+      },
+      items: [
+        {
+          transaction_id: 10,
+          installment_purchase_id: 12,
+          description: "Notebook",
+          category: "Eletronicos",
+          category_id: 1,
+          card_id: 2,
+          card_name: "Nubank",
+          purchase_date: "2026-02-01",
+          total_amount: 1200,
+          installment_amount: 150,
+          installment_count: 8,
+          current_installment: 3,
+          remaining_installments: 6,
+          remaining_balance: 900,
+          next_due_date: "2026-04-15",
+          status: "overdue",
+        },
+      ],
+    });
+
+    expect(result.appliedFilters.cardId).toBe("2");
+    expect(result.alerts.concentration.triggered).toBe(true);
+    expect(result.filterOptions.statuses).toEqual(["active", "paid", "overdue"]);
+    expect(result.items[0].status).toBe("overdue");
+    expect(result.items[0].installmentAmount).toBe(150);
   });
 });

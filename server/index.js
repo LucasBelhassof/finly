@@ -11,6 +11,7 @@ import {
   deleteBankConnection,
   deleteTransaction,
   getDashboardData,
+  getInstallmentsOverview,
   getTransactionImportAiSuggestions,
   initializeDatabase,
   listBanks,
@@ -63,6 +64,26 @@ app.get("/api/transactions", async (request, response, next) => {
     const transactions =
       limitValue === undefined ? await listTransactions() : await listTransactions(Number.isNaN(limit) ? 8 : limit);
     response.json({ transactions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/installments/overview", async (request, response, next) => {
+  try {
+    const overview = await getInstallmentsOverview({
+      cardId: request.query.cardId,
+      categoryId: request.query.categoryId,
+      status: request.query.status,
+      installmentAmountMin: request.query.installmentAmountMin,
+      installmentAmountMax: request.query.installmentAmountMax,
+      purchaseStart: request.query.purchaseStart,
+      purchaseEnd: request.query.purchaseEnd,
+      sortBy: request.query.sortBy,
+      sortOrder: request.query.sortOrder,
+    });
+
+    response.json(overview);
   } catch (error) {
     next(error);
   }

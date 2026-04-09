@@ -133,6 +133,72 @@ export interface ApiBanksResponse {
   banks?: ApiBank[];
 }
 
+export interface ApiInstallmentOverviewFilters {
+  cardId?: number | string;
+  categoryId?: number | string;
+  status?: string;
+  installmentAmountMin?: number | null;
+  installmentAmountMax?: number | null;
+  purchaseStart?: string | null;
+  purchaseEnd?: string | null;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export interface ApiInstallmentOverviewItem {
+  transaction_id?: number | string;
+  installment_purchase_id?: number | string;
+  description?: string;
+  category?: string;
+  category_id?: number | string;
+  card_id?: number | string;
+  card_name?: string;
+  purchase_date?: string;
+  total_amount?: number;
+  installment_amount?: number;
+  installment_count?: number;
+  current_installment?: number;
+  remaining_installments?: number;
+  remaining_balance?: number;
+  next_due_date?: string | null;
+  status?: string;
+}
+
+export interface ApiInstallmentsOverviewResponse {
+  applied_filters?: ApiInstallmentOverviewFilters;
+  active_installments_count?: number;
+  monthly_commitment?: number;
+  remaining_balance_total?: number;
+  original_amount_total?: number;
+  payoff_projection_month?: string | null;
+  alerts?: {
+    concentration?: {
+      threshold_ratio?: number;
+      triggered?: boolean;
+      card_id?: number | string | null;
+      card_name?: string | null;
+      share_ratio?: number;
+      monthly_amount?: number;
+    };
+  };
+  charts?: {
+    next_3_months_projection?: Array<{ month?: string; amount?: number }>;
+    monthly_commitment_evolution?: Array<{ month?: string; amount?: number }>;
+    card_distribution?: Array<{ card_id?: number | string; card_name?: string; amount?: number; share_ratio?: number }>;
+    top_categories?: Array<{ category_id?: number | string; category?: string; amount?: number }>;
+  };
+  filter_options?: {
+    cards?: Array<{ id?: number | string; name?: string }>;
+    categories?: Array<{ id?: number | string; label?: string }>;
+    statuses?: string[];
+    installment_amount_range?: {
+      min?: number;
+      max?: number;
+    };
+  };
+  items?: ApiInstallmentOverviewItem[];
+}
+
 export interface ApiChatMessagesResponse {
   messages?: ApiChatMessage[];
 }
@@ -519,6 +585,76 @@ export interface HealthStatus {
   status: string;
   database: string;
   serverTime: string;
+}
+
+export type InstallmentStatus = "active" | "paid" | "overdue";
+export type InstallmentSortBy = "smart" | "installment_amount" | "remaining_balance" | "next_due_date" | "purchase_date";
+export type InstallmentSortOrder = "asc" | "desc";
+
+export interface InstallmentsOverviewFilters {
+  cardId: string;
+  categoryId: string;
+  status: "all" | InstallmentStatus;
+  installmentAmountMin: number | null;
+  installmentAmountMax: number | null;
+  purchaseStart: string | null;
+  purchaseEnd: string | null;
+  sortBy: InstallmentSortBy;
+  sortOrder: InstallmentSortOrder;
+}
+
+export interface InstallmentOverviewItem {
+  transactionId: number | string;
+  installmentPurchaseId: number | string;
+  description: string;
+  category: string;
+  categoryId: number | string;
+  cardId: number | string;
+  cardName: string;
+  purchaseDate: string;
+  totalAmount: number;
+  installmentAmount: number;
+  installmentCount: number;
+  currentInstallment: number;
+  remainingInstallments: number;
+  remainingBalance: number;
+  nextDueDate: string | null;
+  status: InstallmentStatus;
+}
+
+export interface InstallmentsOverview {
+  appliedFilters: InstallmentsOverviewFilters;
+  activeInstallmentsCount: number;
+  monthlyCommitment: number;
+  remainingBalanceTotal: number;
+  originalAmountTotal: number;
+  payoffProjectionMonth: string | null;
+  alerts: {
+    concentration: {
+      thresholdRatio: number;
+      triggered: boolean;
+      cardId: number | string | null;
+      cardName: string | null;
+      shareRatio: number;
+      monthlyAmount: number;
+    };
+  };
+  charts: {
+    next3MonthsProjection: Array<{ month: string; amount: number }>;
+    monthlyCommitmentEvolution: Array<{ month: string; amount: number }>;
+    cardDistribution: Array<{ cardId: number | string; cardName: string; amount: number; shareRatio: number }>;
+    topCategories: Array<{ categoryId: number | string; category: string; amount: number }>;
+  };
+  filterOptions: {
+    cards: Array<{ id: number | string; name: string }>;
+    categories: Array<{ id: number | string; label: string }>;
+    statuses: InstallmentStatus[];
+    installmentAmountRange: {
+      min: number;
+      max: number;
+    };
+  };
+  items: InstallmentOverviewItem[];
 }
 
 export interface DashboardData {

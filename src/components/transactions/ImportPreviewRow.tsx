@@ -3,6 +3,7 @@ import { AlertTriangle, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -100,11 +101,11 @@ export default function ImportPreviewRow({
         />
       </TableCell>
       <TableCell className="w-[144px] px-4 py-4 align-top">
-        <Input
-          type="date"
+        <DatePickerInput
           value={draft.occurredOn}
-          onChange={(event) => onChange(item.rowIndex, { occurredOn: event.target.value })}
-          className="h-9 rounded-lg border-border/50 bg-secondary/30"
+          onChange={(value) => onChange(item.rowIndex, { occurredOn: value })}
+          className="h-9 rounded-lg"
+          placeholder="Data"
         />
       </TableCell>
       <TableCell className="w-[176px] px-4 py-4 align-top">

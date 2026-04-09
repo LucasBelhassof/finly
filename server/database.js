@@ -17,6 +17,7 @@ import {
   validateCommitLine,
 } from "./transaction-import.js";
 import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.js";
+import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
 
 dotenv.config();
 
@@ -569,6 +570,55 @@ export async function listTransactions(limit) {
 
   const referenceDate = normalizeDateValue(result.rows[0]?.occurred_on);
   return result.rows.map((row) => mapTransactionRow(row, referenceDate));
+}
+
+export async function getInstallmentsOverview(filters = {}) {
+  const user = await getPrimaryUser();
+  const result = await pool.query(
+    `
+      SELECT
+        ip.id AS installment_purchase_id,
+        ip.description_base,
+        ip.purchase_occurred_on,
+        ip.installment_count,
+        ip.amount_per_installment,
+        b.id AS card_id,
+        b.name AS card_name,
+        b.statement_due_day,
+        COALESCE(ip.category_id, t.category_id) AS category_id,
+        c.label AS category_label,
+        t.id AS transaction_id,
+        t.occurred_on,
+        t.installment_number
+      FROM installment_purchases ip
+      INNER JOIN bank_connections b ON b.id = ip.bank_connection_id
+      LEFT JOIN transactions t ON t.installment_purchase_id = ip.id
+      LEFT JOIN categories c ON c.id = COALESCE(ip.category_id, t.category_id)
+      WHERE ip.user_id = $1
+        AND b.account_type = 'credit_card'
+        AND ip.installment_count >= 2
+      ORDER BY ip.id ASC, t.installment_number ASC NULLS LAST, t.id ASC
+    `,
+    [user.id],
+  );
+
+  const rows = result.rows.map((row) => ({
+    installmentPurchaseId: row.installment_purchase_id,
+    descriptionBase: row.description_base,
+    purchaseDate: normalizeDateValue(row.purchase_occurred_on),
+    installmentCount: Number(row.installment_count),
+    installmentAmount: parseNumeric(row.amount_per_installment),
+    cardId: row.card_id,
+    cardName: row.card_name,
+    statementDueDay: Number.isInteger(Number(row.statement_due_day)) ? Number(row.statement_due_day) : null,
+    categoryId: row.category_id,
+    categoryLabel: row.category_label ?? "Sem categoria",
+    transactionId: row.transaction_id,
+    occurredOn: normalizeDateValue(row.occurred_on),
+    installmentNumber: Number.isInteger(Number(row.installment_number)) ? Number(row.installment_number) : null,
+  }));
+
+  return buildInstallmentsOverviewResponse(rows, filters);
 }
 
 export async function listCategories() {

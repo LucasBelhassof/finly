@@ -1,4 +1,4 @@
-import { Building2, CreditCard, LayoutDashboard, Lightbulb, LogOut, MessageSquare, UserCircle2 } from "lucide-react";
+import { Building2, CreditCard, Layers3, LayoutDashboard, Lightbulb, LogOut, MessageSquare, UserCircle2 } from "lucide-react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
 import { NavLink } from "@/components/NavLink";
@@ -29,6 +29,7 @@ import { appRoutes } from "@/lib/routes";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", to: appRoutes.dashboard, end: true },
   { icon: CreditCard, label: "Transacoes", to: appRoutes.transactions },
+  { icon: Layers3, label: "Parcelamentos", to: appRoutes.installments },
   { icon: MessageSquare, label: "Chat IA", to: appRoutes.chat },
   { icon: Lightbulb, label: "Insights", to: appRoutes.insights },
   { icon: Building2, label: "Contas", to: appRoutes.accounts },

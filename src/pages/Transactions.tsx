@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import {
   Select,
   SelectContent,
@@ -487,11 +488,11 @@ export default function TransactionsPage() {
             {!categoryIsRequired ? (
               <p className="text-xs text-muted-foreground">Se nao escolher, a despesa sera salva como Outros.</p>
             ) : null}
-            <Input
-              type="date"
+            <DatePickerInput
               value={transactionForm.occurredOn}
-              onChange={(event) => setTransactionForm((current) => ({ ...current, occurredOn: event.target.value }))}
-              className="h-11 rounded-xl border-border/60 bg-secondary/35"
+              onChange={(value) => setTransactionForm((current) => ({ ...current, occurredOn: value }))}
+              className="h-11"
+              placeholder="Selecione a data"
             />
           </div>
 

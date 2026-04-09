@@ -18,6 +18,7 @@ import type {
   ApiImportPreviewItem,
   ApiImportPreviewResponse,
   ApiInsight,
+  ApiInstallmentsOverviewResponse,
   ApiInsightsResponse,
   ApiSpendingItem,
   ApiSpendingResponse,
@@ -42,6 +43,8 @@ import type {
   ImportPreviewData,
   ImportPreviewItem,
   InsightItem,
+  InstallmentsOverview,
+  InstallmentsOverviewFilters,
   SpendingItem,
   SummaryCard,
   TransactionAccount,
@@ -336,6 +339,109 @@ export function mapBanksResponse(response: ApiBanksResponse) {
   return (response.banks ?? []).map(mapBank);
 }
 
+export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOverviewResponse): InstallmentsOverview {
+  const appliedFilters = response.applied_filters ?? {};
+  const concentration = response.alerts?.concentration ?? {};
+  const charts = response.charts ?? {};
+  const filterOptions = response.filter_options ?? {};
+
+  return {
+    appliedFilters: {
+      cardId: appliedFilters.cardId !== undefined && appliedFilters.cardId !== null ? String(appliedFilters.cardId) : "all",
+      categoryId:
+        appliedFilters.categoryId !== undefined && appliedFilters.categoryId !== null ? String(appliedFilters.categoryId) : "all",
+      status:
+        appliedFilters.status === "active" || appliedFilters.status === "paid" || appliedFilters.status === "overdue"
+          ? appliedFilters.status
+          : "all",
+      installmentAmountMin:
+        typeof appliedFilters.installmentAmountMin === "number" ? appliedFilters.installmentAmountMin : null,
+      installmentAmountMax:
+        typeof appliedFilters.installmentAmountMax === "number" ? appliedFilters.installmentAmountMax : null,
+      purchaseStart: safeString(appliedFilters.purchaseStart, "") || null,
+      purchaseEnd: safeString(appliedFilters.purchaseEnd, "") || null,
+      sortBy:
+        appliedFilters.sortBy === "installment_amount" ||
+        appliedFilters.sortBy === "remaining_balance" ||
+        appliedFilters.sortBy === "next_due_date" ||
+        appliedFilters.sortBy === "purchase_date"
+          ? appliedFilters.sortBy
+          : "smart",
+      sortOrder: appliedFilters.sortOrder === "asc" ? "asc" : "desc",
+    },
+    activeInstallmentsCount: safeNumber(response.active_installments_count),
+    monthlyCommitment: safeNumber(response.monthly_commitment),
+    remainingBalanceTotal: safeNumber(response.remaining_balance_total),
+    originalAmountTotal: safeNumber(response.original_amount_total),
+    payoffProjectionMonth: safeString(response.payoff_projection_month, "") || null,
+    alerts: {
+      concentration: {
+        thresholdRatio: safeNumber(concentration.threshold_ratio, 0.5),
+        triggered: Boolean(concentration.triggered),
+        cardId: concentration.card_id ?? null,
+        cardName: safeString(concentration.card_name, "") || null,
+        shareRatio: safeNumber(concentration.share_ratio),
+        monthlyAmount: safeNumber(concentration.monthly_amount),
+      },
+    },
+    charts: {
+      next3MonthsProjection: (charts.next_3_months_projection ?? []).map((item) => ({
+        month: safeString(item.month, "--"),
+        amount: safeNumber(item.amount),
+      })),
+      monthlyCommitmentEvolution: (charts.monthly_commitment_evolution ?? []).map((item) => ({
+        month: safeString(item.month, "--"),
+        amount: safeNumber(item.amount),
+      })),
+      cardDistribution: (charts.card_distribution ?? []).map((item) => ({
+        cardId: item.card_id ?? "card",
+        cardName: safeString(item.card_name, "Cartao"),
+        amount: safeNumber(item.amount),
+        shareRatio: safeNumber(item.share_ratio),
+      })),
+      topCategories: (charts.top_categories ?? []).map((item) => ({
+        categoryId: item.category_id ?? "category",
+        category: safeString(item.category, "Categoria"),
+        amount: safeNumber(item.amount),
+      })),
+    },
+    filterOptions: {
+      cards: (filterOptions.cards ?? []).map((item) => ({
+        id: item.id ?? "card",
+        name: safeString(item.name, "Cartao"),
+      })),
+      categories: (filterOptions.categories ?? []).map((item) => ({
+        id: item.id ?? "category",
+        label: safeString(item.label, "Categoria"),
+      })),
+      statuses: (filterOptions.statuses ?? [])
+        .filter((value): value is "active" | "paid" | "overdue" => value === "active" || value === "paid" || value === "overdue"),
+      installmentAmountRange: {
+        min: safeNumber(filterOptions.installment_amount_range?.min),
+        max: safeNumber(filterOptions.installment_amount_range?.max),
+      },
+    },
+    items: (response.items ?? []).map((item) => ({
+      transactionId: item.transaction_id ?? "transaction",
+      installmentPurchaseId: item.installment_purchase_id ?? "installment",
+      description: safeString(item.description, "Parcelamento"),
+      category: safeString(item.category, "Sem categoria"),
+      categoryId: item.category_id ?? "category",
+      cardId: item.card_id ?? "card",
+      cardName: safeString(item.card_name, "Cartao"),
+      purchaseDate: safeString(item.purchase_date),
+      totalAmount: safeNumber(item.total_amount),
+      installmentAmount: safeNumber(item.installment_amount),
+      installmentCount: safeNumber(item.installment_count),
+      currentInstallment: safeNumber(item.current_installment),
+      remainingInstallments: safeNumber(item.remaining_installments),
+      remainingBalance: safeNumber(item.remaining_balance),
+      nextDueDate: safeString(item.next_due_date, "") || null,
+      status: item.status === "paid" || item.status === "overdue" ? item.status : "active",
+    })),
+  };
+}
+
 export function mapChatMessagesResponse(response: ApiChatMessagesResponse) {
   return (response.messages ?? []).map(mapChatMessage);
 }
@@ -515,6 +621,24 @@ export async function getDashboard() {
 export async function getHealth() {
   const response = await request<ApiHealthResponse>("/api/health");
   return mapHealthResponse(response);
+}
+
+export async function getInstallmentsOverview(filters: Partial<InstallmentsOverviewFilters> = {}) {
+  const response = await request<ApiInstallmentsOverviewResponse>(
+    buildPath("/api/installments/overview", {
+      cardId: filters.cardId,
+      categoryId: filters.categoryId,
+      status: filters.status,
+      installmentAmountMin: filters.installmentAmountMin ?? undefined,
+      installmentAmountMax: filters.installmentAmountMax ?? undefined,
+      purchaseStart: filters.purchaseStart ?? undefined,
+      purchaseEnd: filters.purchaseEnd ?? undefined,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
+    }),
+  );
+
+  return mapInstallmentsOverviewResponse(response);
 }
 
 export async function getTransactions(limit?: number) {

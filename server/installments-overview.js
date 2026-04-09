@@ -108,6 +108,10 @@ function normalizeNumberFilter(value) {
 function normalizeOverviewFilters(filters = {}) {
   const status =
     filters.status === "active" || filters.status === "paid" || filters.status === "overdue" ? filters.status : "all";
+  const installmentCountMode =
+    filters.installmentCountMode === "installment_count" || filters.installmentCountMode === "remaining_installments"
+      ? filters.installmentCountMode
+      : "all";
   const sortBy =
     filters.sortBy === "installment_amount" ||
     filters.sortBy === "remaining_balance" ||
@@ -123,6 +127,8 @@ function normalizeOverviewFilters(filters = {}) {
     status,
     installmentAmountMin: normalizeNumberFilter(filters.installmentAmountMin),
     installmentAmountMax: normalizeNumberFilter(filters.installmentAmountMax),
+    installmentCountMode,
+    installmentCountValue: normalizeNumberFilter(filters.installmentCountValue),
     purchaseStart: normalizeDateOnly(filters.purchaseStart),
     purchaseEnd: normalizeDateOnly(filters.purchaseEnd),
     sortBy,
@@ -150,58 +156,23 @@ function deriveNextDueDate(occurredOn, statementDueDay) {
   return dueDate;
 }
 
-function buildOverviewItem(group, referenceDate) {
-  const referenceMonthStart = getMonthStart(referenceDate);
-  const rows = [...group.transactions].sort((left, right) => {
-    const leftNumber = Number(left.installmentNumber ?? 0);
-    const rightNumber = Number(right.installmentNumber ?? 0);
-
-    if (leftNumber !== rightNumber) {
-      return leftNumber - rightNumber;
-    }
-
-    return String(left.occurredOn ?? "").localeCompare(String(right.occurredOn ?? ""));
-  });
-
-  const remainingRows = referenceMonthStart ? rows.filter((row) => String(row.occurredOn) >= referenceMonthStart) : rows;
-  const installmentCount = Number(group.installmentCount);
-  const installmentAmount = roundCurrency(group.installmentAmount);
-  const totalAmount = roundCurrency(installmentAmount * installmentCount);
-  const remainingInstallments = Math.max(remainingRows.length, 0);
-  const currentInstallment = remainingRows[0]?.installmentNumber ?? installmentCount;
-  const nextDueDate =
-    remainingRows.length > 0 ? deriveNextDueDate(remainingRows[0]?.occurredOn, group.statementDueDay) : null;
-
-  let status = "active";
-
-  if (remainingInstallments === 0) {
-    status = "paid";
-  } else if (nextDueDate && normalizeDateOnly(referenceDate) && nextDueDate < normalizeDateOnly(referenceDate)) {
-    status = "overdue";
-  }
-
-  return {
-    transaction_id: remainingRows[0]?.transactionId ?? rows.at(-1)?.transactionId ?? group.installmentPurchaseId,
-    installment_purchase_id: group.installmentPurchaseId,
-    description: group.description,
-    category: group.category,
-    category_id: group.categoryId,
-    card_id: group.cardId,
-    card_name: group.cardName,
-    purchase_date: group.purchaseDate,
-    total_amount: totalAmount,
-    installment_amount: installmentAmount,
-    installment_count: installmentCount,
-    current_installment: currentInstallment,
-    remaining_installments: remainingInstallments,
-    remaining_balance: roundCurrency(installmentAmount * remainingInstallments),
-    next_due_date: nextDueDate,
-    status,
-    __remainingRows: remainingRows,
-  };
+function isPeriodFilterActive(filters) {
+  return Boolean(filters.purchaseStart || filters.purchaseEnd);
 }
 
-function buildItems(rows, referenceDate) {
+function isRowInPeriod(row, filters) {
+  if (filters.purchaseStart && row.occurredOn < filters.purchaseStart) {
+    return false;
+  }
+
+  if (filters.purchaseEnd && row.occurredOn > filters.purchaseEnd) {
+    return false;
+  }
+
+  return true;
+}
+
+function groupRows(rows) {
   const grouped = new Map();
 
   rows.forEach((row) => {
@@ -217,12 +188,12 @@ function buildItems(rows, referenceDate) {
         installmentCount: Number(row.installmentCount),
         installmentAmount: roundCurrency(row.installmentAmount),
         statementDueDay: Number.isInteger(Number(row.statementDueDay)) ? Number(row.statementDueDay) : null,
-        transactions: [],
+        rows: [],
       });
     }
 
     if (row.transactionId) {
-      grouped.get(row.installmentPurchaseId).transactions.push({
+      grouped.get(row.installmentPurchaseId).rows.push({
         transactionId: row.transactionId,
         occurredOn: normalizeDateOnly(row.occurredOn),
         installmentNumber: Number.isInteger(Number(row.installmentNumber)) ? Number(row.installmentNumber) : null,
@@ -231,46 +202,177 @@ function buildItems(rows, referenceDate) {
   });
 
   return Array.from(grouped.values())
-    .filter((item) => item.installmentCount >= 2)
-    .map((item) => buildOverviewItem(item, referenceDate));
+    .filter((purchase) => purchase.installmentCount >= 2)
+    .map((purchase) => ({
+      ...purchase,
+      rows: [...purchase.rows].sort((left, right) => {
+        if ((left.installmentNumber ?? 0) !== (right.installmentNumber ?? 0)) {
+          return (left.installmentNumber ?? 0) - (right.installmentNumber ?? 0);
+        }
+
+        return String(left.occurredOn ?? "").localeCompare(String(right.occurredOn ?? ""));
+      }),
+    }));
 }
 
-function applyFilters(items, filters) {
-  return items.filter((item) => {
-    if (filters.cardId !== "all" && String(item.card_id) !== filters.cardId) {
-      return false;
-    }
+function enrichPurchase(purchase, referenceDate) {
+  const referenceMonthStart = getMonthStart(referenceDate);
+  const remainingRows = referenceMonthStart ? purchase.rows.filter((row) => row.occurredOn >= referenceMonthStart) : purchase.rows;
+  const anchorRow = remainingRows[0] ?? null;
+  const remainingInstallments = Math.max(remainingRows.length, 0);
+  const nextDueDate = anchorRow ? deriveNextDueDate(anchorRow.occurredOn, purchase.statementDueDay) : null;
 
-    if (filters.categoryId !== "all" && String(item.category_id) !== filters.categoryId) {
-      return false;
-    }
+  let status = "active";
 
-    if (filters.status !== "all" && item.status !== filters.status) {
-      return false;
-    }
+  if (remainingInstallments === 0) {
+    status = "paid";
+  } else if (nextDueDate && normalizeDateOnly(referenceDate) && nextDueDate < normalizeDateOnly(referenceDate)) {
+    status = "overdue";
+  }
 
-    if (filters.installmentAmountMin !== null && item.installment_amount < filters.installmentAmountMin) {
-      return false;
-    }
-
-    if (filters.installmentAmountMax !== null && item.installment_amount > filters.installmentAmountMax) {
-      return false;
-    }
-
-    if (filters.purchaseStart && String(item.purchase_date) < filters.purchaseStart) {
-      return false;
-    }
-
-    if (filters.purchaseEnd && String(item.purchase_date) > filters.purchaseEnd) {
-      return false;
-    }
-
-    return true;
-  });
+  return {
+    ...purchase,
+    totalAmount: roundCurrency(purchase.installmentAmount * purchase.installmentCount),
+    remainingRows,
+    remainingInstallments,
+    remainingBalance: roundCurrency(purchase.installmentAmount * remainingInstallments),
+    anchorRow,
+    nextDueDate,
+    status,
+  };
 }
 
-function createProjectionMonths(referenceDate, count) {
-  const monthStart = getMonthStart(referenceDate);
+function matchesPurchaseFilters(purchase, filters) {
+  if (filters.cardId !== "all" && String(purchase.cardId) !== filters.cardId) {
+    return false;
+  }
+
+  if (filters.categoryId !== "all" && String(purchase.categoryId) !== filters.categoryId) {
+    return false;
+  }
+
+  if (filters.status !== "all" && purchase.status !== filters.status) {
+    return false;
+  }
+
+  if (filters.installmentAmountMin !== null && purchase.installmentAmount < filters.installmentAmountMin) {
+    return false;
+  }
+
+  if (filters.installmentAmountMax !== null && purchase.installmentAmount > filters.installmentAmountMax) {
+    return false;
+  }
+
+  if (filters.installmentCountMode === "installment_count" && filters.installmentCountValue !== null && purchase.installmentCount !== filters.installmentCountValue) {
+    return false;
+  }
+
+  if (
+    filters.installmentCountMode === "remaining_installments" &&
+    filters.installmentCountValue !== null &&
+    purchase.remainingInstallments !== filters.installmentCountValue
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function deriveDisplayRowStatus(row, purchase, referenceDate) {
+  const dueDate = deriveNextDueDate(row.occurredOn, purchase.statementDueDay);
+
+  if (purchase.status === "paid") {
+    return "paid";
+  }
+
+  if (dueDate && normalizeDateOnly(referenceDate) && dueDate < normalizeDateOnly(referenceDate)) {
+    return "overdue";
+  }
+
+  return "active";
+}
+
+function buildDisplayItemFromRow(purchase, row, referenceDate) {
+  const remainingRowsFromDisplay = purchase.rows.filter((candidate) => (candidate.installmentNumber ?? 0) >= (row.installmentNumber ?? 0));
+  const installmentDueDate = deriveNextDueDate(row.occurredOn, purchase.statementDueDay);
+
+  return {
+    transaction_id: row.transactionId,
+    installment_transaction_id: row.transactionId,
+    installment_purchase_id: purchase.installmentPurchaseId,
+    description: purchase.description,
+    category: purchase.category,
+    category_id: purchase.categoryId,
+    card_id: purchase.cardId,
+    card_name: purchase.cardName,
+    purchase_date: purchase.purchaseDate,
+    total_amount: purchase.totalAmount,
+    installment_amount: purchase.installmentAmount,
+    installment_count: purchase.installmentCount,
+    current_installment: row.installmentNumber ?? purchase.installmentCount,
+    display_installment_number: row.installmentNumber ?? purchase.installmentCount,
+    remaining_installments: Math.max(remainingRowsFromDisplay.length, 0),
+    remaining_balance: roundCurrency(purchase.installmentAmount * Math.max(remainingRowsFromDisplay.length, 0)),
+    next_due_date: installmentDueDate,
+    installment_due_date: installmentDueDate,
+    installment_month: getMonthKey(row.occurredOn),
+    status: deriveDisplayRowStatus(row, purchase, referenceDate),
+  };
+}
+
+function buildDefaultDisplayItem(purchase) {
+  return {
+    transaction_id: purchase.anchorRow?.transactionId ?? purchase.rows.at(-1)?.transactionId ?? purchase.installmentPurchaseId,
+    installment_transaction_id: purchase.anchorRow?.transactionId ?? null,
+    installment_purchase_id: purchase.installmentPurchaseId,
+    description: purchase.description,
+    category: purchase.category,
+    category_id: purchase.categoryId,
+    card_id: purchase.cardId,
+    card_name: purchase.cardName,
+    purchase_date: purchase.purchaseDate,
+    total_amount: purchase.totalAmount,
+    installment_amount: purchase.installmentAmount,
+    installment_count: purchase.installmentCount,
+    current_installment: purchase.anchorRow?.installmentNumber ?? purchase.installmentCount,
+    display_installment_number: purchase.anchorRow?.installmentNumber ?? purchase.installmentCount,
+    remaining_installments: purchase.remainingInstallments,
+    remaining_balance: purchase.remainingBalance,
+    next_due_date: purchase.nextDueDate,
+    installment_due_date: purchase.nextDueDate,
+    installment_month: getMonthKey(purchase.anchorRow?.occurredOn ?? purchase.rows.at(-1)?.occurredOn),
+    status: purchase.status,
+  };
+}
+
+function buildSelectedPurchases(purchases, filters, referenceDate) {
+  const periodActive = isPeriodFilterActive(filters);
+
+  return purchases
+    .map((purchase) => enrichPurchase(purchase, referenceDate))
+    .filter((purchase) => matchesPurchaseFilters(purchase, filters))
+    .map((purchase) => {
+      const periodRows = periodActive ? purchase.rows.filter((row) => isRowInPeriod(row, filters)) : [];
+      return {
+        ...purchase,
+        periodRows,
+      };
+    })
+    .filter((purchase) => !periodActive || purchase.periodRows.length > 0);
+}
+
+function buildDisplayItems(selectedPurchases, filters, referenceDate) {
+  const periodActive = isPeriodFilterActive(filters);
+
+  if (!periodActive) {
+    return selectedPurchases.map(buildDefaultDisplayItem);
+  }
+
+  return selectedPurchases.flatMap((purchase) => purchase.periodRows.map((row) => buildDisplayItemFromRow(purchase, row, referenceDate)));
+}
+
+function buildProjectionMonths(baseDate, count) {
+  const monthStart = getMonthStart(baseDate);
 
   if (!monthStart) {
     return [];
@@ -279,106 +381,148 @@ function createProjectionMonths(referenceDate, count) {
   return Array.from({ length: count }, (_, index) => addMonthsClamped(monthStart, index)).filter(Boolean);
 }
 
-function buildMonthlyProjection(items, referenceDate, count) {
-  const monthStarts = createProjectionMonths(referenceDate, count);
+function buildMonthlyRowsSource(selectedPurchases, filters, referenceDate) {
+  if (isPeriodFilterActive(filters)) {
+    return selectedPurchases.flatMap((purchase) =>
+      purchase.periodRows.map((row) => ({
+        month: getMonthKey(row.occurredOn),
+        amount: purchase.installmentAmount,
+        cardId: purchase.cardId,
+        cardName: purchase.cardName,
+        categoryId: purchase.categoryId,
+        category: purchase.category,
+      })),
+    );
+  }
 
-  return monthStarts.map((monthStart) => {
-    const monthKey = getMonthKey(monthStart);
-    const amount = items.reduce((sum, item) => {
-      const monthlyAmount = item.__remainingRows.some((row) => getMonthKey(row.occurredOn) === monthKey) ? item.installment_amount : 0;
-      return sum + monthlyAmount;
-    }, 0);
-
-    return {
-      month: monthKey,
-      amount: roundCurrency(amount),
-    };
-  });
+  return selectedPurchases
+    .filter((purchase) => purchase.status !== "paid")
+    .flatMap((purchase) =>
+      purchase.remainingRows.map((row) => ({
+        month: getMonthKey(row.occurredOn),
+        amount: purchase.installmentAmount,
+        cardId: purchase.cardId,
+        cardName: purchase.cardName,
+        categoryId: purchase.categoryId,
+        category: purchase.category,
+      })),
+    );
 }
 
-function buildMonthlyEvolution(items, referenceDate) {
-  const monthKeys = items
-    .flatMap((item) => item.__remainingRows.map((row) => getMonthKey(row.occurredOn)))
-    .filter(Boolean)
-    .sort();
-  const firstMonth = getMonthStart(referenceDate);
-  const lastMonth = monthKeys.at(-1);
+function buildGroupedAmountSeries(entries, monthOrder = null) {
+  const grouped = new Map();
 
-  if (!firstMonth) {
+  entries.forEach((entry) => {
+    const key = entry.month;
+    const current = grouped.get(key) ?? 0;
+    grouped.set(key, roundCurrency(current + entry.amount));
+  });
+
+  const months = monthOrder ?? Array.from(grouped.keys()).sort();
+
+  return months.map((month) => ({
+    month,
+    amount: roundCurrency(grouped.get(month) ?? 0),
+  }));
+}
+
+function buildMonthlyProjection(selectedPurchases, filters, referenceDate, count) {
+  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate);
+  const baseDate = filters.purchaseStart ?? referenceDate;
+  const monthStarts = buildProjectionMonths(baseDate, count);
+  const monthKeys = monthStarts.map(getMonthKey).filter(Boolean);
+
+  return buildGroupedAmountSeries(entries, monthKeys);
+}
+
+function buildMonthlyEvolution(selectedPurchases, filters, referenceDate) {
+  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate);
+
+  if (!entries.length) {
     return [];
   }
 
-  const totalMonths = lastMonth
-    ? Math.max(
-        3,
-        Math.min(
-          6,
-          getMonthDifference(firstMonth, `${lastMonth}-01`) + 1,
-        ),
-      )
-    : 3;
+  if (isPeriodFilterActive(filters)) {
+    return buildGroupedAmountSeries(entries);
+  }
 
-  return buildMonthlyProjection(items, referenceDate, totalMonths);
+  const firstMonth = getMonthStart(referenceDate);
+  const lastMonth = [...new Set(entries.map((entry) => entry.month))].sort().at(-1);
+
+  if (!firstMonth || !lastMonth) {
+    return [];
+  }
+
+  const totalMonths = Math.max(3, Math.min(6, getMonthDifference(firstMonth, `${lastMonth}-01`) + 1));
+  return buildMonthlyProjection(selectedPurchases, filters, referenceDate, totalMonths);
 }
 
-function buildCardDistribution(items, monthlyCommitment) {
+function buildCardDistribution(selectedPurchases, filters, referenceDate, monthlyCommitment) {
+  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate);
   const grouped = new Map();
 
-  items
-    .filter((item) => item.status !== "paid")
-    .forEach((item) => {
-      const current = grouped.get(item.card_id) ?? {
-        card_id: item.card_id,
-        card_name: item.card_name,
-        amount: 0,
-      };
+  entries.forEach((entry) => {
+    const current = grouped.get(entry.cardId) ?? {
+      card_id: entry.cardId,
+      card_name: entry.cardName,
+      amount: 0,
+    };
 
-      current.amount = roundCurrency(current.amount + item.installment_amount);
-      grouped.set(item.card_id, current);
-    });
+    current.amount = roundCurrency(current.amount + entry.amount);
+    grouped.set(entry.cardId, current);
+  });
 
   return Array.from(grouped.values())
     .sort((left, right) => right.amount - left.amount)
-    .map((item) => ({
-      ...item,
-      share_ratio: monthlyCommitment > 0 ? Number((item.amount / monthlyCommitment).toFixed(4)) : 0,
+    .map((entry) => ({
+      ...entry,
+      share_ratio: monthlyCommitment > 0 ? Number((entry.amount / monthlyCommitment).toFixed(4)) : 0,
     }));
 }
 
-function buildTopCategories(items) {
+function buildTopCategories(selectedPurchases, filters, referenceDate) {
+  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate);
   const grouped = new Map();
 
-  items
-    .filter((item) => item.status !== "paid")
-    .forEach((item) => {
-      const current = grouped.get(item.category_id) ?? {
-        category_id: item.category_id,
-        category: item.category,
-        amount: 0,
-      };
+  entries.forEach((entry) => {
+    const current = grouped.get(entry.categoryId) ?? {
+      category_id: entry.categoryId,
+      category: entry.category,
+      amount: 0,
+    };
 
-      current.amount = roundCurrency(current.amount + item.installment_amount);
-      grouped.set(item.category_id, current);
-    });
+    current.amount = roundCurrency(current.amount + entry.amount);
+    grouped.set(entry.categoryId, current);
+  });
 
   return Array.from(grouped.values())
     .sort((left, right) => right.amount - left.amount)
     .slice(0, 5);
 }
 
-function buildFilterOptions(items) {
-  const cards = Array.from(new Map(items.map((item) => [String(item.card_id), { id: item.card_id, name: item.card_name }])).values()).sort(
+function buildFilterOptions(purchases, referenceDate) {
+  const cards = Array.from(new Map(purchases.map((purchase) => [String(purchase.cardId), { id: purchase.cardId, name: purchase.cardName }])).values()).sort(
     (left, right) => left.name.localeCompare(right.name, "pt-BR"),
   );
   const categories = Array.from(
-    new Map(items.map((item) => [String(item.category_id), { id: item.category_id, label: item.category }])).values(),
+    new Map(purchases.map((purchase) => [String(purchase.categoryId), { id: purchase.categoryId, label: purchase.category }])).values(),
   ).sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
-  const installmentAmounts = items.map((item) => item.installment_amount);
+  const installmentAmounts = purchases.map((purchase) => purchase.installmentAmount);
+  const installmentCountValues = Array.from(new Set(purchases.map((purchase) => purchase.installmentCount)))
+    .filter((value) => value > 0)
+    .sort((left, right) => left - right);
+  const remainingInstallmentValues = Array.from(
+    new Set(purchases.map((purchase) => enrichPurchase(purchase, referenceDate).remainingInstallments)),
+  )
+    .filter((value) => value > 0)
+    .sort((left, right) => left - right);
 
   return {
     cards,
     categories,
     statuses: ["active", "paid", "overdue"],
+    installment_count_values: installmentCountValues,
+    remaining_installment_values: remainingInstallmentValues,
     installment_amount_range: {
       min: installmentAmounts.length ? Math.min(...installmentAmounts) : 0,
       max: installmentAmounts.length ? Math.max(...installmentAmounts) : 0,
@@ -425,6 +569,10 @@ function sortItems(items, filters) {
       return dueDateComparison;
     }
 
+    if (String(right.installment_month ?? "") !== String(left.installment_month ?? "")) {
+      return String(right.installment_month ?? "").localeCompare(String(left.installment_month ?? ""));
+    }
+
     return String(right.purchase_date).localeCompare(String(left.purchase_date));
   };
 
@@ -434,24 +582,57 @@ function sortItems(items, filters) {
 
 export function buildInstallmentsOverviewResponse(rows, rawFilters = {}, referenceDate = new Date().toISOString().slice(0, 10)) {
   const filters = normalizeOverviewFilters(rawFilters);
-  const allItems = buildItems(rows, referenceDate);
-  const filteredItems = sortItems(applyFilters(allItems, filters), filters);
-  const activeItems = filteredItems.filter((item) => item.status !== "paid");
-  const monthlyCommitment = roundCurrency(activeItems.reduce((sum, item) => sum + item.installment_amount, 0));
-  const cardDistribution = buildCardDistribution(filteredItems, monthlyCommitment);
-  const payoffProjectionMonth = activeItems
-    .flatMap((item) => item.__remainingRows.map((row) => getMonthKey(row.occurredOn)))
-    .filter(Boolean)
-    .sort()
-    .at(-1) ?? null;
+  const purchases = groupRows(rows);
+  const selectedPurchases = buildSelectedPurchases(purchases, filters, referenceDate);
+  const items = sortItems(buildDisplayItems(selectedPurchases, filters, referenceDate), filters);
+  const periodActive = isPeriodFilterActive(filters);
+  const monthlyCommitment = roundCurrency(
+    periodActive
+      ? items.filter((item) => item.status !== "paid").reduce((sum, item) => sum + item.installment_amount, 0)
+      : selectedPurchases.filter((purchase) => purchase.status !== "paid").reduce((sum, purchase) => sum + purchase.installmentAmount, 0),
+  );
+  const remainingBalanceTotal = roundCurrency(
+    selectedPurchases.reduce((sum, purchase) => {
+      if (!periodActive) {
+        return sum + purchase.remainingBalance;
+      }
+
+      const firstPeriodRow = purchase.periodRows[0];
+
+      if (!firstPeriodRow) {
+        return sum;
+      }
+
+      const remainingFromDisplay = purchase.rows.filter(
+        (row) => (row.installmentNumber ?? 0) >= (firstPeriodRow.installmentNumber ?? 0),
+      ).length;
+
+      return sum + roundCurrency(purchase.installmentAmount * remainingFromDisplay);
+    }, 0),
+  );
+  const originalAmountTotal = roundCurrency(selectedPurchases.reduce((sum, purchase) => sum + purchase.totalAmount, 0));
+  const cardDistribution = buildCardDistribution(selectedPurchases, filters, referenceDate, monthlyCommitment);
+  const activeInstallmentsCount = selectedPurchases.filter((purchase) => purchase.status !== "paid").length;
+  const payoffProjectionMonth =
+    selectedPurchases
+      .flatMap((purchase) => {
+        if (periodActive) {
+          return purchase.periodRows.map((row) => getMonthKey(row.occurredOn));
+        }
+
+        return purchase.remainingRows.map((row) => getMonthKey(row.occurredOn));
+      })
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? null;
   const concentrationCard = cardDistribution[0] ?? null;
 
   return {
     applied_filters: filters,
-    active_installments_count: activeItems.length,
+    active_installments_count: activeInstallmentsCount,
     monthly_commitment: monthlyCommitment,
-    remaining_balance_total: roundCurrency(filteredItems.reduce((sum, item) => sum + item.remaining_balance, 0)),
-    original_amount_total: roundCurrency(filteredItems.reduce((sum, item) => sum + item.total_amount, 0)),
+    remaining_balance_total: remainingBalanceTotal,
+    original_amount_total: originalAmountTotal,
     payoff_projection_month: payoffProjectionMonth,
     alerts: {
       concentration: {
@@ -464,13 +645,13 @@ export function buildInstallmentsOverviewResponse(rows, rawFilters = {}, referen
       },
     },
     charts: {
-      next_3_months_projection: buildMonthlyProjection(filteredItems, referenceDate, 3),
-      monthly_commitment_evolution: buildMonthlyEvolution(filteredItems, referenceDate),
+      next_3_months_projection: buildMonthlyProjection(selectedPurchases, filters, referenceDate, 3),
+      monthly_commitment_evolution: buildMonthlyEvolution(selectedPurchases, filters, referenceDate),
       card_distribution: cardDistribution,
-      top_categories: buildTopCategories(filteredItems),
+      top_categories: buildTopCategories(selectedPurchases, filters, referenceDate),
     },
-    filter_options: buildFilterOptions(allItems),
-    items: filteredItems.map(({ __remainingRows, ...item }) => item),
+    filter_options: buildFilterOptions(purchases, referenceDate),
+    items,
   };
 }
 

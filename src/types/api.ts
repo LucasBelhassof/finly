@@ -139,6 +139,8 @@ export interface ApiInstallmentOverviewFilters {
   status?: string;
   installmentAmountMin?: number | null;
   installmentAmountMax?: number | null;
+  installmentCountMode?: string;
+  installmentCountValue?: number | null;
   purchaseStart?: string | null;
   purchaseEnd?: string | null;
   sortBy?: string;
@@ -147,6 +149,7 @@ export interface ApiInstallmentOverviewFilters {
 
 export interface ApiInstallmentOverviewItem {
   transaction_id?: number | string;
+  installment_transaction_id?: number | string | null;
   installment_purchase_id?: number | string;
   description?: string;
   category?: string;
@@ -158,9 +161,12 @@ export interface ApiInstallmentOverviewItem {
   installment_amount?: number;
   installment_count?: number;
   current_installment?: number;
+  display_installment_number?: number;
   remaining_installments?: number;
   remaining_balance?: number;
   next_due_date?: string | null;
+  installment_due_date?: string | null;
+  installment_month?: string | null;
   status?: string;
 }
 
@@ -191,6 +197,8 @@ export interface ApiInstallmentsOverviewResponse {
     cards?: Array<{ id?: number | string; name?: string }>;
     categories?: Array<{ id?: number | string; label?: string }>;
     statuses?: string[];
+    installment_count_values?: number[];
+    remaining_installment_values?: number[];
     installment_amount_range?: {
       min?: number;
       max?: number;
@@ -590,6 +598,7 @@ export interface HealthStatus {
 export type InstallmentStatus = "active" | "paid" | "overdue";
 export type InstallmentSortBy = "smart" | "installment_amount" | "remaining_balance" | "next_due_date" | "purchase_date";
 export type InstallmentSortOrder = "asc" | "desc";
+export type InstallmentCountMode = "all" | "installment_count" | "remaining_installments";
 
 export interface InstallmentsOverviewFilters {
   cardId: string;
@@ -597,6 +606,8 @@ export interface InstallmentsOverviewFilters {
   status: "all" | InstallmentStatus;
   installmentAmountMin: number | null;
   installmentAmountMax: number | null;
+  installmentCountMode: InstallmentCountMode;
+  installmentCountValue: number | null;
   purchaseStart: string | null;
   purchaseEnd: string | null;
   sortBy: InstallmentSortBy;
@@ -605,6 +616,7 @@ export interface InstallmentsOverviewFilters {
 
 export interface InstallmentOverviewItem {
   transactionId: number | string;
+  installmentTransactionId: number | string | null;
   installmentPurchaseId: number | string;
   description: string;
   category: string;
@@ -616,9 +628,12 @@ export interface InstallmentOverviewItem {
   installmentAmount: number;
   installmentCount: number;
   currentInstallment: number;
+  displayInstallmentNumber: number;
   remainingInstallments: number;
   remainingBalance: number;
   nextDueDate: string | null;
+  installmentDueDate: string | null;
+  installmentMonth: string | null;
   status: InstallmentStatus;
 }
 
@@ -649,6 +664,8 @@ export interface InstallmentsOverview {
     cards: Array<{ id: number | string; name: string }>;
     categories: Array<{ id: number | string; label: string }>;
     statuses: InstallmentStatus[];
+    installmentCountValues: number[];
+    remainingInstallmentValues: number[];
     installmentAmountRange: {
       min: number;
       max: number;

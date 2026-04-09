@@ -10,16 +10,22 @@ import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstallmentsOverview } from "@/hooks/use-installments";
+import { resolveInstallmentsPeriodRange } from "@/lib/installments-period-filter";
 import type { InstallmentOverviewItem, InstallmentsOverviewFilters } from "@/types/api";
+import type { InstallmentsPeriodPreset, InstallmentsPeriodRange } from "@/lib/installments-period-filter";
 
+const defaultPeriodPreset: InstallmentsPeriodPreset = "current_month";
+const defaultPeriodRange = resolveInstallmentsPeriodRange(defaultPeriodPreset);
 const defaultFilters: InstallmentsOverviewFilters = {
   cardId: "all",
   categoryId: "all",
   status: "all",
   installmentAmountMin: null,
   installmentAmountMax: null,
-  purchaseStart: null,
-  purchaseEnd: null,
+  installmentCountMode: "all",
+  installmentCountValue: null,
+  purchaseStart: defaultPeriodRange.startDate,
+  purchaseEnd: defaultPeriodRange.endDate,
   sortBy: "smart",
   sortOrder: "desc",
 };
@@ -58,9 +64,11 @@ function buildCsv(filters: InstallmentsOverviewFilters, items: InstallmentOvervi
     "card_name",
     "category",
     "purchase_date",
+    "installment_month",
+    "installment_due_date",
     "total_amount",
     "installment_amount",
-    "current_installment",
+    "display_installment_number",
     "installment_count",
     "remaining_installments",
     "remaining_balance",
@@ -73,9 +81,11 @@ function buildCsv(filters: InstallmentsOverviewFilters, items: InstallmentOvervi
     item.cardName,
     item.category,
     item.purchaseDate,
+    item.installmentMonth ?? "",
+    item.installmentDueDate ?? "",
     item.totalAmount.toFixed(2),
     item.installmentAmount.toFixed(2),
-    String(item.currentInstallment),
+    String(item.displayInstallmentNumber),
     String(item.installmentCount),
     String(item.remainingInstallments),
     item.remainingBalance.toFixed(2),
@@ -100,10 +110,66 @@ function buildCsv(filters: InstallmentsOverviewFilters, items: InstallmentOvervi
 }
 
 export default function InstallmentsPage() {
-  const [filters, setFilters] = useState<InstallmentsOverviewFilters>(defaultFilters);
-  const installmentsQuery = useInstallmentsOverview(filters);
+  const [draftFilters, setDraftFilters] = useState<InstallmentsOverviewFilters>(defaultFilters);
+  const [appliedFilters, setAppliedFilters] = useState<InstallmentsOverviewFilters>(defaultFilters);
+  const [draftPeriodPreset, setDraftPeriodPreset] = useState<InstallmentsPeriodPreset>(defaultPeriodPreset);
+  const [customPeriodRange, setCustomPeriodRange] = useState<InstallmentsPeriodRange | null>(null);
+  const installmentsQuery = useInstallmentsOverview(appliedFilters);
   const overview = installmentsQuery.data;
   const next3Months = useMemo(() => overview?.charts.next3MonthsProjection ?? [], [overview]);
+
+  const handlePeriodPresetChange = (preset: InstallmentsPeriodPreset) => {
+    setDraftPeriodPreset(preset);
+
+    if (preset === "custom") {
+      setDraftFilters((current) => ({
+        ...current,
+        purchaseStart: customPeriodRange?.startDate ?? current.purchaseStart,
+        purchaseEnd: customPeriodRange?.endDate ?? current.purchaseEnd,
+      }));
+      return;
+    }
+
+    const nextRange = resolveInstallmentsPeriodRange(preset);
+    setDraftFilters((current) => ({
+      ...current,
+      purchaseStart: nextRange.startDate,
+      purchaseEnd: nextRange.endDate,
+    }));
+  };
+
+  const handleCustomPeriodChange = (range: InstallmentsPeriodRange) => {
+    setCustomPeriodRange(range);
+    setDraftPeriodPreset("custom");
+    setDraftFilters((current) => {
+      const nextFilters = {
+        ...current,
+        purchaseStart: range.startDate,
+        purchaseEnd: range.endDate,
+      };
+
+      setAppliedFilters(nextFilters);
+      return nextFilters;
+    });
+  };
+
+  const handleFiltersChange = (nextFilters: InstallmentsOverviewFilters) => {
+    setDraftFilters(nextFilters);
+  };
+
+  const handleApplyFilters = () => {
+    setAppliedFilters(draftFilters);
+  };
+
+  const handleResetFilters = () => {
+    setDraftPeriodPreset(defaultPeriodPreset);
+    setDraftFilters({
+      ...defaultFilters,
+    });
+    setAppliedFilters({
+      ...defaultFilters,
+    });
+  };
 
   if (installmentsQuery.isLoading) {
     return (
@@ -120,10 +186,15 @@ export default function InstallmentsPage() {
           <InstallmentsSummaryCards overview={overview} />
 
           <InstallmentsFilters
-            filters={filters}
+            filters={draftFilters}
+            periodPreset={draftPeriodPreset}
             overview={overview}
-            onChange={setFilters}
-            onExportCsv={() => buildCsv(filters, overview.items)}
+            onChange={handleFiltersChange}
+            onPeriodPresetChange={handlePeriodPresetChange}
+            onCustomPeriodChange={handleCustomPeriodChange}
+            onApplyFilters={handleApplyFilters}
+            onResetFilters={handleResetFilters}
+            onExportCsv={() => buildCsv(appliedFilters, overview.items)}
           />
 
           <InstallmentsInsights overview={overview} />
@@ -146,7 +217,7 @@ export default function InstallmentsPage() {
             <div className="glass-card rounded-2xl border border-border/40 p-8 text-center">
               <h2 className="text-lg font-semibold text-foreground">Nenhum parcelamento encontrado</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ajuste os filtros ou revise as transacoes de cartao parceladas para visualizar dados nesta tela.
+                Ajuste o periodo das parcelas ou revise as transacoes de cartao parceladas para visualizar dados nesta tela.
               </p>
             </div>
           )}

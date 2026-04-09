@@ -12,6 +12,8 @@ export const installmentsOverviewQueryKey = (filters: Partial<InstallmentsOvervi
     filters.status ?? "all",
     filters.installmentAmountMin ?? "min:any",
     filters.installmentAmountMax ?? "max:any",
+    filters.installmentCountMode ?? "count-mode:all",
+    filters.installmentCountValue ?? "count-value:any",
     filters.purchaseStart ?? "start:any",
     filters.purchaseEnd ?? "end:any",
     filters.sortBy ?? "smart",

@@ -77,6 +77,8 @@ app.get("/api/installments/overview", async (request, response, next) => {
       status: request.query.status,
       installmentAmountMin: request.query.installmentAmountMin,
       installmentAmountMax: request.query.installmentAmountMax,
+      installmentCountMode: request.query.installmentCountMode,
+      installmentCountValue: request.query.installmentCountValue,
       purchaseStart: request.query.purchaseStart,
       purchaseEnd: request.query.purchaseEnd,
       sortBy: request.query.sortBy,

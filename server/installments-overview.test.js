@@ -182,6 +182,7 @@ describe("installments overview helpers", () => {
 
     expect(overview.items.find((item) => item.installment_purchase_id === 10)).toMatchObject({
       current_installment: 3,
+      display_installment_number: 3,
       remaining_installments: 2,
       remaining_balance: 308.5,
       status: "active",
@@ -204,6 +205,49 @@ describe("installments overview helpers", () => {
     });
   });
 
+  it("filters by total installments or remaining installments", () => {
+    const byTotalInstallments = buildInstallmentsOverviewResponse(
+      baseRows,
+      { installmentCountMode: "installment_count", installmentCountValue: 10 },
+      "2026-04-09",
+    );
+    const byRemainingInstallments = buildInstallmentsOverviewResponse(
+      baseRows,
+      { installmentCountMode: "remaining_installments", installmentCountValue: 2 },
+      "2026-04-09",
+    );
+
+    expect(byTotalInstallments.items).toHaveLength(1);
+    expect(byTotalInstallments.items[0].installment_purchase_id).toBe(10);
+    expect(byRemainingInstallments.items).toHaveLength(1);
+    expect(byRemainingInstallments.items[0].installment_purchase_id).toBe(10);
+  });
+
+  it("expands one purchase into multiple installment rows when the filtered period covers them", () => {
+    const overview = buildInstallmentsOverviewResponse(
+      baseRows,
+      {
+        purchaseStart: "2026-04-01",
+        purchaseEnd: "2026-06-30",
+        cardId: 2,
+      },
+      "2026-04-09",
+    );
+
+    const notebookRows = overview.items.filter((item) => item.installment_purchase_id === 10);
+
+    expect(notebookRows).toHaveLength(2);
+    expect(notebookRows.map((item) => item.installment_month)).toEqual(["2026-04", "2026-05"]);
+    expect(notebookRows.map((item) => item.display_installment_number)).toEqual([3, 4]);
+    expect(notebookRows.map((item) => item.installment_due_date)).toEqual(["2026-04-15", "2026-05-15"]);
+    expect(overview.items.find((item) => item.installment_purchase_id === 12)).toMatchObject({
+      installment_month: "2026-04",
+      display_installment_number: 1,
+      installment_due_date: "2026-04-03",
+    });
+    expect(overview.monthly_commitment).toBeCloseTo(669.49, 2);
+  });
+
   it("derives due dates and tolerates installment rounding", () => {
     const overview = buildInstallmentsOverviewResponse(baseRows, { cardId: 2 }, "2026-04-09");
     const roundedItem = overview.items.find((item) => item.installment_purchase_id === 12);
@@ -211,6 +255,7 @@ describe("installments overview helpers", () => {
     expect(deriveNextDueDate("2026-04-03", 15)).toBe("2026-04-15");
     expect(deriveNextDueDate("2026-04-20", 15)).toBe("2026-05-15");
     expect(roundedItem?.total_amount).toBeCloseTo(360.99, 2);
+    expect(roundedItem?.installment_due_date).toBe("2026-04-03");
     expect(Math.abs((roundedItem?.installment_amount ?? 0) * (roundedItem?.installment_count ?? 0) - (roundedItem?.total_amount ?? 0))).toBeLessThanOrEqual(
       0.01,
     );

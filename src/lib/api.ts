@@ -358,6 +358,12 @@ export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOvervie
         typeof appliedFilters.installmentAmountMin === "number" ? appliedFilters.installmentAmountMin : null,
       installmentAmountMax:
         typeof appliedFilters.installmentAmountMax === "number" ? appliedFilters.installmentAmountMax : null,
+      installmentCountMode:
+        appliedFilters.installmentCountMode === "installment_count" || appliedFilters.installmentCountMode === "remaining_installments"
+          ? appliedFilters.installmentCountMode
+          : "all",
+      installmentCountValue:
+        typeof appliedFilters.installmentCountValue === "number" ? appliedFilters.installmentCountValue : null,
       purchaseStart: safeString(appliedFilters.purchaseStart, "") || null,
       purchaseEnd: safeString(appliedFilters.purchaseEnd, "") || null,
       sortBy:
@@ -416,6 +422,12 @@ export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOvervie
       })),
       statuses: (filterOptions.statuses ?? [])
         .filter((value): value is "active" | "paid" | "overdue" => value === "active" || value === "paid" || value === "overdue"),
+      installmentCountValues: (filterOptions.installment_count_values ?? []).filter(
+        (value): value is number => typeof value === "number" && Number.isFinite(value),
+      ),
+      remainingInstallmentValues: (filterOptions.remaining_installment_values ?? []).filter(
+        (value): value is number => typeof value === "number" && Number.isFinite(value),
+      ),
       installmentAmountRange: {
         min: safeNumber(filterOptions.installment_amount_range?.min),
         max: safeNumber(filterOptions.installment_amount_range?.max),
@@ -423,6 +435,7 @@ export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOvervie
     },
     items: (response.items ?? []).map((item) => ({
       transactionId: item.transaction_id ?? "transaction",
+      installmentTransactionId: item.installment_transaction_id ?? null,
       installmentPurchaseId: item.installment_purchase_id ?? "installment",
       description: safeString(item.description, "Parcelamento"),
       category: safeString(item.category, "Sem categoria"),
@@ -434,9 +447,12 @@ export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOvervie
       installmentAmount: safeNumber(item.installment_amount),
       installmentCount: safeNumber(item.installment_count),
       currentInstallment: safeNumber(item.current_installment),
+      displayInstallmentNumber: safeNumber(item.display_installment_number, safeNumber(item.current_installment)),
       remainingInstallments: safeNumber(item.remaining_installments),
       remainingBalance: safeNumber(item.remaining_balance),
       nextDueDate: safeString(item.next_due_date, "") || null,
+      installmentDueDate: safeString(item.installment_due_date, "") || null,
+      installmentMonth: safeString(item.installment_month, "") || null,
       status: item.status === "paid" || item.status === "overdue" ? item.status : "active",
     })),
   };
@@ -631,6 +647,8 @@ export async function getInstallmentsOverview(filters: Partial<InstallmentsOverv
       status: filters.status,
       installmentAmountMin: filters.installmentAmountMin ?? undefined,
       installmentAmountMax: filters.installmentAmountMax ?? undefined,
+      installmentCountMode: filters.installmentCountMode === "all" ? undefined : filters.installmentCountMode,
+      installmentCountValue: filters.installmentCountValue ?? undefined,
       purchaseStart: filters.purchaseStart ?? undefined,
       purchaseEnd: filters.purchaseEnd ?? undefined,
       sortBy: filters.sortBy,

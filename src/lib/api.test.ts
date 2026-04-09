@@ -348,6 +348,8 @@ describe("api mappers", () => {
         status: "overdue",
         installmentAmountMin: 50,
         installmentAmountMax: 300,
+        installmentCountMode: "remaining_installments",
+        installmentCountValue: 6,
         purchaseStart: "2026-01-01",
         purchaseEnd: "2026-12-31",
         sortBy: "smart",
@@ -378,6 +380,8 @@ describe("api mappers", () => {
         cards: [{ id: 2, name: "Nubank" }],
         categories: [{ id: 1, label: "Eletronicos" }],
         statuses: ["active", "paid", "overdue"],
+        installment_count_values: [2, 8],
+        remaining_installment_values: [1, 6],
         installment_amount_range: {
           min: 50,
           max: 300,
@@ -386,6 +390,7 @@ describe("api mappers", () => {
       items: [
         {
           transaction_id: 10,
+          installment_transaction_id: 10,
           installment_purchase_id: 12,
           description: "Notebook",
           category: "Eletronicos",
@@ -397,18 +402,28 @@ describe("api mappers", () => {
           installment_amount: 150,
           installment_count: 8,
           current_installment: 3,
+          display_installment_number: 3,
           remaining_installments: 6,
           remaining_balance: 900,
           next_due_date: "2026-04-15",
+          installment_due_date: "2026-04-15",
+          installment_month: "2026-04",
           status: "overdue",
         },
       ],
     });
 
     expect(result.appliedFilters.cardId).toBe("2");
+    expect(result.appliedFilters.installmentCountMode).toBe("remaining_installments");
+    expect(result.appliedFilters.installmentCountValue).toBe(6);
     expect(result.alerts.concentration.triggered).toBe(true);
     expect(result.filterOptions.statuses).toEqual(["active", "paid", "overdue"]);
+    expect(result.filterOptions.installmentCountValues).toEqual([2, 8]);
+    expect(result.filterOptions.remainingInstallmentValues).toEqual([1, 6]);
     expect(result.items[0].status).toBe("overdue");
     expect(result.items[0].installmentAmount).toBe(150);
+    expect(result.items[0].displayInstallmentNumber).toBe(3);
+    expect(result.items[0].installmentDueDate).toBe("2026-04-15");
+    expect(result.items[0].installmentMonth).toBe("2026-04");
   });
 });

@@ -209,15 +209,28 @@ export default function TransactionsPage() {
     groupLabel: "",
     groupColor: "bg-income",
   });
+  const transactionBanks = useMemo(
+    () => banks.filter((bank) => bank.accountType === "bank_account" || bank.accountType === "credit_card"),
+    [banks],
+  );
+  const visibleTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (transaction) =>
+          transaction.housingId === null &&
+          (transaction.account.accountType === "bank_account" || transaction.account.accountType === "credit_card"),
+      ),
+    [transactions],
+  );
 
-  const { filteredTransactions, summaryCardsData, categoryCounts } = useFilteredTransactionsData(transactions, categories, {
+  const { filteredTransactions, summaryCardsData, categoryCounts } = useFilteredTransactionsData(visibleTransactions, categories, {
     search,
     typeFilter,
     categoryFilter,
     range: dateRange,
   });
 
-  const deleteTarget = transactions.find((transaction) => String(transaction.id) === deleteTargetId) ?? null;
+  const deleteTarget = visibleTransactions.find((transaction) => String(transaction.id) === deleteTargetId) ?? null;
   const isEditing = Boolean(transactionForm.id);
   const filteredTransactionCategories = useMemo(
     () => categories.filter((category) => category.transactionType === transactionForm.type),
@@ -463,7 +476,7 @@ export default function TransactionsPage() {
                 <SelectValue placeholder="Banco ou conta" />
               </SelectTrigger>
               <SelectContent>
-                {banks.map((bank) => (
+                {transactionBanks.map((bank) => (
                   <SelectItem key={bank.id} value={String(bank.id)}>
                     {bank.name}
                   </SelectItem>
@@ -709,7 +722,7 @@ export default function TransactionsPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_220px]">
         <div className="glass-card rounded-2xl border border-border/40 p-5">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-[1.7rem] font-semibold text-foreground">Todas as Transacoes</h2>
+            <h2 className="text-[1.7rem] font-semibold text-foreground">Todas as Transações</h2>
             <span className="text-sm text-muted-foreground">{filteredTransactions.length} transações</span>
           </div>
 

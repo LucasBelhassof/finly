@@ -39,6 +39,7 @@ export interface ApiTransaction {
   formattedAmount?: string;
   occurredOn?: string;
   relativeDate?: string;
+  housingId?: number | string | null;
   isInstallment?: boolean;
   installmentPurchaseId?: number | string | null;
   installmentNumber?: number | null;
@@ -388,6 +389,7 @@ export interface TransactionItem {
   formattedAmount: string;
   occurredOn: string;
   relativeDate: string;
+  housingId: number | string | null;
   isInstallment: boolean;
   installmentPurchaseId: number | string | null;
   installmentNumber: number | null;

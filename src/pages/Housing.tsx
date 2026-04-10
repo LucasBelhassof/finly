@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
@@ -15,7 +16,6 @@ type HousingFormState = {
   description: string;
   type: HousingExpenseType;
   amount: string;
-  dueDay: string;
   startDate: string;
   installmentCount: string;
   bankConnectionId: string;
@@ -37,7 +37,6 @@ function buildEmptyForm(): HousingFormState {
     description: "",
     type: "rent",
     amount: "",
-    dueDay: "",
     startDate: new Date().toISOString().slice(0, 10),
     installmentCount: "",
     bankConnectionId: "none",
@@ -79,6 +78,16 @@ function isFinancingType(type: HousingExpenseType) {
   return type === "home_financing" || type === "vehicle_financing";
 }
 
+function getDueDayFromDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    return Number.NaN;
+  }
+
+  return day;
+}
+
 export default function HousingPage() {
   const { data: banks = [], isLoading: banksLoading } = useBanks();
   const { data: categories = [] } = useCategories();
@@ -108,7 +117,6 @@ export default function HousingPage() {
       description: expense.description,
       type: expense.expenseType,
       amount: formatCurrencyForInput(expense.amount),
-      dueDay: String(expense.dueDay),
       startDate: expense.startDate,
       installmentCount: expense.installmentCount ? String(expense.installmentCount) : "",
       bankConnectionId: String(expense.bank.id),
@@ -118,7 +126,7 @@ export default function HousingPage() {
 
   const buildPayload = () => {
     const amount = parseCurrencyInput(form.amount);
-    const dueDay = Number(form.dueDay);
+    const dueDay = getDueDayFromDate(form.startDate);
     const installmentCount = Number(form.installmentCount);
 
     if (
@@ -131,7 +139,7 @@ export default function HousingPage() {
       !form.startDate ||
       form.bankConnectionId === "none"
     ) {
-      toast.error("Informe descricao, valor, vencimento, data inicial e conta validos.");
+      toast.error("Informe descricao, valor, data da cobranca e conta validos.");
       return null;
     }
 
@@ -256,28 +264,18 @@ export default function HousingPage() {
               </SelectContent>
             </Select>
 
-            <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
-              <Input
-                value={form.amount}
-                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                placeholder="Valor mensal"
-                inputMode="decimal"
-                className="h-11 rounded-xl border-border/60 bg-secondary/35"
-              />
-              <Input
-                value={form.dueDay}
-                onChange={(event) => setForm((current) => ({ ...current, dueDay: event.target.value }))}
-                placeholder="Dia"
-                inputMode="numeric"
-                className="h-11 rounded-xl border-border/60 bg-secondary/35"
-              />
-            </div>
-
             <Input
-              value={form.startDate}
-              onChange={(event) => setForm((current) => ({ ...current, startDate: event.target.value }))}
-              type="date"
+              value={form.amount}
+              onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+              placeholder="Valor mensal"
+              inputMode="decimal"
               className="h-11 rounded-xl border-border/60 bg-secondary/35"
+            />
+
+            <DatePickerInput
+              value={form.startDate}
+              onChange={(value) => setForm((current) => ({ ...current, startDate: value }))}
+              placeholder="Selecione a data da cobranca"
             />
 
             {isFinancing ? (

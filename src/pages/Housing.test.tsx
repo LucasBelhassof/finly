@@ -60,6 +60,18 @@ vi.mock("@/components/ui/sonner", () => ({
   },
 }));
 
+vi.mock("@/components/ui/date-picker-input", () => ({
+  DatePickerInput: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+  }) => <input aria-label={placeholder ?? "data"} value={value} onChange={(event) => onChange(event.target.value)} />,
+}));
+
 vi.mock("@/components/ui/select", () => ({
   Select: ({
     children,
@@ -161,8 +173,8 @@ describe("HousingPage", () => {
     fireEvent.change(screen.getByPlaceholderText(/valor mensal/i), {
       target: { value: "2000,00" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Dia"), {
-      target: { value: "5" },
+    fireEvent.change(screen.getByLabelText(/selecione a data da cobranca/i), {
+      target: { value: "2026-04-05" },
     });
     fireEvent.change(screen.getAllByRole("combobox")[1], {
       target: { value: "10" },
@@ -176,6 +188,7 @@ describe("HousingPage", () => {
           expenseType: "rent",
           amount: 2000,
           dueDay: 5,
+          startDate: "2026-04-05",
           bankConnectionId: "10",
           categoryId: 20,
           installmentCount: null,
@@ -196,8 +209,8 @@ describe("HousingPage", () => {
     fireEvent.change(screen.getByPlaceholderText(/valor mensal/i), {
       target: { value: "1500,00" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Dia"), {
-      target: { value: "10" },
+    fireEvent.change(screen.getByLabelText(/selecione a data da cobranca/i), {
+      target: { value: "2026-04-10" },
     });
     fireEvent.change(screen.getAllByRole("combobox")[1], {
       target: { value: "10" },

@@ -35,7 +35,7 @@ export default function InsightsPage() {
             <h2 className="mb-3 text-lg font-semibold text-foreground">Leitura rapida</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {topCategory
-                ? `${topCategory.label} concentra ${topCategory.percentage}% do gasto do periodo e soma ${topCategory.formattedTotal}.`
+                ? `${topCategory.label} concentra ${topCategory.percentage}% do gasto do período e soma ${topCategory.formattedTotal}.`
                 : "Ainda nao ha dados suficientes para resumir os gastos por categoria."}
             </p>
           </div>

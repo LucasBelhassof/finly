@@ -255,6 +255,7 @@ export function mapTransaction(transaction: ApiTransaction): TransactionItem {
     ),
     occurredOn: safeString(transaction.occurredOn),
     relativeDate: safeString(transaction.relativeDate, safeString(transaction.occurredOn, "--")),
+    housingId: transaction.housingId ?? null,
     isInstallment: Boolean(transaction.isInstallment),
     installmentPurchaseId: transaction.installmentPurchaseId ?? null,
     installmentNumber: typeof transaction.installmentNumber === "number" ? transaction.installmentNumber : null,

@@ -144,13 +144,13 @@ export default function TransactionsDateFilter({
             )}
           >
             <CalendarRange size={14} />
-            {preset === "custom" ? customLabel : "Periodo"}
+            {preset === "custom" ? customLabel : "Período"}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[326px] rounded-2xl border-border/60 bg-card p-3">
           <div className="space-y-3">
             <div className="space-y-1 text-center">
-              <p className="text-sm font-medium text-foreground">Periodo personalizado</p>
+              <p className="text-sm font-medium text-foreground">Período Personalizado</p>
               <p className="text-xs text-muted-foreground">
                 {draftCommittedRange?.from && draftCommittedRange?.to
                   ? "Intervalo pronto para aplicar."

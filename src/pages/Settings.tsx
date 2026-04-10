@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const { data, isLoading, isError } = useHealth();
 
   return (
-    <AppShell title="Configuracoes" description="Status da integracao e parametros do ambiente">
+    <AppShell title="Configurações" description="Status da integração e parametros do ambiente">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="glass-card p-5">
           <p className="text-sm text-muted-foreground">API</p>
@@ -46,7 +46,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="glass-card p-5">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Diagnostico</h2>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Diagnóstico</h2>
 
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between rounded-lg bg-secondary/30 px-4 py-3">
@@ -73,9 +73,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="glass-card p-5">
-          <h2 className="mb-4 text-lg font-semibold text-foreground">Observacoes</h2>
+          <h2 className="mb-4 text-lg font-semibold text-foreground">Observações</h2>
           <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            <p>As rotas da sidebar agora estao conectadas ao React Router e usam os dados reais da API.</p>
+            <p>As rotas da sidebar agora estão conectadas ao React Router e usam os dados reais da API.</p>
             <p>As migrations do Postgres podem ser reaplicadas com `npm run db:migrate`.</p>
             <p>Para recriar o schema inteiro do banco local, use `npm run db:fresh`.</p>
           </div>

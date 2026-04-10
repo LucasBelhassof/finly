@@ -13,7 +13,7 @@ function ExpensesListSkeleton() {
   return (
     <div className="glass-card p-5 animate-fade-in">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-foreground">Ultimas Transacoes</h3>
+        <h3 className="font-semibold text-foreground">Últimas Transações</h3>
         <Skeleton className="h-4 w-16" />
       </div>
 
@@ -44,7 +44,7 @@ export default function ExpensesList({ transactions = [], isLoading, isError }: 
   return (
     <div className="glass-card p-5 animate-fade-in">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-foreground">Ultimas Transacoes</h3>
+        <h3 className="font-semibold text-foreground">Últimas Transações</h3>
         <Link to={appRoutes.transactions} className="text-xs text-primary hover:underline">
           Ver todas
         </Link>

@@ -217,7 +217,7 @@ export default function InstallmentsPage() {
             <div className="glass-card rounded-2xl border border-border/40 p-8 text-center">
               <h2 className="text-lg font-semibold text-foreground">Nenhum parcelamento encontrado</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ajuste o periodo das parcelas ou revise as transacoes de cartao parceladas para visualizar dados nesta tela.
+                Ajuste o período das parcelas ou revise as transacoes de cartao parceladas para visualizar dados nesta tela.
               </p>
             </div>
           )}

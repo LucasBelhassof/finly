@@ -219,7 +219,7 @@ export default function InstallmentsFilters({
         </label>
 
         <label className="space-y-1 text-sm text-muted-foreground">
-          <span>Periodo das parcelas</span>
+          <span>período das parcelas</span>
           <div className={shouldShowCustomPeriodInput ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2" : "grid grid-cols-1"}>
             <Select
               value={periodPreset}

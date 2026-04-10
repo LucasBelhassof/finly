@@ -13,7 +13,7 @@ vi.mock("./pages/Index.tsx", () => ({ default: () => <h1>Dashboard</h1> }));
 vi.mock("./pages/Insights.tsx", () => ({ default: () => <h1>Insights</h1> }));
 vi.mock("./pages/NotFound.tsx", () => ({ default: () => <h1>Not found</h1> }));
 vi.mock("./pages/Profile.tsx", () => ({ default: () => <h1>Perfil</h1> }));
-vi.mock("./pages/Settings.tsx", () => ({ default: () => <h1>Configuracoes</h1> }));
+vi.mock("./pages/Settings.tsx", () => ({ default: () => <h1>Configurações</h1> }));
 vi.mock("./pages/Transactions.tsx", () => ({ default: () => <h1>Transacoes</h1> }));
 
 describe("App routes", () => {

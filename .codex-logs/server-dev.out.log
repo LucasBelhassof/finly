@@ -12,3 +12,16 @@ Restarting 'server/index.js'
 ◇ injected env (10) from .env // tip: ⌁ auth for agents [www.vestauth.com]
 Finance backend listening on http://localhost:3001
 Completed running 'server/index.js'. Waiting for file changes before restarting...
+Restarting 'server/index.js'
+◇ injected env (10) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Finance backend listening on http://localhost:3001
+Completed running 'server/index.js'. Waiting for file changes before restarting...
+Restarting 'server/index.js'
+◇ injected env (10) from .env // tip: ⌘ override existing { override: true }
+Finance backend listening on http://localhost:3001
+Restarting 'server/index.js'
+◇ injected env (10) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+Finance backend listening on http://localhost:3001
+Restarting 'server/index.js'
+◇ injected env (10) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+Finance backend listening on http://localhost:3001

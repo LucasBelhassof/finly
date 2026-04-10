@@ -183,7 +183,7 @@ export function DateRangePickerInput({
   startValue,
   endValue,
   onChange,
-  placeholder = "Selecione um periodo",
+  placeholder = "Selecione um período",
   className,
   disabled,
 }: DateRangePickerInputProps) {
@@ -272,7 +272,7 @@ export function DateRangePickerInput({
       <PopoverContent align="start" className="w-[326px] rounded-2xl border-border/60 bg-card p-3">
         <div className="space-y-3">
           <div className="space-y-1 text-center">
-            <p className="text-sm font-medium text-foreground">Periodo personalizado</p>
+            <p className="text-sm font-medium text-foreground">Período Personalizado</p>
             <p className="text-xs text-muted-foreground">
               {draftCommittedRange?.from && draftCommittedRange?.to
                 ? "Intervalo pronto para aplicar."

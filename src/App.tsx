@@ -7,7 +7,7 @@ import { appRoutes } from "@/lib/routes";
 import AccountsPage from "./pages/Accounts.tsx";
 import ChatPage from "./pages/Chat.tsx";
 import ExpenseMetricsPage from "./pages/ExpenseMetrics.tsx";
-import FinancingPage from "./pages/Financing.tsx";
+import HousingPage from "./pages/Housing.tsx";
 import InstallmentsPage from "./pages/Installments.tsx";
 import Index from "./pages/Index.tsx";
 import InsightsPage from "./pages/Insights.tsx";
@@ -29,7 +29,8 @@ const App = () => (
           <Route path={appRoutes.transactions} element={<TransactionsPage />} />
           <Route path={appRoutes.installments} element={<Navigate to={appRoutes.expenseManagementInstallments} replace />} />
           <Route path={appRoutes.expenseManagementInstallments} element={<InstallmentsPage />} />
-          <Route path={appRoutes.expenseManagementFinancing} element={<FinancingPage />} />
+          <Route path={appRoutes.expenseManagementFinancing} element={<Navigate to={appRoutes.expenseManagementHousing} replace />} />
+          <Route path={appRoutes.expenseManagementHousing} element={<HousingPage />} />
           <Route path={appRoutes.expenseManagementMetrics} element={<ExpenseMetricsPage />} />
           <Route path={appRoutes.chat} element={<ChatPage />} />
           <Route path={appRoutes.insights} element={<InsightsPage />} />

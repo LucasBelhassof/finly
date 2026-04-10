@@ -5,6 +5,7 @@ export const appRoutes = {
   expenseManagement: "/gestao-de-gastos",
   expenseManagementInstallments: "/gestao-de-gastos/parcelamentos",
   expenseManagementFinancing: "/gestao-de-gastos/financiamentos",
+  expenseManagementHousing: "/gestao-de-gastos/habitacao",
   expenseManagementMetrics: "/gestao-de-gastos/metricas",
   chat: "/chat",
   insights: "/insights",

@@ -46,9 +46,9 @@ describe("Sidebar", () => {
       "href",
       appRoutes.expenseManagementInstallments,
     );
-    expect(screen.getByRole("link", { name: /financiamentos/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /habitação/i })).toHaveAttribute(
       "href",
-      appRoutes.expenseManagementFinancing,
+      appRoutes.expenseManagementHousing,
     );
     expect(screen.getByRole("link", { name: /métricas/i })).toHaveAttribute(
       "href",

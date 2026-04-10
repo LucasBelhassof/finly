@@ -570,7 +570,7 @@ export async function validateSeedFinancialInvariants(client, userId) {
         AND c.transaction_type = 'expense'
         AND (
           b.id IS NULL
-          OR b.account_type NOT IN ('bank_account', 'credit_card')
+          OR b.account_type NOT IN ('bank_account', 'credit_card', 'cash')
         )
     `,
     [userId],

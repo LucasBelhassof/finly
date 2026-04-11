@@ -59,6 +59,7 @@ export interface ApiCategory {
   groupSlug?: string;
   groupLabel?: string;
   groupColor?: string;
+  isSystem?: boolean;
 }
 
 export interface ApiSpendingItem {
@@ -410,6 +411,7 @@ export interface CategoryItem {
   groupSlug: string;
   groupLabel: string;
   groupColor: string;
+  isSystem?: boolean;
 }
 
 export interface CreateCategoryInput {

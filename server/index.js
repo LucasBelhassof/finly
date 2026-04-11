@@ -9,6 +9,7 @@ import {
   createHousing,
   createTransaction,
   updateCategory,
+  deleteCategory,
   deleteBankConnection,
   deleteHousing,
   deleteTransaction,
@@ -255,6 +256,22 @@ app.patch("/api/categories/:id", async (request, response, next) => {
 
     const category = await updateCategory(categoryId, request.body ?? {});
     response.json(category);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/categories/:id", async (request, response, next) => {
+  try {
+    const categoryId = Number.parseInt(request.params.id, 10);
+
+    if (!Number.isInteger(categoryId)) {
+      response.status(400).json({ error: "invalid_category_id" });
+      return;
+    }
+
+    await deleteCategory(categoryId);
+    response.status(204).send();
   } catch (error) {
     next(error);
   }

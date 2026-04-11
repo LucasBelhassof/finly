@@ -237,6 +237,7 @@ export function mapCategory(category: ApiCategory): CategoryItem {
     groupSlug: safeString(category.groupSlug, "outros"),
     groupLabel: safeString(category.groupLabel, "Outros"),
     groupColor: safeString(category.groupColor, "bg-muted-foreground"),
+    isSystem: Boolean(category.isSystem),
   };
 }
 
@@ -869,6 +870,12 @@ export async function patchCategory(input: UpdateCategoryInput) {
   });
 
   return mapCategory(response);
+}
+
+export async function deleteCategory(id: number | string) {
+  await request<null>(`/api/categories/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export async function postTransaction(input: CreateTransactionInput) {

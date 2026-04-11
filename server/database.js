@@ -210,6 +210,7 @@ function mapCategoryRow(row) {
     groupSlug: row.group_slug,
     groupLabel: row.group_label,
     groupColor: row.group_color,
+    isSystem: Boolean(row.is_system),
   };
 }
 
@@ -1075,7 +1076,7 @@ export async function listCategories() {
   await initializeDatabase();
   const result = await pool.query(
     `
-      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color
+      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
       ORDER BY sort_order ASC, label ASC, id ASC
     `,
@@ -1118,9 +1119,9 @@ export async function createCategory(input) {
 
   const result = await pool.query(
     `
-      INSERT INTO categories (slug, label, transaction_type, icon, color, group_slug, group_label, group_color, sort_order)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color
+      INSERT INTO categories (slug, label, transaction_type, icon, color, group_slug, group_label, group_color, sort_order, is_system)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE)
+      RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
     `,
     [slug, label, transactionType, icon, color, groupSlug, groupLabel, groupColor, sortOrderResult.rows[0].next_sort_order],
   );
@@ -1161,7 +1162,7 @@ export async function updateCategory(categoryId, input) {
           group_label = $6,
           group_color = $7
       WHERE id = $1
-      RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color
+      RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
     `,
     [categoryId, label, icon, color, groupSlug, groupLabel, groupColor],
   );
@@ -1169,10 +1170,10 @@ export async function updateCategory(categoryId, input) {
   return mapCategoryRow(result.rows[0]);
 }
 
-async function getCategoryById(categoryId) {
-  const result = await pool.query(
+async function getCategoryById(categoryId, client = pool) {
+  const result = await client.query(
     `
-      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color
+      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
       WHERE id = $1
       LIMIT 1
@@ -1183,18 +1184,69 @@ async function getCategoryById(categoryId) {
   return result.rows[0] ?? null;
 }
 
-async function getDefaultExpenseCategory(client = pool) {
+async function getCategoryBySlugAndType(slug, transactionType, client = pool) {
   const result = await client.query(
     `
-      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color
+      SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
-      WHERE transaction_type = 'expense'
-        AND slug = 'outros-despesas'
+      WHERE slug = $1
+        AND transaction_type = $2
       LIMIT 1
     `,
+    [slug, transactionType],
   );
 
   return result.rows[0] ?? null;
+}
+
+async function getDefaultExpenseCategory(client = pool) {
+  return getCategoryBySlugAndType("outros-despesas", "expense", client);
+}
+
+async function getFallbackCategoryForDeletion(category, client = pool) {
+  if (category.transaction_type === "income") {
+    return getCategoryBySlugAndType("salario", "income", client);
+  }
+
+  return getDefaultExpenseCategory(client);
+}
+
+export async function deleteCategory(categoryId) {
+  await initializeDatabase();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const category = await getCategoryById(categoryId, client);
+
+    if (!category) {
+      throw new Error("category not found");
+    }
+
+    if (category.is_system) {
+      throw new Error("system categories cannot be deleted");
+    }
+
+    const fallbackCategory = await getFallbackCategoryForDeletion(category, client);
+
+    if (!fallbackCategory) {
+      throw new Error("fallback category not found");
+    }
+
+    await client.query(`UPDATE transactions SET category_id = $2 WHERE category_id = $1`, [categoryId, fallbackCategory.id]);
+    await client.query(`UPDATE housing SET category_id = $2 WHERE category_id = $1`, [categoryId, fallbackCategory.id]);
+    await client.query(`UPDATE installment_purchases SET category_id = $2 WHERE category_id = $1`, [categoryId, fallbackCategory.id]);
+    await client.query(`UPDATE transaction_categorization_rules SET category_id = $2 WHERE category_id = $1`, [categoryId, fallbackCategory.id]);
+    await client.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function resolveCategoryForTransactionInput(rawCategoryId, amount, client = pool) {

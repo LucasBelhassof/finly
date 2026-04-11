@@ -13,6 +13,7 @@ const mockUseCreateTransaction = vi.fn();
 const mockUseUpdateTransaction = vi.fn();
 const mockUseDeleteTransaction = vi.fn();
 const mockUseUpdateCategory = vi.fn();
+const mockUseDeleteCategory = vi.fn();
 const mockUseBanks = vi.fn();
 
 vi.mock("@/hooks/use-transactions", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/hooks/use-transactions", () => ({
   useUpdateTransaction: (...args: unknown[]) => mockUseUpdateTransaction(...args),
   useDeleteTransaction: (...args: unknown[]) => mockUseDeleteTransaction(...args),
   useUpdateCategory: (...args: unknown[]) => mockUseUpdateCategory(...args),
+  useDeleteCategory: (...args: unknown[]) => mockUseDeleteCategory(...args),
 }));
 
 vi.mock("@/hooks/use-banks", () => ({
@@ -93,6 +95,7 @@ const categories: CategoryItem[] = [
     groupSlug: "alimentacao",
     groupLabel: "Alimentacao",
     groupColor: "#e76f51",
+    isSystem: true,
   },
   {
     id: 2,
@@ -105,6 +108,7 @@ const categories: CategoryItem[] = [
     groupSlug: "transporte",
     groupLabel: "Transporte",
     groupColor: "bg-info",
+    isSystem: true,
   },
   {
     id: 3,
@@ -117,6 +121,7 @@ const categories: CategoryItem[] = [
     groupSlug: "receitas",
     groupLabel: "Receitas",
     groupColor: "#22c55e",
+    isSystem: true,
   },
 ];
 
@@ -207,6 +212,7 @@ describe("TransactionsPage", () => {
     mockUseUpdateTransaction.mockReturnValue(createMutation());
     mockUseDeleteTransaction.mockReturnValue(createMutation());
     mockUseUpdateCategory.mockReturnValue(createMutation());
+    mockUseDeleteCategory.mockReturnValue(createMutation());
   });
 
   it("syncs the pie chart click with the existing category filter and toggles back to all", async () => {
@@ -275,6 +281,7 @@ describe("TransactionsPage", () => {
           groupSlug: "lazer",
           groupLabel: "Lazer",
           groupColor: "#123456",
+          isSystem: false,
         } satisfies CategoryItem,
       ],
     });
@@ -282,5 +289,46 @@ describe("TransactionsPage", () => {
     render(<TransactionsPage />);
 
     expect(screen.getAllByText("Lazer").length).toBeGreaterThan(0);
+  });
+
+  it("shows delete for user categories in the edit modal and submits deletion", async () => {
+    const deleteCategory = createMutation();
+    mockUseDeleteCategory.mockReturnValue(deleteCategory);
+    mockUseCategories.mockReturnValue({
+      data: [
+        ...categories,
+        {
+          id: 77,
+          slug: "lazer",
+          label: "Lazer",
+          transactionType: "expense",
+          iconName: "ArrowDownCircle",
+          icon: ArrowDownCircle,
+          color: "#123456",
+          groupSlug: "lazer",
+          groupLabel: "Lazer",
+          groupColor: "#123456",
+          isSystem: false,
+        } satisfies CategoryItem,
+      ],
+    });
+
+    render(<TransactionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Editar categoria Lazer/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Excluir" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Excluir" }).at(-1)!);
+
+    await waitFor(() => {
+      expect(deleteCategory.mutateAsync).toHaveBeenCalledWith("77");
+    });
+  });
+
+  it("hides delete for system categories in the edit modal", () => {
+    render(<TransactionsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Editar categoria Transporte/i }));
+
+    expect(screen.queryByRole("button", { name: "Excluir" })).not.toBeInTheDocument();
   });
 });

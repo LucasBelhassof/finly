@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   commitTransactionImport,
+  deleteCategory as deleteCategoryRequest,
   getImportAiSuggestions,
   deleteTransaction,
   getCategories,
@@ -84,6 +85,25 @@ export function useUpdateCategory() {
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
       queryClient.invalidateQueries({ queryKey: spendingQueryKey });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number | string) => deleteCategoryRequest(id),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<CategoryItem[]>(categoriesQueryKey, (items = []) =>
+        items.filter((item) => String(item.id) !== String(id)),
+      );
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+      queryClient.invalidateQueries({ queryKey: spendingQueryKey });
+      queryClient.invalidateQueries({ queryKey: insightsQueryKey });
+      queryClient.invalidateQueries({ queryKey: ["housing"] });
+      queryClient.invalidateQueries({ queryKey: ["installments", "overview"] });
     },
   });
 }

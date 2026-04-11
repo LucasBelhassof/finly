@@ -105,6 +105,14 @@ describe("transaction import helpers", () => {
   });
 
   it("matches known merchants with normalized partial search", () => {
+    expect(suggestKnownMerchantCategory("IFOOD NUPAY", categories)).toMatchObject({
+      matchedRuleId: "merchant:ifood-nupay",
+      category: { slug: "restaurantes" },
+    });
+    expect(suggestKnownMerchantCategory("IFD IFOOD", categories)).toMatchObject({
+      matchedRuleId: "merchant:ifd-ifood",
+      category: { slug: "restaurantes" },
+    });
     expect(suggestKnownMerchantCategory("UBER *TRIP SAO PAULO", categories)).toMatchObject({
       matchedRuleId: "merchant:uber-trip",
       category: { slug: "transporte" },
@@ -118,12 +126,32 @@ describe("transaction import helpers", () => {
       matchedRuleId: "merchant:amzn-mktp",
       category: { slug: "compras" },
     });
+    expect(suggestKnownMerchantCategory("KIWIFY*CURSO", categories)).toMatchObject({
+      matchedRuleId: "merchant:kiwify",
+      category: { slug: "compras" },
+    });
     expect(suggestKnownMerchantCategory("NETFLIX.COM", categories)).toMatchObject({
       matchedRuleId: "merchant:netflix-com",
       category: { slug: "assinaturas" },
     });
+    expect(suggestKnownMerchantCategory("GOOGLE YOUTUB PREM", categories)).toMatchObject({
+      matchedRuleId: "merchant:google-youtub",
+      category: { slug: "assinaturas" },
+    });
+    expect(suggestKnownMerchantCategory("MICROSOFT 365", categories)).toMatchObject({
+      matchedRuleId: "merchant:microsoft",
+      category: { slug: "assinaturas" },
+    });
     expect(suggestKnownMerchantCategory("BRADESCO SAUDE SAO PAULO", categories)).toMatchObject({
       matchedRuleId: "merchant:bradesco-saude",
+      category: { slug: "saude" },
+    });
+    expect(suggestKnownMerchantCategory("NU SEGURO VIDA", categories)).toMatchObject({
+      matchedRuleId: "merchant:nu-seguro-vida",
+      category: { slug: "saude" },
+    });
+    expect(suggestKnownMerchantCategory("SKY FIT MOOCA", categories)).toMatchObject({
+      matchedRuleId: "merchant:sky-fit",
       category: { slug: "saude" },
     });
     expect(suggestKnownMerchantCategory("PLAYSTATION-NETWORK", categories)).toMatchObject({

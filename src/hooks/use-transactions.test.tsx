@@ -4,6 +4,7 @@ import type { PropsWithChildren } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockCommitTransactionImport = vi.fn();
+const mockDeleteCategory = vi.fn();
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -11,12 +12,14 @@ vi.mock("@/lib/api", async () => {
   return {
     ...actual,
     commitTransactionImport: (...args: unknown[]) => mockCommitTransactionImport(...args),
+    deleteCategory: (...args: unknown[]) => mockDeleteCategory(...args),
   };
 });
 
 import { dashboardQueryKey } from "@/hooks/use-dashboard";
+import { housingQueryKey } from "@/hooks/use-housing";
 import { insightsQueryKey, spendingQueryKey } from "@/hooks/use-insights";
-import { transactionsQueryKey, useCommitTransactionImport } from "@/hooks/use-transactions";
+import { transactionsQueryKey, useCommitTransactionImport, useDeleteCategory, categoriesQueryKey } from "@/hooks/use-transactions";
 
 function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
@@ -89,5 +92,41 @@ describe("useCommitTransactionImport", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardQueryKey });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: spendingQueryKey });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: insightsQueryKey });
+  });
+});
+
+describe("useDeleteCategory", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes the category from cache and invalidates related views", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+
+    queryClient.setQueryData(categoriesQueryKey, [{ id: 7 }, { id: 8 }]);
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+    mockDeleteCategory.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDeleteCategory(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync(7);
+    });
+
+    expect(mockDeleteCategory).toHaveBeenCalledWith(7);
+    expect(queryClient.getQueryData(categoriesQueryKey)).toEqual([{ id: 8 }]);
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: transactionsQueryKey() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: dashboardQueryKey });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: spendingQueryKey });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: insightsQueryKey });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: housingQueryKey });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["installments", "overview"] });
   });
 });

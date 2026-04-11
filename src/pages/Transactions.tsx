@@ -39,6 +39,7 @@ import { useFilteredTransactionsData } from "@/hooks/use-filtered-transactions-d
 import {
   useCategories,
   useCreateCategory,
+  useDeleteCategory,
   useCreateTransaction,
   useDeleteTransaction,
   useTransactions,
@@ -161,6 +162,7 @@ export default function TransactionsPage() {
   const removeTransaction = useDeleteTransaction();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
+  const removeCategory = useDeleteCategory();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
@@ -171,6 +173,7 @@ export default function TransactionsPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [deleteCategoryTargetId, setDeleteCategoryTargetId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [editingCategoryTransactionId, setEditingCategoryTransactionId] = useState<string | null>(null);
   const [updatingCategoryTransactionId, setUpdatingCategoryTransactionId] = useState<string | null>(null);
@@ -223,6 +226,8 @@ export default function TransactionsPage() {
   }, [categories, categoryBreakdown, typeFilter]);
 
   const deleteTarget = visibleTransactions.find((transaction) => String(transaction.id) === deleteTargetId) ?? null;
+  const editingCategory = categories.find((category) => String(category.id) === editingCategoryId) ?? null;
+  const deleteCategoryTarget = categories.find((category) => String(category.id) === deleteCategoryTargetId) ?? null;
   const isEditing = Boolean(transactionForm.id);
   const filteredTransactionCategories = useMemo(
     () => categories.filter((category) => category.transactionType === transactionForm.type),
@@ -339,6 +344,33 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleDeleteCategory = async () => {
+    if (!deleteCategoryTargetId) {
+      return;
+    }
+
+    try {
+      await removeCategory.mutateAsync(deleteCategoryTargetId);
+      setDeleteCategoryTargetId(null);
+      setCategoryDialogOpen(false);
+      setEditingCategoryId(null);
+      setCategoryForm({
+        label: "",
+        transactionType: "expense",
+        icon: "Wallet",
+        color: DEFAULT_CATEGORY_COLOR,
+        groupLabel: "",
+        groupColor: DEFAULT_CATEGORY_COLOR,
+      });
+      setCategoryFilter((current) => (current === deleteCategoryTargetId ? "all" : current));
+      toast.success("Categoria removida.");
+    } catch (error) {
+      toast.error("Nao foi possivel remover a categoria.", {
+        description: getErrorMessage(error, "Tente novamente em instantes."),
+      });
+    }
+  };
+
   const handleInlineCategoryChange = async (transaction: TransactionItem, nextCategoryId: string) => {
     if (!nextCategoryId || String(transaction.category.id) === nextCategoryId) {
       setEditingCategoryTransactionId(null);
@@ -414,6 +446,32 @@ export default function TransactionsPage() {
               disabled={removeTransaction.isPending}
             >
               {removeTransaction.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(deleteCategoryTargetId)} onOpenChange={(open) => !open && setDeleteCategoryTargetId(null)}>
+        <AlertDialogContent className="border-warning/20 bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteCategoryTarget
+                ? `A categoria "${deleteCategoryTarget.label}" sera excluida e as referencias vinculadas serao movidas para ${deleteCategoryTarget.transactionType === "income" ? '"Salario"' : '"Outros"'}.`
+                : "A categoria sera excluida e as referencias vinculadas serao movidas para uma categoria padrao."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removeCategory.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteCategory();
+              }}
+              disabled={removeCategory.isPending}
+            >
+              {removeCategory.isPending ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -609,19 +667,37 @@ export default function TransactionsPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => void handleCategoryCreate()} disabled={createCategory.isPending || updateCategory.isPending}>
-              {createCategory.isPending || updateCategory.isPending
-                ? editingCategoryId
-                  ? "Salvando..."
-                  : "Criando..."
-                : editingCategoryId
-                  ? "Salvar"
-                  : "Criar"}
-            </Button>
+          <DialogFooter className="justify-between sm:justify-between">
+            <div>
+              {editingCategory && editingCategory.isSystem === false ? (
+                <Button
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteCategoryTargetId(String(editingCategory.id))}
+                  disabled={removeCategory.isPending}
+                >
+                  <Trash2 size={14} />
+                  Excluir
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => void handleCategoryCreate()}
+                disabled={createCategory.isPending || updateCategory.isPending || removeCategory.isPending}
+              >
+                {createCategory.isPending || updateCategory.isPending
+                  ? editingCategoryId
+                    ? "Salvando..."
+                    : "Criando..."
+                  : editingCategoryId
+                    ? "Salvar"
+                    : "Criar"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

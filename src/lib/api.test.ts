@@ -159,7 +159,7 @@ describe("api mappers", () => {
           suggestedCategoryLabel: "Restaurantes",
           suggestionSource: "rule",
           importSource: "credit_card_statement",
-          matchedRuleId: "ifood",
+          matchedRuleId: "merchant:ifood",
           aiSuggestedType: null,
           aiSuggestedCategoryId: null,
           aiSuggestedCategoryLabel: null,
@@ -222,7 +222,7 @@ describe("api mappers", () => {
     expect(preview.fileMetadata.statementDueDate).toBe("2026-03-27");
     expect(preview.fileMetadata.statementReferenceMonth).toBe("2026-03");
     expect(preview.fileSummary.duplicateRows).toBe(1);
-    expect(preview.items[0].matchedRuleId).toBe("ifood");
+    expect(preview.items[0].matchedRuleId).toBe("merchant:ifood");
     expect(preview.items[0].possibleDuplicate).toBe(true);
     expect(preview.items[0].suggestionSource).toBe("rule");
 

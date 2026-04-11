@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { PDFParse } from "pdf-parse";
+import { suggestKnownMerchantCategory } from "./merchant-category-rules.js";
 
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 5000;
@@ -75,16 +76,11 @@ const matchKeyNoiseTokens = new Set([
 const importRules = [
   { id: "salary", priority: 100, matchType: "contains", patterns: ["salario", "salary", "folha pag"], categoryKey: "salary", typeOverride: "income" },
   { id: "freelance", priority: 95, matchType: "contains", patterns: ["freelance", "projeto freelance"], categoryKey: "freelance", typeOverride: "income" },
-  { id: "uber-eats", priority: 90, matchType: "contains", patterns: ["uber eats"], categoryKey: "food_delivery", typeOverride: "expense" },
-  { id: "ifood", priority: 85, matchType: "contains", patterns: ["ifood"], categoryKey: "food_delivery", typeOverride: "expense" },
-  { id: "restaurant", priority: 80, matchType: "contains", patterns: ["restaurante", "lanchonete", "delivery", "pizza"], categoryKey: "food_delivery", typeOverride: "expense" },
   { id: "market", priority: 75, matchType: "contains", patterns: ["mercado", "supermercado", "pao de acucar", "pão de açucar", "feira"], categoryKey: "grocery", typeOverride: "expense" },
   { id: "transport", priority: 70, matchType: "contains", patterns: ["uber", "99app", "taxi", "combustivel", "combustível", "posto"], categoryKey: "transport", typeOverride: "expense" },
-  { id: "subscriptions", priority: 65, matchType: "contains", patterns: ["netflix", "spotify", "youtube", "prime video", "assinatura"], categoryKey: "subscriptions", typeOverride: "expense" },
   { id: "housing", priority: 60, matchType: "contains", patterns: ["aluguel", "condominio", "condomínio", "internet residencial"], categoryKey: "housing", typeOverride: "expense" },
   { id: "utilities", priority: 55, matchType: "contains", patterns: ["energia", "conta de luz", "enel"], categoryKey: "utilities", typeOverride: "expense" },
   { id: "health", priority: 50, matchType: "contains", patterns: ["farmacia", "farmácia", "academia", "hospital", "clinica", "clínica"], categoryKey: "health", typeOverride: "expense" },
-  { id: "leisure", priority: 45, matchType: "contains", patterns: ["cinema", "show", "bar", "lazer"], categoryKey: "leisure", typeOverride: "expense" },
 ];
 
 function cleanupExpiredPreviewSessions() {
@@ -1078,6 +1074,12 @@ export function resolveAllowedCategoryMap(categories) {
 }
 
 function suggestCategory(normalizedDescriptionValue, categories) {
+  const merchantSuggestion = suggestKnownMerchantCategory(normalizedDescriptionValue, categories);
+
+  if (merchantSuggestion.category) {
+    return merchantSuggestion;
+  }
+
   const rule = [...importRules]
     .sort((left, right) => right.priority - left.priority)
     .find((candidate) => doesRuleMatch(candidate, normalizedDescriptionValue));

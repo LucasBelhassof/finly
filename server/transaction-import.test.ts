@@ -23,12 +23,18 @@ import {
   stripInstallmentMarker,
   validateCommitLine,
 } from "./transaction-import.js";
+import { suggestKnownMerchantCategory } from "./merchant-category-rules.js";
 
 const categories = [
   { id: 1, slug: "restaurantes", label: "Restaurantes", transactionType: "expense" },
   { id: 2, slug: "transporte", label: "Transporte", transactionType: "expense" },
   { id: 3, slug: "salario", label: "Salario", transactionType: "income" },
   { id: 4, slug: "outros-despesas", label: "Outros", transactionType: "expense" },
+  { id: 5, slug: "supermercado", label: "Supermercado", transactionType: "expense" },
+  { id: 6, slug: "compras", label: "Compras", transactionType: "expense" },
+  { id: 7, slug: "assinaturas", label: "Assinaturas", transactionType: "expense" },
+  { id: 8, slug: "saude", label: "Saude", transactionType: "expense" },
+  { id: 9, slug: "lazer", label: "Lazer", transactionType: "expense" },
 ];
 
 describe("transaction import helpers", () => {
@@ -65,7 +71,7 @@ describe("transaction import helpers", () => {
 
     expect(preview.fileSummary.totalRows).toBe(3);
     expect(preview.fileSummary.duplicateRows).toBe(2);
-    expect(preview.items[0].matchedRuleId).toBe("ifood");
+    expect(preview.items[0].matchedRuleId).toBe("merchant:ifood");
     expect(preview.items[0].possibleDuplicate).toBe(true);
     expect(preview.items[2].type).toBe("income");
     expect(preview.items[2].suggestedCategoryId).toBe(3);
@@ -96,6 +102,59 @@ describe("transaction import helpers", () => {
     expect(preview.items[1].defaultExclude).toBe(true);
     expect(preview.items[2].type).toBe("expense");
     expect(preview.items[2].suggestedCategoryId).toBe(2);
+  });
+
+  it("matches known merchants with normalized partial search", () => {
+    expect(suggestKnownMerchantCategory("UBER *TRIP SAO PAULO", categories)).toMatchObject({
+      matchedRuleId: "merchant:uber-trip",
+      category: { slug: "transporte" },
+      typeOverride: "expense",
+    });
+    expect(suggestKnownMerchantCategory("IFOOD*PEDIDO 7788", categories)).toMatchObject({
+      matchedRuleId: "merchant:ifood-pedido",
+      category: { slug: "restaurantes" },
+    });
+    expect(suggestKnownMerchantCategory("AMZN MKTP BR", categories)).toMatchObject({
+      matchedRuleId: "merchant:amzn-mktp",
+      category: { slug: "compras" },
+    });
+    expect(suggestKnownMerchantCategory("NETFLIX.COM", categories)).toMatchObject({
+      matchedRuleId: "merchant:netflix-com",
+      category: { slug: "assinaturas" },
+    });
+    expect(suggestKnownMerchantCategory("BRADESCO SAUDE SAO PAULO", categories)).toMatchObject({
+      matchedRuleId: "merchant:bradesco-saude",
+      category: { slug: "saude" },
+    });
+    expect(suggestKnownMerchantCategory("PLAYSTATION-NETWORK", categories)).toMatchObject({
+      matchedRuleId: "merchant:playstation-network",
+      category: { slug: "lazer" },
+    });
+  });
+
+  it("prioritizes specific merchants over generic ones", () => {
+    expect(suggestKnownMerchantCategory("UBER EATS SAO PAULO", categories)).toMatchObject({
+      matchedRuleId: "merchant:uber-eats",
+      category: { slug: "restaurantes" },
+    });
+    expect(suggestKnownMerchantCategory("AMAZON PRIME BR", categories)).toMatchObject({
+      matchedRuleId: "merchant:amazon-prime",
+      category: { slug: "assinaturas" },
+    });
+    expect(suggestKnownMerchantCategory("IFOOD DELIVERY 123", categories)).toMatchObject({
+      matchedRuleId: "merchant:ifood-delivery",
+      category: { slug: "restaurantes" },
+    });
+  });
+
+  it("falls back when a matched merchant category does not exist locally", () => {
+    const limitedCategories = categories.filter((item) => item.slug !== "compras");
+
+    expect(suggestKnownMerchantCategory("AMZN MKTP BR", limitedCategories)).toMatchObject({
+      matchedRuleId: null,
+      category: null,
+      typeOverride: null,
+    });
   });
 
   it("forces credit card CSV transaction dates into the statement month from filename metadata", async () => {

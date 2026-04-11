@@ -75,6 +75,7 @@ export const merchantCategoryMap = {
     "SAM S CLUB",
     "MAKRO",
     "TENDA ATACADO",
+    "RIO SUL",
   ],
   compras: [
     "AMAZON COM BR",

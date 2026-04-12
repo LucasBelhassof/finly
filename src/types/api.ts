@@ -95,6 +95,8 @@ export interface ApiBank {
   color?: string;
   currentBalance?: number;
   formattedBalance?: string;
+  creditLimit?: number | null;
+  formattedCreditLimit?: string | null;
 }
 
 export interface ApiChatMessage {
@@ -587,12 +589,15 @@ export interface BankItem {
   color: string;
   currentBalance: number;
   formattedBalance: string;
+  creditLimit: number | null;
+  formattedCreditLimit: string | null;
 }
 
 export interface CreateBankConnectionInput {
   name: string;
   accountType: "bank_account" | "credit_card" | "cash";
   currentBalance: number;
+  creditLimit?: number | null;
   color: string;
   connected?: boolean;
   parentBankConnectionId?: number | string | null;

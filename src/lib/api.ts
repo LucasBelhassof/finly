@@ -316,6 +316,8 @@ export function mapInsight(insight: ApiInsight): InsightItem {
 
 export function mapBank(bank: ApiBank): BankItem {
   const currentBalance = safeNumber(bank.currentBalance);
+  const creditLimit =
+    typeof bank.creditLimit === "number" ? bank.creditLimit : bank.creditLimit === null ? null : null;
 
   return {
     id: bank.id ?? safeString(bank.slug, safeString(bank.name, "bank")),
@@ -330,6 +332,8 @@ export function mapBank(bank: ApiBank): BankItem {
     color: safeString(bank.color, "bg-secondary"),
     currentBalance,
     formattedBalance: safeString(bank.formattedBalance, formatCurrency(currentBalance)),
+    creditLimit,
+    formattedCreditLimit: creditLimit === null ? null : safeString(bank.formattedCreditLimit, formatCurrency(creditLimit)),
   };
 }
 
@@ -812,13 +816,14 @@ export async function postBank(input: CreateBankConnectionInput) {
 export async function patchBank(input: UpdateBankConnectionInput) {
   const response = await request<ApiBank>(`/api/banks/${input.id}`, {
     method: "PATCH",
-    body: JSON.stringify({
-      name: input.name,
-      accountType: input.accountType,
-      currentBalance: input.currentBalance,
-      color: input.color,
-      connected: input.connected,
-      parentBankConnectionId: input.parentBankConnectionId,
+      body: JSON.stringify({
+        name: input.name,
+        accountType: input.accountType,
+        currentBalance: input.currentBalance,
+        creditLimit: input.creditLimit,
+        color: input.color,
+        connected: input.connected,
+        parentBankConnectionId: input.parentBankConnectionId,
       statementCloseDay: input.statementCloseDay,
       statementDueDay: input.statementDueDay,
     }),

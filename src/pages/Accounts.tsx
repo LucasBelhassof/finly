@@ -41,6 +41,7 @@ type AccountFormState = {
   name: string;
   accountType: AccountType;
   currentBalance: string;
+  creditLimit: string;
   color: string;
   parentBankConnectionId: string;
   statementCloseDay: string;
@@ -59,16 +60,12 @@ const colorOptions = [
   "bg-amber-500",
 ];
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
 function emptyForm(accountType: AccountType = "bank_account"): AccountFormState {
   return {
     name: "",
     accountType,
     currentBalance: "0,00",
+    creditLimit: "",
     color: accountType === "cash" ? "bg-amber-500" : accountType === "credit_card" ? "bg-purple-500" : "bg-primary",
     parentBankConnectionId: "",
     statementCloseDay: "",
@@ -82,6 +79,7 @@ function mapBankToForm(bank: BankItem): AccountFormState {
     name: bank.name,
     accountType: bank.accountType,
     currentBalance: String(bank.currentBalance).replace(".", ","),
+    creditLimit: bank.creditLimit === null ? "" : String(bank.creditLimit).replace(".", ","),
     color: bank.color,
     parentBankConnectionId: bank.parentBankConnectionId ? String(bank.parentBankConnectionId) : "",
     statementCloseDay: bank.statementCloseDay ? String(bank.statementCloseDay) : "",
@@ -148,10 +146,7 @@ export default function AccountsPage() {
   const bankAccounts = useMemo(() => banks.filter((bank) => bank.accountType === "bank_account"), [banks]);
   const creditCards = useMemo(() => banks.filter((bank) => bank.accountType === "credit_card"), [banks]);
   const cashAccounts = useMemo(() => banks.filter((bank) => bank.accountType === "cash"), [banks]);
-  const totalBalance = useMemo(
-    () => banks.filter((bank) => bank.accountType !== "credit_card").reduce((sum, bank) => sum + bank.currentBalance, 0),
-    [banks],
-  );
+  const hasBankAccounts = bankAccounts.length > 0;
   const groupedBankAccounts = useMemo(
     () =>
       bankAccounts.map((account) => ({
@@ -164,6 +159,11 @@ export default function AccountsPage() {
   const deleteTarget = banks.find((bank) => String(bank.id) === deleteTargetId) ?? null;
 
   const openCreateDialog = (accountType: AccountType) => {
+    if (accountType === "credit_card" && !hasBankAccounts) {
+      toast.error("Cadastre uma conta bancaria antes de criar um cartao.");
+      return;
+    }
+
     setForm(emptyForm(accountType));
     setDialogOpen(true);
   };
@@ -175,13 +175,19 @@ export default function AccountsPage() {
 
   const handleSave = async () => {
     const currentBalance = parseCurrencyInput(form.currentBalance);
+    const creditLimit = form.creditLimit ? parseCurrencyInput(form.creditLimit) : null;
 
     if (!form.name.trim() || !Number.isFinite(currentBalance)) {
-      toast.error("Informe nome e saldo validos.");
+      toast.error("Informe um nome valido.");
       return;
     }
 
     if (form.accountType === "credit_card") {
+      if (!Number.isFinite(creditLimit)) {
+        toast.error("Informe o limite total do cartao.");
+        return;
+      }
+
       if (!form.parentBankConnectionId || !form.statementCloseDay || !form.statementDueDay) {
         toast.error("Cartoes exigem conta pai, dia de fechamento e dia de vencimento.");
         return;
@@ -192,6 +198,7 @@ export default function AccountsPage() {
       name: form.name.trim(),
       accountType: form.accountType,
       currentBalance,
+      creditLimit: form.accountType === "credit_card" ? creditLimit : null,
       color: form.color,
       parentBankConnectionId: form.accountType === "credit_card" ? form.parentBankConnectionId : null,
       statementCloseDay: form.accountType === "credit_card" ? Number(form.statementCloseDay) : null,
@@ -277,7 +284,7 @@ export default function AccountsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-[560px] border-border/70 bg-card p-6">
           <DialogHeader>
-            <DialogTitle>{isEditing ? "Editar conta" : "Nova conta ou cartao"}</DialogTitle>
+            <DialogTitle>{isEditing ? "Editar conta" : "Nova conta"}</DialogTitle>
             <DialogDescription>
               Cadastre manualmente a origem financeira. Cartoes podem ser vinculados a uma conta bancaria.
             </DialogDescription>
@@ -296,7 +303,8 @@ export default function AccountsPage() {
               onValueChange={(value: AccountType) =>
                 setForm((current) => ({
                   ...current,
-                  accountType: value,
+                  accountType: value === "credit_card" && !hasBankAccounts ? current.accountType : value,
+                  creditLimit: value === "credit_card" ? current.creditLimit : "",
                   parentBankConnectionId: value === "credit_card" ? current.parentBankConnectionId : "",
                   statementCloseDay: value === "credit_card" ? current.statementCloseDay : "",
                   statementDueDay: value === "credit_card" ? current.statementDueDay : "",
@@ -310,21 +318,23 @@ export default function AccountsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="bank_account">Conta bancaria</SelectItem>
-                <SelectItem value="credit_card">Cartao</SelectItem>
+                <SelectItem value="credit_card" disabled={!hasBankAccounts}>
+                  Cartao
+                </SelectItem>
                 <SelectItem value="cash">Caixa / Dinheiro</SelectItem>
               </SelectContent>
             </Select>
 
-            <Input
-              value={form.currentBalance}
-              onChange={(event) => setForm((current) => ({ ...current, currentBalance: event.target.value }))}
-              placeholder={form.accountType === "credit_card" ? "Limite ou saldo atual" : "Saldo atual"}
-              inputMode="decimal"
-              className="h-11 rounded-xl border-border/60 bg-secondary/35"
-            />
-
             {form.accountType === "credit_card" ? (
               <>
+                <Input
+                  value={form.creditLimit}
+                  onChange={(event) => setForm((current) => ({ ...current, creditLimit: event.target.value }))}
+                  placeholder="Limite total do cartao"
+                  inputMode="decimal"
+                  className="h-11 rounded-xl border-border/60 bg-secondary/35"
+                />
+
                 <Select
                   value={form.parentBankConnectionId}
                   onValueChange={(value) => setForm((current) => ({ ...current, parentBankConnectionId: value }))}
@@ -407,13 +417,13 @@ export default function AccountsPage() {
         <Button variant="outline" onClick={() => openCreateDialog("bank_account")}>
           Nova conta
         </Button>
-        <Button variant="outline" onClick={() => openCreateDialog("credit_card")}>
+        <Button variant="outline" onClick={() => openCreateDialog("credit_card")} disabled={!hasBankAccounts}>
           Novo cartao
         </Button>
         <Button onClick={() => openCreateDialog("cash")}>Caixa / Dinheiro</Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="glass-card p-5">
           <p className="text-sm text-muted-foreground">Contas bancarias</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{bankAccounts.length}</p>
@@ -425,10 +435,6 @@ export default function AccountsPage() {
         <div className="glass-card p-5">
           <p className="text-sm text-muted-foreground">Caixa</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{cashAccounts.length}</p>
-        </div>
-        <div className="glass-card p-5">
-          <p className="text-sm text-muted-foreground">Saldo consolidado</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{currencyFormatter.format(totalBalance)}</p>
         </div>
       </div>
 
@@ -459,7 +465,6 @@ export default function AccountsPage() {
                           <p className="text-lg font-semibold text-foreground">{account.name}</p>
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">Conta</span>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{account.formattedBalance}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -485,7 +490,9 @@ export default function AccountsPage() {
                               <p className="text-sm text-muted-foreground">
                                 Fecha dia {card.statementCloseDay ?? "--"} - vence dia {card.statementDueDay ?? "--"}
                               </p>
-                              <p className="text-sm text-muted-foreground">{card.formattedBalance}</p>
+                              {card.formattedCreditLimit ? (
+                                <p className="text-sm text-muted-foreground">Limite total {card.formattedCreditLimit}</p>
+                              ) : null}
                             </div>
                           </div>
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(card)}>
@@ -519,7 +526,6 @@ export default function AccountsPage() {
                               <p className="font-medium text-foreground">{cash.name}</p>
                               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">Caixa</span>
                             </div>
-                            <p className="text-sm text-muted-foreground">{cash.formattedBalance}</p>
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(cash)}>

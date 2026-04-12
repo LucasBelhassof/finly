@@ -319,18 +319,19 @@ export async function listBanks() {
   const user = await getPrimaryUser();
   const result = await pool.query(
     `
-      SELECT
-        b.id,
-        b.slug,
-        b.name,
-        b.account_type,
-        b.connected,
-        b.color,
-        b.current_balance,
-        b.sort_order,
-        b.parent_bank_connection_id,
-        parent.name AS parent_account_name,
-        b.statement_close_day,
+        SELECT
+          b.id,
+          b.slug,
+          b.name,
+          b.account_type,
+          b.connected,
+          b.color,
+          b.current_balance,
+          b.credit_limit,
+          b.sort_order,
+          b.parent_bank_connection_id,
+          parent.name AS parent_account_name,
+          b.statement_close_day,
         b.statement_due_day
       FROM bank_connections b
       LEFT JOIN bank_connections parent ON parent.id = b.parent_bank_connection_id
@@ -349,14 +350,16 @@ export async function listBanks() {
     slug: row.slug,
     name: row.name,
     accountType: row.account_type,
-    connected: row.connected,
-    color: row.color,
-    currentBalance: parseNumeric(row.current_balance),
-    formattedBalance: formatCurrency(row.current_balance),
-    parentBankConnectionId: row.parent_bank_connection_id,
-    parentAccountName: row.parent_account_name,
-    statementCloseDay: row.statement_close_day,
-    statementDueDay: row.statement_due_day,
+      connected: row.connected,
+      color: row.color,
+      currentBalance: parseNumeric(row.current_balance),
+      formattedBalance: formatCurrency(row.current_balance),
+      creditLimit: row.credit_limit === null ? null : parseNumeric(row.credit_limit),
+      formattedCreditLimit: row.credit_limit === null ? null : formatCurrency(row.credit_limit),
+      parentBankConnectionId: row.parent_bank_connection_id,
+      parentAccountName: row.parent_account_name,
+      statementCloseDay: row.statement_close_day,
+      statementDueDay: row.statement_due_day,
   }));
 }
 
@@ -378,12 +381,13 @@ export async function createBankConnection(input) {
         connected,
         color,
         current_balance,
+        credit_limit,
         sort_order,
         parent_bank_connection_id,
         statement_close_day,
         statement_due_day
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id
     `,
     [
@@ -394,6 +398,7 @@ export async function createBankConnection(input) {
       normalized.connected,
       normalized.color,
       normalized.currentBalance,
+      normalized.creditLimit,
       sortOrder,
       normalized.parentBankConnectionId,
       normalized.statementCloseDay,
@@ -429,30 +434,32 @@ export async function updateBankConnection(bankConnectionId, input) {
   await pool.query(
     `
       UPDATE bank_connections
-      SET name = $3,
-          account_type = $4,
-          connected = $5,
-          color = $6,
-          current_balance = $7,
-          parent_bank_connection_id = $8,
-          statement_close_day = $9,
-          statement_due_day = $10,
-          updated_at = NOW()
-      WHERE user_id = $1
-        AND id = $2
-    `,
+        SET name = $3,
+            account_type = $4,
+            connected = $5,
+            color = $6,
+            current_balance = $7,
+            credit_limit = $8,
+            parent_bank_connection_id = $9,
+            statement_close_day = $10,
+            statement_due_day = $11,
+            updated_at = NOW()
+        WHERE user_id = $1
+          AND id = $2
+      `,
     [
       user.id,
       bankConnectionId,
       normalized.name,
-      normalized.accountType,
-      normalized.connected,
-      normalized.color,
-      normalized.currentBalance,
-      normalized.parentBankConnectionId,
-      normalized.statementCloseDay,
-      normalized.statementDueDay,
-    ],
+        normalized.accountType,
+        normalized.connected,
+        normalized.color,
+        normalized.currentBalance,
+        normalized.creditLimit,
+        normalized.parentBankConnectionId,
+        normalized.statementCloseDay,
+        normalized.statementDueDay,
+      ],
   );
 
   const updated = await listBanks();
@@ -1294,6 +1301,7 @@ async function getBankConnectionById(userId, bankConnectionId, client = pool) {
         connected,
         color,
         current_balance,
+        credit_limit,
         parent_bank_connection_id,
         statement_close_day,
         statement_due_day
@@ -1420,6 +1428,9 @@ async function validateBankConnectionInput(userId, input, currentId = null) {
   const color = String(input.color ?? "").trim() || "bg-secondary";
   const connected = input.connected === false ? false : true;
   const currentBalance = Number(input.currentBalance ?? 0);
+  const rawCreditLimit = input.creditLimit;
+  const creditLimit =
+    rawCreditLimit === undefined || rawCreditLimit === null || rawCreditLimit === "" ? null : Number(rawCreditLimit);
   const parentBankConnectionId = parseOptionalInteger(input.parentBankConnectionId);
   const statementCloseDay = validateStatementDay(parseOptionalInteger(input.statementCloseDay), "statementCloseDay");
   const statementDueDay = validateStatementDay(parseOptionalInteger(input.statementDueDay), "statementDueDay");
@@ -1429,6 +1440,10 @@ async function validateBankConnectionInput(userId, input, currentId = null) {
   }
 
   if (accountType === "credit_card") {
+    if (!Number.isFinite(creditLimit) || Number(creditLimit) < 0) {
+      throw new Error("creditLimit is required for credit cards");
+    }
+
     if (!Number.isInteger(parentBankConnectionId)) {
       throw new Error("parentBankConnectionId is required for credit cards");
     }
@@ -1451,6 +1466,10 @@ async function validateBankConnectionInput(userId, input, currentId = null) {
       throw new Error("a credit card cannot be linked to itself");
     }
   } else {
+    if (creditLimit !== null) {
+      throw new Error("creditLimit is allowed only for credit cards");
+    }
+
     if (parentBankConnectionId !== null) {
       throw new Error("parentBankConnectionId is allowed only for credit cards");
     }
@@ -1466,6 +1485,7 @@ async function validateBankConnectionInput(userId, input, currentId = null) {
     color,
     connected,
     currentBalance,
+    creditLimit,
     parentBankConnectionId,
     statementCloseDay,
     statementDueDay,

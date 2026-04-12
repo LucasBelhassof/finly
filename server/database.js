@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import pg from "pg";
 
 import { runMigrations } from "./migrations.js";
-import { runSeedData } from "./seed-data.js";
 import {
   buildInstallmentPurchaseSeedKey,
   buildInstallmentTransactionSeedKey,
@@ -18,6 +17,7 @@ import {
 } from "./transaction-import.js";
 import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.js";
 import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
+import { buildDashboardSummaryCards } from "./dashboard-summary.js";
 
 dotenv.config();
 
@@ -34,11 +34,6 @@ const pool = new Pool({
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
-});
-
-const numberFormatter = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
 });
 
 const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -62,28 +57,6 @@ function slugify(value) {
 
 function formatCurrency(value) {
   return currencyFormatter.format(parseNumeric(value));
-}
-
-function formatPercentageChange(currentValue, previousValue) {
-  const current = parseNumeric(currentValue);
-  const previous = parseNumeric(previousValue);
-
-  if (!previous) {
-    return {
-      raw: 0,
-      formatted: "0,0%",
-      positive: true,
-    };
-  }
-
-  const raw = ((current - previous) / Math.abs(previous)) * 100;
-  const absolute = numberFormatter.format(Math.abs(raw));
-
-  return {
-    raw,
-    formatted: `${raw >= 0 ? "+" : "-"}${absolute}%`,
-    positive: raw >= 0,
-  };
 }
 
 function normalizeDateValue(value) {
@@ -227,7 +200,6 @@ async function getPrimaryUserRecord(client = pool) {
 
 async function doInitializeDatabase() {
   await runMigrations(pool);
-  await runSeedData(pool);
   cachedUser = await getPrimaryUserRecord();
 
   if (!cachedUser) {
@@ -277,43 +249,70 @@ export async function pingDatabase() {
 
 export async function getSummaryCards() {
   const user = await getPrimaryUser();
-  const snapshots = await getReferenceMonth(user.id);
-  const [current, previous] = snapshots;
+  const [balanceResult, monthlyTotalsResult] = await Promise.all([
+    pool.query(
+      `
+        SELECT COALESCE(SUM(current_balance), 0)::NUMERIC(12, 2) AS current_balance
+        FROM bank_connections
+        WHERE user_id = $1
+      `,
+      [user.id],
+    ),
+    pool.query(
+      `
+        WITH month_ranges AS (
+          SELECT
+            DATE_TRUNC('month', CURRENT_DATE)::DATE AS current_month_start,
+            (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::DATE AS next_month_start,
+            (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::DATE AS previous_month_start
+        )
+        SELECT
+          COALESCE(SUM(CASE
+            WHEN t.occurred_on >= mr.current_month_start
+              AND t.occurred_on < mr.next_month_start
+              AND t.amount > 0
+            THEN t.amount
+            ELSE 0
+          END), 0)::NUMERIC(12, 2) AS current_income,
+          COALESCE(ABS(SUM(CASE
+            WHEN t.occurred_on >= mr.current_month_start
+              AND t.occurred_on < mr.next_month_start
+              AND t.amount < 0
+            THEN t.amount
+            ELSE 0
+          END)), 0)::NUMERIC(12, 2) AS current_expenses,
+          COALESCE(SUM(CASE
+            WHEN t.occurred_on >= mr.previous_month_start
+              AND t.occurred_on < mr.current_month_start
+              AND t.amount > 0
+            THEN t.amount
+            ELSE 0
+          END), 0)::NUMERIC(12, 2) AS previous_income,
+          COALESCE(ABS(SUM(CASE
+            WHEN t.occurred_on >= mr.previous_month_start
+              AND t.occurred_on < mr.current_month_start
+              AND t.amount < 0
+            THEN t.amount
+            ELSE 0
+          END)), 0)::NUMERIC(12, 2) AS previous_expenses
+        FROM month_ranges mr
+        LEFT JOIN transactions t
+          ON t.user_id = $1
+      `,
+      [user.id],
+    ),
+  ]);
 
-  if (!current) {
-    return [];
-  }
+  const balanceRow = balanceResult.rows[0] ?? {};
+  const monthlyTotalsRow = monthlyTotalsResult.rows[0] ?? {};
 
-  const balanceChange = formatPercentageChange(current.total_balance, previous?.total_balance);
-  const incomeChange = formatPercentageChange(current.total_income, previous?.total_income);
-  const expenseChange = formatPercentageChange(current.total_expenses, previous?.total_expenses);
-
-  return [
-    {
-      label: "Saldo Total",
-      value: parseNumeric(current.total_balance),
-      formattedValue: formatCurrency(current.total_balance),
-      change: balanceChange.formatted,
-      positive: balanceChange.positive,
-      description: "vs mes anterior",
-    },
-    {
-      label: "Receitas",
-      value: parseNumeric(current.total_income),
-      formattedValue: formatCurrency(current.total_income),
-      change: incomeChange.formatted,
-      positive: incomeChange.positive,
-      description: "vs mes anterior",
-    },
-    {
-      label: "Despesas",
-      value: parseNumeric(current.total_expenses),
-      formattedValue: formatCurrency(current.total_expenses),
-      change: expenseChange.formatted,
-      positive: false,
-      description: "vs mes anterior",
-    },
-  ];
+  return buildDashboardSummaryCards({
+    currentBalance: balanceRow.current_balance,
+    currentIncome: monthlyTotalsRow.current_income,
+    currentExpenses: monthlyTotalsRow.current_expenses,
+    previousIncome: monthlyTotalsRow.previous_income,
+    previousExpenses: monthlyTotalsRow.previous_expenses,
+  });
 }
 
 export async function listBanks() {

@@ -77,6 +77,7 @@ export default function SettingsPage() {
           <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
             <p>As rotas da sidebar agora estão conectadas ao React Router e usam os dados reais da API.</p>
             <p>As migrations do Postgres podem ser reaplicadas com `npm run db:migrate`.</p>
+            <p>O seed financeiro roda apenas quando voce executa `npm run db:seed`.</p>
             <p>Para recriar o schema inteiro do banco local, use `npm run db:fresh`.</p>
           </div>
         </div>

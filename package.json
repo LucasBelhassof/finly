@@ -9,6 +9,7 @@
     "server:start": "node server/index.js",
     "db:init": "node server/init.js",
     "db:migrate": "node server/init.js",
+    "db:seed": "node server/seed.js",
     "db:fresh": "node server/fresh.js",
     "build": "vite build",
     "build:dev": "vite build --mode development",

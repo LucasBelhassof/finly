@@ -29,13 +29,19 @@ npm install
 npm run db:migrate
 ```
 
-O seed financeiro deterministico roda junto da inicializacao. Para trocar a sequencia gerada, defina `FINANCE_SEED` antes do comando:
+Se quiser carregar o seed financeiro deterministico, rode explicitamente:
 
-```powershell
-$env:FINANCE_SEED="qa-2026-04"; npm run db:fresh
+```bash
+npm run db:seed
 ```
 
-Se quiser recriar o schema `public` do banco e reaplicar tudo do zero:
+Para trocar a sequencia gerada, defina `FINANCE_SEED` antes do comando:
+
+```powershell
+$env:FINANCE_SEED="qa-2026-04"; npm run db:seed
+```
+
+Se quiser recriar o schema `public` do banco e reaplicar apenas as migrations:
 
 ```bash
 npm run db:fresh

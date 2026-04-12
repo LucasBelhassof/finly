@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import pg from "pg";
 
 import { runMigrations } from "./migrations.js";
-import { runSeedData } from "./seed-data.js";
 
 dotenv.config();
 
@@ -35,7 +34,6 @@ async function resetPublicSchema() {
 try {
   await resetPublicSchema();
   await runMigrations(pool);
-  await runSeedData(pool);
   console.log("Database schema reset completed and migrations reapplied.");
 } finally {
   await pool.end();

@@ -1,7 +1,7 @@
 import AppShell from "@/components/AppShell";
 import { useHealth } from "@/hooks/use-health";
 
-const apiUrl = import.meta.env.VITE_API_URL?.trim() || "http://localhost:3001";
+const apiUrl = import.meta.env.VITE_API_URL?.trim() || window.location.origin;
 
 function formatServerTime(value?: string) {
   if (!value) {

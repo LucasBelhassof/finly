@@ -60,7 +60,7 @@ import type {
   UpdateBankConnectionInput,
 } from "@/types/api";
 
-const DEFAULT_API_URL = "http://localhost:3001";
+const DEFAULT_API_URL = "";
 const apiBaseUrl = (import.meta.env.VITE_API_URL?.trim() || DEFAULT_API_URL).replace(/\/$/, "");
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {

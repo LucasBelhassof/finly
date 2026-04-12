@@ -1,5 +1,8 @@
 import cors from "cors";
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   commitTransactionImport,
@@ -35,6 +38,9 @@ import { MAX_IMPORT_BYTES, parseMultipartCsvUpload } from "./transaction-import.
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? "3001", 10);
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const clientDistDirectory = path.resolve(serverDirectory, "../dist");
+const clientIndexPath = path.join(clientDistDirectory, "index.html");
 
 app.use(cors());
 app.use(express.json());
@@ -372,6 +378,14 @@ app.post("/api/chat/messages", async (request, response, next) => {
     next(error);
   }
 });
+
+if (fs.existsSync(clientIndexPath)) {
+  app.use(express.static(clientDistDirectory));
+
+  app.get(/^\/(?!api(?:\/|$)).*/, (_request, response) => {
+    response.sendFile(clientIndexPath);
+  });
+}
 
 app.use((error, _request, response, _next) => {
   console.error(error);

@@ -1,0 +1,10 @@
+.git
+.codex-logs
+node_modules
+dist
+.env
+.env.*
+npm-debug.log
+yarn-error.log
+README.md
+docs

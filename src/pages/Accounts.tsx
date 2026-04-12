@@ -97,6 +97,29 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function getAccountTypeCopy(accountType: AccountType) {
+  switch (accountType) {
+    case "credit_card":
+      return {
+        createTitle: "Novo cartão",
+        editTitle: "Editar cartão",
+        description: "Cadastre manualmente um cartão de crédito vinculado a uma conta bancária.",
+      };
+    case "cash":
+      return {
+        createTitle: "Novo caixa",
+        editTitle: "Editar caixa",
+        description: "Cadastre manualmente uma conta de caixa ou dinheiro físico.",
+      };
+    default:
+      return {
+        createTitle: "Nova conta bancária",
+        editTitle: "Editar conta bancária",
+        description: "Cadastre manualmente uma conta bancária para organizar as origens financeiras.",
+      };
+  }
+}
+
 function AccountTypeIcon({ accountType }: { accountType: AccountType }) {
   if (accountType === "credit_card") {
     return <CreditCard size={16} />;
@@ -156,6 +179,7 @@ export default function AccountsPage() {
     [bankAccounts, creditCards],
   );
   const isEditing = Boolean(form.id);
+  const formCopy = getAccountTypeCopy(form.accountType);
   const deleteTarget = banks.find((bank) => String(bank.id) === deleteTargetId) ?? null;
 
   const openCreateDialog = (accountType: AccountType) => {
@@ -284,10 +308,8 @@ export default function AccountsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-[560px] border-border/70 bg-card p-6">
           <DialogHeader>
-            <DialogTitle>{isEditing ? "Editar conta" : "Nova conta"}</DialogTitle>
-            <DialogDescription>
-              Cadastre manualmente a origem financeira. Cartoes podem ser vinculados a uma conta bancaria.
-            </DialogDescription>
+            <DialogTitle>{isEditing ? formCopy.editTitle : formCopy.createTitle}</DialogTitle>
+            <DialogDescription>{formCopy.description}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

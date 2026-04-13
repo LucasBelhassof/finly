@@ -82,7 +82,7 @@ export default function Sidebar() {
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
             <span className="text-sm font-bold text-primary-foreground">F</span>
           </div>
-          <span className="truncate text-lg font-semibold text-foreground group-data-[collapsible=icon]:hidden">FinAI</span>
+          <span className="truncate text-lg font-semibold text-foreground group-data-[collapsible=icon]:hidden">Finly</span>
         </div>
       </SidebarHeader>
 
@@ -119,7 +119,7 @@ export default function Sidebar() {
                   className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                 >
                   <Layers3 size={18} className="shrink-0" />
-                  <span className="truncate group-data-[collapsible=icon]:hidden">Gest\u00E3o de Gastos</span>
+                  <span className="truncate group-data-[collapsible=icon]:hidden">Gestão de Gastos</span>
                   <ChevronDown
                     size={16}
                     className="ml-auto shrink-0 transition-transform group-data-[collapsible=icon]:hidden group-data-[state=open]/menu-item:rotate-180"

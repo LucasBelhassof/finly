@@ -28,16 +28,13 @@ export default function LoginPage() {
 
   return (
     <AuthScreen
-      eyebrow="Finance Auth"
+      eyebrow="Finly Auth"
       title="Entre na sua area segura."
       description="Acesse dashboard, contas e automacoes com sessao protegida e refresh transparente."
       showShowcase={false}
     >
       <Card className="w-full overflow-hidden rounded-[1.9rem] border border-white/8 bg-[#16212b]/96 text-slate-100 shadow-[0_24px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl">
         <CardHeader className="space-y-5 pb-4">
-          <div className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500/18 text-sm font-semibold text-emerald-300">
-            F
-          </div>
           <div className="space-y-2">
             <CardTitle className="text-[2rem] font-semibold tracking-[-0.03em] text-white">Login</CardTitle>
           </div>

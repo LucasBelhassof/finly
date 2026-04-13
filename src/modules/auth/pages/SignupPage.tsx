@@ -28,7 +28,7 @@ export default function SignupPage() {
 
   return (
     <AuthScreen
-      eyebrow="Finance Auth"
+      eyebrow="Finly Auth"
       title="Crie sua conta em segundos."
       description="Acesso imediato a dashboard, contas e automacoes com sessao protegida."
       showShowcase={false}

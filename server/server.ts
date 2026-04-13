@@ -8,7 +8,7 @@ export async function startServer() {
 
   const app = createApp();
   const server = app.listen(env.port, () => {
-    console.log(`Finance backend listening on http://localhost:${env.port}`);
+    console.log(`Finly backend listening on http://localhost:${env.port}`);
   });
 
   const shutdown = (signal: string) => {

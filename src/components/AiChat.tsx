@@ -19,7 +19,7 @@ function ChatLoadingState() {
             <Bot size={14} className="text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Assistente FinAI</h3>
+            <h3 className="text-sm font-semibold text-foreground">Assistente Finly</h3>
             <div className="flex items-center gap-1">
               <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
               <span className="text-xs text-muted-foreground">Online</span>
@@ -124,7 +124,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
             <Bot size={14} className="text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Assistente FinAI</h3>
+            <h3 className="text-sm font-semibold text-foreground">Assistente Finly</h3>
             <div className="flex items-center gap-1">
               <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
               <span className="text-xs text-muted-foreground">Online</span>

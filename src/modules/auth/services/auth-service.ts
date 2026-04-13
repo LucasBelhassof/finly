@@ -5,6 +5,7 @@ import type {
   ForgotPasswordResult,
   LoginInput,
   ResetPasswordInput,
+  SignupInput,
 } from "@/modules/auth/types/auth-types";
 
 function buildUrl(path: string) {
@@ -63,6 +64,13 @@ async function authRequest<T>(path: string, init?: RequestInit) {
 
 export async function login(input: LoginInput) {
   return authRequest<AuthSessionPayload>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function signup(input: SignupInput) {
+  return authRequest<AuthSessionPayload>("/api/auth/signup", {
     method: "POST",
     body: JSON.stringify(input),
   });

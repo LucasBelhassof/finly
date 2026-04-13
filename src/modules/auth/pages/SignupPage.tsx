@@ -11,26 +11,27 @@ import { Input } from "@/components/ui/input";
 import { appRoutes } from "@/lib/routes";
 import { AuthScreen } from "@/modules/auth/components/AuthScreen";
 import { PasswordField } from "@/modules/auth/components/PasswordField";
-import { useLogin } from "@/modules/auth/hooks/use-login";
-import { loginFormSchema, type LoginFormValues } from "@/modules/auth/schemas/auth-schemas";
+import { useSignup } from "@/modules/auth/hooks/use-signup";
+import { signupFormSchema, type SignupFormValues } from "@/modules/auth/schemas/auth-schemas";
 
-export default function LoginPage() {
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginFormSchema),
+export default function SignupPage() {
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupFormSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
+      confirmPassword: "",
       rememberMe: false,
     },
   });
-  const loginMutation = useLogin();
+  const signupMutation = useSignup();
 
   return (
     <AuthScreen
       eyebrow="Finance Auth"
-      title="Entre na sua area segura."
-      description="Acesse dashboard, contas e automacoes com sessao protegida e refresh transparente."
-      showShowcase={false}
+      title="Crie sua conta em segundos."
+      description="Acesso imediato a dashboard, contas e automacoes com sessao protegida."
     >
       <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-card/94 shadow-2xl backdrop-blur">
         <CardHeader className="space-y-3 pb-4">
@@ -38,17 +39,17 @@ export default function LoginPage() {
             F
           </div>
           <div className="space-y-1">
-            <CardTitle className="text-3xl">Login</CardTitle>
+            <CardTitle className="text-3xl">Criar conta</CardTitle>
             <CardDescription className="text-sm leading-6">
-              Use seu e-mail e senha para continuar. Seu access token fica apenas em memoria.
+              Preencha seus dados para comecar. Sua sessao sera criada automaticamente.
             </CardDescription>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {loginMutation.isError ? (
+          {signupMutation.isError ? (
             <Alert variant="destructive" className="rounded-2xl">
-              <AlertDescription>{loginMutation.error.message}</AlertDescription>
+              <AlertDescription>{signupMutation.error.message}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -56,9 +57,29 @@ export default function LoginPage() {
             <form
               className="space-y-5"
               onSubmit={form.handleSubmit(async (values) => {
-                await loginMutation.mutateAsync(values);
+                await signupMutation.mutateAsync(values);
               })}
             >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="text"
+                        autoComplete="name"
+                        placeholder="Seu nome"
+                        className="h-12 rounded-xl border-border/70 bg-background/80"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"
@@ -86,7 +107,21 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Senha</FormLabel>
                     <FormControl>
-                      <PasswordField {...field} autoComplete="current-password" placeholder="Sua senha" />
+                      <PasswordField {...field} autoComplete="new-password" placeholder="Minimo 8 caracteres" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar senha</FormLabel>
+                    <FormControl>
+                      <PasswordField {...field} autoComplete="new-password" placeholder="Repita sua senha" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -114,22 +149,15 @@ export default function LoginPage() {
                 )}
               />
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Sessao segura com refresh rotativo.</span>
-                <Link className="font-medium text-primary hover:text-primary/80" to={appRoutes.forgotPassword}>
-                  Esqueci minha senha
-                </Link>
-              </div>
-
-              <Button className="h-12 w-full rounded-xl text-sm font-semibold" disabled={loginMutation.isPending} type="submit">
-                {loginMutation.isPending ? <LoaderCircle className="animate-spin" size={16} /> : null}
-                Entrar
+              <Button className="h-12 w-full rounded-xl text-sm font-semibold" disabled={signupMutation.isPending} type="submit">
+                {signupMutation.isPending ? <LoaderCircle className="animate-spin" size={16} /> : null}
+                Criar conta
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                Nao tem uma conta?{" "}
-                <Link className="font-medium text-primary hover:text-primary/80" to={appRoutes.signup}>
-                  Criar conta
+                Ja tem uma conta?{" "}
+                <Link className="font-medium text-primary hover:text-primary/80" to={appRoutes.login}>
+                  Entrar
                 </Link>
               </p>
             </form>

@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 
 import { env } from "../../shared/env.js";
-import { BadRequestError, UnauthorizedError } from "../../shared/errors.js";
+import { BadRequestError, HttpError, UnauthorizedError } from "../../shared/errors.js";
 import {
   attachCredentialsToUser,
   createPasswordResetToken,
@@ -59,7 +59,7 @@ function resolveRefreshExpiry(rememberMe: boolean) {
   return new Date(Date.now() + resolveRefreshTtlMs(rememberMe));
 }
 
-function toAuthUser(user: { id: number; name: string; email: string | null }): AuthUser {
+function toAuthUser(user: { id: number; name: string; email: string | null; emailVerifiedAt?: Date | null }): AuthUser {
   if (!user.email) {
     throw new BadRequestError("user_email_missing", "The user does not have an email configured.");
   }
@@ -68,6 +68,7 @@ function toAuthUser(user: { id: number; name: string; email: string | null }): A
     id: Number(user.id),
     name: String(user.name),
     email: String(user.email),
+    emailVerified: user.emailVerifiedAt != null,
   };
 }
 
@@ -203,6 +204,90 @@ export async function login(
     refreshToken,
     rememberMe: input.rememberMe,
   } satisfies AuthSessionResult;
+}
+
+export async function signup(
+  input: {
+    name: string;
+    email: string;
+    password: string;
+    rememberMe: boolean;
+  },
+  metadata: AuthRequestMetadata,
+) {
+  const email = normalizeEmail(input.email);
+  const passwordHash = await hashPassword(input.password);
+
+  return withTransaction(async (client) => {
+    const existingUser = await findUserByEmail(email, client);
+
+    if (existingUser) {
+      await insertAuditEvent(
+        {
+          email,
+          eventType: "signup_failed",
+          success: false,
+          ipAddress: metadata.ipAddress,
+          userAgent: metadata.userAgent,
+          metadata: { reason: "email_already_registered" },
+        },
+        client,
+      );
+      throw new HttpError(409, "email_already_registered", "This email is already registered.");
+    }
+
+    const user = await createUser(
+      {
+        name: input.name.trim(),
+        email,
+        passwordHash,
+      },
+      client,
+    );
+
+    const authUser = toAuthUser(user);
+    const refreshToken = buildRefreshToken();
+    const refreshTokenHash = sha256(refreshToken);
+    const sessionFamilyId = randomUUID();
+    const accessToken = await createAccessToken(authUser);
+
+    const session = await createSession(
+      {
+        userId: authUser.id,
+        sessionFamilyId,
+        tokenHash: refreshTokenHash,
+        rememberMe: input.rememberMe,
+        expiresAt: resolveRefreshExpiry(input.rememberMe),
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+      },
+      client,
+    );
+
+    await insertAuditEvent(
+      {
+        userId: authUser.id,
+        email: authUser.email,
+        eventType: "signup_success",
+        success: true,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        metadata: {
+          sessionId: session.id,
+          rememberMe: input.rememberMe,
+        },
+      },
+      client,
+    );
+
+    return {
+      user: authUser,
+      accessToken: accessToken.accessToken,
+      expiresAt: accessToken.expiresAt,
+      refreshToken,
+      rememberMe: input.rememberMe,
+    } satisfies AuthSessionResult;
+  });
 }
 
 export async function refreshSession(refreshToken: string | undefined, metadata: AuthRequestMetadata) {

@@ -26,6 +26,19 @@ export const resetPasswordSchema = z
     path: ["confirmPassword"],
   });
 
+export const signupSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required.").max(100, "Name must have at most 100 characters."),
+    email: z.string().trim().email("Enter a valid email."),
+    password: passwordSchema,
+    confirmPassword: z.string().min(1, "Password confirmation is required."),
+    rememberMe: z.boolean().optional().default(false),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });
+
 export const bootstrapAuthSchema = z.object({
   email: z.string().trim().email("Enter a valid email."),
   password: passwordSchema,

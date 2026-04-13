@@ -9,6 +9,7 @@ export interface UserRecord {
   name: string;
   email: string | null;
   passwordHash: string | null;
+  emailVerifiedAt: Date | null;
 }
 
 export interface SessionRecord {
@@ -46,6 +47,7 @@ function mapUser(row: Record<string, unknown>): UserRecord {
     name: String(row.name),
     email: row.email === null || row.email === undefined ? null : String(row.email),
     passwordHash: row.password_hash === null || row.password_hash === undefined ? null : String(row.password_hash),
+    emailVerifiedAt: row.email_verified_at ? new Date(String(row.email_verified_at)) : null,
   };
 }
 
@@ -77,6 +79,7 @@ function mapSession(row: Record<string, unknown>): SessionRecord {
           email: row.user_email === null || row.user_email === undefined ? null : String(row.user_email),
           passwordHash:
             row.user_password_hash === null || row.user_password_hash === undefined ? null : String(row.user_password_hash),
+          emailVerifiedAt: row.user_email_verified_at ? new Date(String(row.user_email_verified_at)) : null,
         }
       : null,
   };
@@ -99,6 +102,7 @@ function mapPasswordResetToken(row: Record<string, unknown>): PasswordResetToken
             email: row.user_email === null || row.user_email === undefined ? null : String(row.user_email),
             passwordHash:
               row.user_password_hash === null || row.user_password_hash === undefined ? null : String(row.user_password_hash),
+            emailVerifiedAt: row.user_email_verified_at ? new Date(String(row.user_email_verified_at)) : null,
           }
         : null,
   };
@@ -123,7 +127,7 @@ export async function withTransaction<T>(callback: (client: PoolClient) => Promi
 export async function findUserByEmail(email: string, client: Queryable = db) {
   const result = await client.query(
     `
-      SELECT id, name, email, password_hash
+      SELECT id, name, email, password_hash, email_verified_at
       FROM users
       WHERE LOWER(email) = LOWER($1)
       LIMIT 1
@@ -137,7 +141,7 @@ export async function findUserByEmail(email: string, client: Queryable = db) {
 export async function findUserById(userId: number, client: Queryable = db) {
   const result = await client.query(
     `
-      SELECT id, name, email, password_hash
+      SELECT id, name, email, password_hash, email_verified_at
       FROM users
       WHERE id = $1
       LIMIT 1
@@ -151,7 +155,7 @@ export async function findUserById(userId: number, client: Queryable = db) {
 export async function listUsersWithoutCredentials(client: Queryable = db) {
   const result = await client.query(
     `
-      SELECT id, name, email, password_hash
+      SELECT id, name, email, password_hash, email_verified_at
       FROM users
       WHERE email IS NULL OR password_hash IS NULL
       ORDER BY id ASC
@@ -173,7 +177,7 @@ export async function createUser(
     `
       INSERT INTO users (name, email, password_hash, updated_at)
       VALUES ($1, $2, $3, NOW())
-      RETURNING id, name, email, password_hash
+      RETURNING id, name, email, password_hash, email_verified_at
     `,
     [input.name, input.email, input.passwordHash],
   );
@@ -198,7 +202,7 @@ export async function attachCredentialsToUser(
           password_hash = $4,
           updated_at = NOW()
       WHERE id = $1
-      RETURNING id, name, email, password_hash
+      RETURNING id, name, email, password_hash, email_verified_at
     `,
     [userId, input.name, input.email, input.passwordHash],
   );
@@ -213,7 +217,7 @@ export async function updateUserPassword(userId: number, passwordHash: string, c
       SET password_hash = $2,
           updated_at = NOW()
       WHERE id = $1
-      RETURNING id, name, email, password_hash
+      RETURNING id, name, email, password_hash, email_verified_at
     `,
     [userId, passwordHash],
   );
@@ -270,7 +274,8 @@ export async function findSessionByTokenHash(tokenHash: string, client: Queryabl
         s.*,
         u.name AS user_name,
         u.email AS user_email,
-        u.password_hash AS user_password_hash
+        u.password_hash AS user_password_hash,
+        u.email_verified_at AS user_email_verified_at
       FROM auth_sessions s
       INNER JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = $1
@@ -374,7 +379,8 @@ export async function findPasswordResetTokenByHash(tokenHash: string, client: Qu
         t.*,
         u.name AS user_name,
         u.email AS user_email,
-        u.password_hash AS user_password_hash
+        u.password_hash AS user_password_hash,
+        u.email_verified_at AS user_email_verified_at
       FROM password_reset_tokens t
       INNER JOIN users u ON u.id = t.user_id
       WHERE t.token_hash = $1

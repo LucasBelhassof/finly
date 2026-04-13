@@ -2,6 +2,7 @@ export interface AuthUser {
   id: number | string;
   name: string;
   email: string;
+  emailVerified?: boolean;
 }
 
 export interface AuthSessionPayload {
@@ -13,6 +14,14 @@ export interface AuthSessionPayload {
 export interface LoginInput {
   email: string;
   password: string;
+  rememberMe: boolean;
+}
+
+export interface SignupInput {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
   rememberMe: boolean;
 }
 

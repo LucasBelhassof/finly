@@ -10,6 +10,7 @@ import { PublicOnlyRoute } from "@/modules/auth/components/PublicOnlyRoute";
 import ForgotPasswordPage from "@/modules/auth/pages/ForgotPasswordPage";
 import LoginPage from "@/modules/auth/pages/LoginPage";
 import ResetPasswordPage from "@/modules/auth/pages/ResetPasswordPage";
+import SignupPage from "@/modules/auth/pages/SignupPage";
 import AccountsPage from "./pages/Accounts.tsx";
 import ChatPage from "./pages/Chat.tsx";
 import ExpenseMetricsPage from "./pages/ExpenseMetrics.tsx";
@@ -34,6 +35,7 @@ const App = () => (
           <Routes>
             <Route element={<PublicOnlyRoute />}>
               <Route path={appRoutes.login} element={<LoginPage />} />
+              <Route path={appRoutes.signup} element={<SignupPage />} />
               <Route path={appRoutes.forgotPassword} element={<ForgotPasswordPage />} />
               <Route path={appRoutes.resetPassword} element={<ResetPasswordPage />} />
             </Route>

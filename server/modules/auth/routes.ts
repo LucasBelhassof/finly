@@ -4,7 +4,7 @@ import rateLimit from "express-rate-limit";
 
 import { env } from "../../shared/env.js";
 import { BadRequestError, UnauthorizedError } from "../../shared/errors.js";
-import { forgotPasswordSchema, loginSchema, resetPasswordSchema } from "./schemas.js";
+import { forgotPasswordSchema, loginSchema, resetPasswordSchema, signupSchema } from "./schemas.js";
 import {
   forgotPassword,
   getCurrentUser,
@@ -14,6 +14,7 @@ import {
   logout,
   refreshSession,
   resetPassword,
+  signup,
   verifyAccessToken,
   type AuthRequestMetadata,
 } from "./service.js";
@@ -84,6 +85,7 @@ export async function requireAccessToken(request: Request) {
 export function createAuthRouter() {
   const router = Router();
   const loginLimiter = createAuthRateLimiter("login", 5);
+  const signupLimiter = createAuthRateLimiter("signup", 5);
   const forgotPasswordLimiter = createAuthRateLimiter("forgot_password", 3);
   const resetPasswordLimiter = createAuthRateLimiter("reset_password", 3);
   const refreshLimiter = createAuthRateLimiter("refresh", 30);
@@ -102,6 +104,26 @@ export function createAuthRouter() {
 
     response.cookie(refreshCookieName, result.refreshToken, getRefreshCookieOptions(result.rememberMe));
     response.json({
+      user: result.user,
+      accessToken: result.accessToken,
+      expiresAt: result.expiresAt,
+    });
+  });
+
+  router.post("/signup", signupLimiter, async (request, response) => {
+    const input = signupSchema.parse(request.body ?? {});
+    const result = await signup(
+      {
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        rememberMe: input.rememberMe ?? false,
+      },
+      getRequestMetadata(request),
+    );
+
+    response.cookie(refreshCookieName, result.refreshToken, getRefreshCookieOptions(result.rememberMe));
+    response.status(201).json({
       user: result.user,
       accessToken: result.accessToken,
       expiresAt: result.expiresAt,

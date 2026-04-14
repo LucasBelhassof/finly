@@ -1,0 +1,96 @@
+.finly-mini-loader {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.finly-mini-letter {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: transparent;
+  background: linear-gradient(135deg, #00ffae, #00c896);
+  background-clip: text;
+  -webkit-background-clip: text;
+  filter: drop-shadow(0 0 6px rgba(0, 255, 174, 0.4));
+  z-index: 1;
+  user-select: none;
+}
+
+/* trail SVG — stays fixed, animation via stroke-dashoffset */
+.finly-mini-svg {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
+}
+
+/* circumference = 2πr = 2 × π × 20 ≈ 125.66 */
+.finly-mini-trail {
+  stroke-dasharray: 125.66;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  opacity: 0.5;
+  animation: finly-trail 3s ease-in-out infinite;
+}
+
+/* ball SVG — rotates around the F */
+.finly-mini-ball-svg {
+  position: absolute;
+  inset: 0;
+  width: 48px;
+  height: 48px;
+  animation: finly-ball-orbit 3s ease-in-out infinite;
+}
+
+.finly-mini-ball {
+  fill: #00ffae;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 174, 0.7));
+}
+
+/* Phase 1 (0→45%): trail draws behind the ball (offset C→0)
+   Pause   (45→50%): full circle visible
+   Phase 2 (50→90%): trail tail chases clockwise to catch the ball (offset 0→−C)
+   Reset   (90→100%): hidden, snap back for seamless loop */
+
+@keyframes finly-trail {
+  0% {
+    stroke-dashoffset: 125.66;
+  }
+  45% {
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  90% {
+    stroke-dashoffset: -125.66;
+  }
+  90.1% {
+    stroke-dashoffset: 125.66;
+  }
+  100% {
+    stroke-dashoffset: 125.66;
+  }
+}
+
+@keyframes finly-ball-orbit {
+  0% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(360deg);
+  }
+  90% {
+    transform: rotate(360deg);
+  }
+  90.1% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}

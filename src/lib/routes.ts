@@ -4,6 +4,7 @@ export const appRoutes = {
   signup: "/signup",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
+  onboarding: "/primeiros-passos",
   installments: "/installments",
   expenseManagement: "/gestao-de-gastos",
   transactions: "/gestao-de-gastos/transactions",

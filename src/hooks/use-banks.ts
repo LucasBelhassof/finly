@@ -6,11 +6,12 @@ import type { BankItem, CreateBankConnectionInput, UpdateBankConnectionInput } f
 
 export const banksQueryKey = ["banks"] as const;
 
-export function useBanks() {
+export function useBanks(enabled = true) {
   return useQuery({
     queryKey: banksQueryKey,
     queryFn: getBanks,
     staleTime: 30_000,
+    enabled,
   });
 }
 

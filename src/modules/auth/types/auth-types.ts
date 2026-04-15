@@ -3,6 +3,7 @@ export interface AuthUser {
   name: string;
   email: string;
   emailVerified?: boolean;
+  hasCompletedOnboarding?: boolean;
   role?: "user" | "admin";
   status?: "active" | "inactive" | "suspended";
   isPremium?: boolean;

@@ -64,6 +64,7 @@ function toAuthUser(user: {
   name: string;
   email: string | null;
   emailVerifiedAt?: Date | null;
+  onboardingCompletedAt?: Date | null;
   role?: "user" | "admin";
   status?: "active" | "inactive" | "suspended";
   isPremium?: boolean;
@@ -78,6 +79,7 @@ function toAuthUser(user: {
     name: String(user.name),
     email: String(user.email),
     emailVerified: user.emailVerifiedAt != null,
+    hasCompletedOnboarding: user.onboardingCompletedAt != null,
     role: user.role === "admin" ? "admin" : "user",
     status:
       user.status === "inactive" || user.status === "suspended"

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import ImportPreviewTable from "@/components/transactions/ImportPreviewTable";
 import { Button } from "@/components/ui/button";
+import { ColorField } from "@/components/ui/color-field";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ import {
   useCreateCategory,
   usePreviewTransactionImport,
 } from "@/hooks/use-transactions";
-import { DEFAULT_CATEGORY_COLOR, getCategoryColorInputValue } from "@/lib/category-colors";
+import { DEFAULT_CATEGORY_COLOR } from "@/lib/category-colors";
 import { cn } from "@/lib/utils";
 import type {
   BankItem,
@@ -497,33 +498,19 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
               })}
             </div>
 
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Cor</p>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-secondary/35 px-3 py-2">
-                  <span
-                    className="h-8 w-8 rounded-full border border-white/20"
-                    style={{ backgroundColor: getCategoryColorInputValue(categoryForm.groupColor || categoryForm.color) }}
-                  />
-                  <input
-                    aria-label="Selecionar cor da categoria"
-                    type="color"
-                    value={getCategoryColorInputValue(categoryForm.groupColor || categoryForm.color)}
-                    onChange={(event) => {
-                      const nextColor = event.target.value;
-
-                      setCategoryForm((current) => ({
-                        ...current,
-                        color: nextColor,
-                        groupColor: nextColor,
-                      }));
-                    }}
-                    className="h-10 w-16 cursor-pointer rounded-md border-0 bg-transparent p-0"
-                  />
-                </label>
-                <span className="text-xs text-muted-foreground">{getCategoryColorInputValue(categoryForm.groupColor || categoryForm.color)}</span>
-              </div>
-            </div>
+            <ColorField
+              label="Cor"
+              value={categoryForm.groupColor || categoryForm.color}
+              onChange={(nextColor) =>
+                setCategoryForm((current) => ({
+                  ...current,
+                  color: nextColor,
+                  groupColor: nextColor,
+                }))
+              }
+              inputAriaLabel="Selecionar cor da categoria"
+              fallback={DEFAULT_CATEGORY_COLOR}
+            />
           </div>
 
           <DialogFooter>

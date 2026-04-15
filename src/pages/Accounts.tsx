@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ColorField } from "@/components/ui/color-field";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { useBanks, useCreateBankConnection, useDeleteBankConnection, useUpdateBankConnection } from "@/hooks/use-banks";
+import { ACCOUNT_COLOR_PRESETS, getSuggestedAccountColor } from "@/lib/account-colors";
 import { cn } from "@/lib/utils";
 import type { BankItem, CreateBankConnectionInput, UpdateBankConnectionInput } from "@/types/api";
 
@@ -48,25 +50,13 @@ type AccountFormState = {
   statementDueDay: string;
 };
 
-const colorOptions = [
-  "bg-primary",
-  "bg-income",
-  "bg-expense",
-  "bg-info",
-  "bg-warning",
-  "bg-orange-500",
-  "bg-purple-500",
-  "bg-red-500",
-  "bg-amber-500",
-];
-
 function emptyForm(accountType: AccountType = "bank_account"): AccountFormState {
   return {
     name: "",
     accountType,
     currentBalance: "0,00",
     creditLimit: "",
-    color: accountType === "cash" ? "bg-amber-500" : accountType === "credit_card" ? "bg-purple-500" : "bg-primary",
+    color: getSuggestedAccountColor("", accountType),
     parentBankConnectionId: "",
     statementCloseDay: "",
     statementDueDay: "",
@@ -165,6 +155,7 @@ export default function AccountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<AccountFormState>(emptyForm());
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [hasManualColorSelection, setHasManualColorSelection] = useState(false);
 
   const bankAccounts = useMemo(() => banks.filter((bank) => bank.accountType === "bank_account"), [banks]);
   const creditCards = useMemo(() => banks.filter((bank) => bank.accountType === "credit_card"), [banks]);
@@ -189,11 +180,13 @@ export default function AccountsPage() {
     }
 
     setForm(emptyForm(accountType));
+    setHasManualColorSelection(false);
     setDialogOpen(true);
   };
 
   const openEditDialog = (bank: BankItem) => {
     setForm(mapBankToForm(bank));
+    setHasManualColorSelection(true);
     setDialogOpen(true);
   };
 
@@ -244,6 +237,7 @@ export default function AccountsPage() {
 
       setDialogOpen(false);
       setForm(emptyForm());
+      setHasManualColorSelection(false);
     } catch (error) {
       toast.error("Nao foi possivel salvar a conta.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
@@ -261,6 +255,7 @@ export default function AccountsPage() {
       setDeleteTargetId(null);
       setDialogOpen(false);
       setForm(emptyForm());
+      setHasManualColorSelection(false);
       toast.success("Conta removida.");
     } catch (error) {
       toast.error("Nao foi possivel excluir a conta.", {
@@ -315,25 +310,39 @@ export default function AccountsPage() {
           <div className="space-y-4">
             <Input
               value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  name: event.target.value,
+                  color: hasManualColorSelection ? current.color : getSuggestedAccountColor(event.target.value, current.accountType),
+                }))
+              }
               placeholder="Nome da conta ou cartao"
               className="h-11 rounded-xl border-border/60 bg-secondary/35"
             />
 
             <Select
               value={form.accountType}
-              onValueChange={(value: AccountType) =>
+              onValueChange={(value: AccountType) => {
+                const nextType = value === "credit_card" && !hasBankAccounts ? form.accountType : value;
+
                 setForm((current) => ({
                   ...current,
-                  accountType: value === "credit_card" && !hasBankAccounts ? current.accountType : value,
-                  creditLimit: value === "credit_card" ? current.creditLimit : "",
-                  parentBankConnectionId: value === "credit_card" ? current.parentBankConnectionId : "",
-                  statementCloseDay: value === "credit_card" ? current.statementCloseDay : "",
-                  statementDueDay: value === "credit_card" ? current.statementDueDay : "",
+                  accountType: nextType,
+                  creditLimit: nextType === "credit_card" ? current.creditLimit : "",
+                  parentBankConnectionId: nextType === "credit_card" ? current.parentBankConnectionId : "",
+                  statementCloseDay: nextType === "credit_card" ? current.statementCloseDay : "",
+                  statementDueDay: nextType === "credit_card" ? current.statementDueDay : "",
                   color:
-                    value === "cash" ? "bg-amber-500" : value === "credit_card" ? current.color || "bg-purple-500" : current.color || "bg-primary",
-                }))
-              }
+                    nextType === "cash" || !hasManualColorSelection
+                      ? getSuggestedAccountColor(current.name, nextType)
+                      : current.color,
+                }));
+
+                if (nextType === "cash") {
+                  setHasManualColorSelection(false);
+                }
+              }}
             >
               <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
                 <SelectValue placeholder="Tipo da conta" />
@@ -392,23 +401,17 @@ export default function AccountsPage() {
               </>
             ) : null}
 
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Cor</p>
-              <div className="flex flex-wrap gap-3">
-                {colorOptions.map((color) => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setForm((current) => ({ ...current, color }))}
-                    className={cn(
-                      "h-8 w-8 rounded-full border-2 transition-transform hover:scale-105",
-                      color,
-                      form.color === color ? "scale-105 border-white ring-2 ring-white/30" : "border-transparent",
-                    )}
-                  />
-                ))}
-              </div>
-            </div>
+            <ColorField
+              label="Cor"
+              value={form.color}
+              onChange={(nextColor) => {
+                setHasManualColorSelection(true);
+                setForm((current) => ({ ...current, color: nextColor }));
+              }}
+              presets={ACCOUNT_COLOR_PRESETS}
+              inputAriaLabel="Selecionar cor da conta"
+              fallback={getSuggestedAccountColor(form.name, form.accountType)}
+            />
           </div>
 
           <DialogFooter>

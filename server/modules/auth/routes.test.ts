@@ -61,6 +61,7 @@ function buildUser(overrides: Record<string, unknown> = {}) {
     id: 7,
     name: "Joao",
     email: "joao@finance.test",
+    hasCompletedOnboarding: true,
     role: "user",
     status: "active",
     isPremium: false,

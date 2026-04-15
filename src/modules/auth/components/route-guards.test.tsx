@@ -7,12 +7,17 @@ import { AdminRoute } from "@/modules/auth/components/AdminRoute";
 import { ProtectedRoute } from "@/modules/auth/components/ProtectedRoute";
 import { PublicOnlyRoute } from "@/modules/auth/components/PublicOnlyRoute";
 
-const { useAuthContextMock } = vi.hoisted(() => ({
+const { useAuthContextMock, useBanksMock } = vi.hoisted(() => ({
   useAuthContextMock: vi.fn(),
+  useBanksMock: vi.fn(),
 }));
 
 vi.mock("@/modules/auth/components/AuthProvider", () => ({
   useAuthContext: useAuthContextMock,
+}));
+
+vi.mock("@/hooks/use-banks", () => ({
+  useBanks: useBanksMock,
 }));
 
 function renderProtectedRoute(initialPath = appRoutes.dashboard) {
@@ -20,7 +25,8 @@ function renderProtectedRoute(initialPath = appRoutes.dashboard) {
     <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route element={<ProtectedRoute />}>
-          <Route path={appRoutes.dashboard} element={<h1>Área interna</h1>} />
+          <Route path={appRoutes.onboarding} element={<h1>Primeiros passos</h1>} />
+          <Route path={appRoutes.dashboard} element={<h1>Area interna</h1>} />
         </Route>
         <Route path={appRoutes.login} element={<h1>Login</h1>} />
       </Routes>
@@ -35,6 +41,7 @@ function renderPublicOnlyRoute(initialPath = appRoutes.login) {
         <Route element={<PublicOnlyRoute />}>
           <Route path={appRoutes.login} element={<h1>Login</h1>} />
         </Route>
+        <Route path={appRoutes.onboarding} element={<h1>Primeiros passos</h1>} />
         <Route path={appRoutes.dashboard} element={<h1>Dashboard</h1>} />
       </Routes>
     </MemoryRouter>,
@@ -57,6 +64,10 @@ function renderAdminRoute(initialPath = appRoutes.adminOverview) {
 
 describe("auth route guards", () => {
   it("shows the application loader while bootstrapping the session", () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: false,
       isBootstrapping: true,
@@ -65,10 +76,14 @@ describe("auth route guards", () => {
     renderProtectedRoute();
 
     expect(screen.getByText(/finly/i)).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /área interna/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /area interna/i })).not.toBeInTheDocument();
   });
 
   it("redirects anonymous users from protected routes to login", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: false,
       isBootstrapping: false,
@@ -80,20 +95,30 @@ describe("auth route guards", () => {
   });
 
   it("renders protected content for authenticated users", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
+      user: {
+        hasCompletedOnboarding: true,
+      },
     });
 
     renderProtectedRoute();
 
-    expect(await screen.findByRole("heading", { name: /área interna/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /area interna/i })).toBeInTheDocument();
   });
 
   it("redirects authenticated users away from public auth routes", async () => {
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
+      user: {
+        hasCompletedOnboarding: true,
+      },
     });
 
     renderPublicOnlyRoute();
@@ -113,11 +138,16 @@ describe("auth route guards", () => {
   });
 
   it("redirects non-admin users away from admin routes", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
       user: {
         role: "user",
+        hasCompletedOnboarding: true,
       },
     });
 
@@ -127,16 +157,71 @@ describe("auth route guards", () => {
   });
 
   it("renders admin content for admin users", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
       user: {
         role: "admin",
+        hasCompletedOnboarding: true,
       },
     });
 
     renderAdminRoute();
 
     expect(await screen.findByRole("heading", { name: /admin/i })).toBeInTheDocument();
+  });
+
+  it("redirects authenticated users with onboarding pending to the first steps route", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderProtectedRoute();
+
+    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
+  });
+
+  it("keeps authenticated users on internal routes when the first account already exists", async () => {
+    useBanksMock.mockReturnValue({
+      data: [{ id: 1, name: "Conta inicial" }],
+      isLoading: false,
+    });
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderProtectedRoute();
+
+    expect(await screen.findByRole("heading", { name: /area interna/i })).toBeInTheDocument();
+  });
+
+  it("redirects authenticated users with onboarding pending away from login", async () => {
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderPublicOnlyRoute();
+
+    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
   });
 });

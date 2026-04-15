@@ -28,6 +28,7 @@ const InstallmentsPage = lazy(() => import("./pages/Installments.tsx"));
 const Index = lazy(() => import("./pages/Index.tsx"));
 const InsightsPage = lazy(() => import("./pages/Insights.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const OnboardingPage = lazy(() => import("./pages/Onboarding.tsx"));
 const ProfilePage = lazy(() => import("./pages/Profile.tsx"));
 const SettingsPage = lazy(() => import("./pages/Settings.tsx"));
 const TransactionsPage = lazy(() => import("./pages/Transactions.tsx"));
@@ -58,6 +59,7 @@ const App = () => (
             </Route>
 
             <Route element={<ProtectedRoute />}>
+              <Route path={appRoutes.onboarding} element={<Suspense fallback={<PageLoader />}><OnboardingPage /></Suspense>} />
               <Route path={appRoutes.dashboard} element={<Suspense fallback={<PageLoader />}><Index /></Suspense>} />
               <Route path={appRoutes.transactions} element={<Suspense fallback={<PageLoader />}><TransactionsPage /></Suspense>} />
               <Route path={appRoutes.installments} element={<Navigate to={appRoutes.expenseManagementInstallments} replace />} />

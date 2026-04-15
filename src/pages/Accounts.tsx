@@ -435,36 +435,36 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="outline" onClick={() => openCreateDialog("bank_account")}>
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+        <Button variant="outline" className="w-full sm:w-auto" onClick={() => openCreateDialog("bank_account")}>
           Nova conta
         </Button>
-        <Button variant="outline" onClick={() => openCreateDialog("credit_card")} disabled={!hasBankAccounts}>
+        <Button variant="outline" className="w-full sm:w-auto" onClick={() => openCreateDialog("credit_card")} disabled={!hasBankAccounts}>
           Novo cartao
         </Button>
-        <Button onClick={() => openCreateDialog("cash")}>Caixa / Dinheiro</Button>
+        <Button className="w-full sm:w-auto" onClick={() => openCreateDialog("cash")}>Caixa / Dinheiro</Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Contas bancarias</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{bankAccounts.length}</p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Cartoes</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{creditCards.length}</p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Caixa</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{cashAccounts.length}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="glass-card rounded-2xl border border-border/40 p-5">
-          <div className="mb-6 flex items-center justify-between">
+        <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-[1.6rem] font-semibold text-foreground">Estrutura financeira</h2>
+              <h2 className="text-[1.35rem] font-semibold text-foreground sm:text-[1.6rem]">Estrutura financeira</h2>
               <p className="text-sm text-muted-foreground">Uma conta bancaria pode concentrar varios cartoes vinculados.</p>
             </div>
           </div>
@@ -477,19 +477,19 @@ export default function AccountsPage() {
             <div className="space-y-4">
               {groupedBankAccounts.map(({ account, cards }) => (
                 <div key={account.id} className="rounded-2xl border border-border/40 bg-secondary/20 p-4">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-start gap-3">
                       <div className={cn("mt-1 flex h-10 w-10 items-center justify-center rounded-xl text-foreground", account.color)}>
                         <AccountTypeIcon accountType="bank_account" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <p className="text-lg font-semibold text-foreground">{account.name}</p>
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">Conta</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 self-end sm:self-auto">
                       <Button variant="ghost" size="icon" onClick={() => openEditDialog(account)}>
                         <Pencil size={15} />
                       </Button>
@@ -499,13 +499,13 @@ export default function AccountsPage() {
                   {cards.length ? (
                     <div className="mt-4 space-y-3 border-t border-border/30 pt-4">
                       {cards.map((card) => (
-                        <div key={card.id} className="flex items-start justify-between rounded-xl border border-border/30 bg-card/50 p-3">
+                        <div key={card.id} className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
                             <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-foreground", card.color)}>
                               <AccountTypeIcon accountType="credit_card" />
                             </div>
-                            <div>
-                              <div className="flex items-center gap-2">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <p className="font-medium text-foreground">{card.name}</p>
                                 <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs text-warning">Cartao</span>
                               </div>
@@ -517,7 +517,7 @@ export default function AccountsPage() {
                               ) : null}
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(card)}>
+                          <Button variant="ghost" size="icon" className="self-end sm:self-auto" onClick={() => openEditDialog(card)}>
                             <Pencil size={15} />
                           </Button>
                         </div>
@@ -538,19 +538,19 @@ export default function AccountsPage() {
                   </div>
                   <div className="space-y-3">
                     {cashAccounts.map((cash) => (
-                      <div key={cash.id} className="flex items-start justify-between rounded-xl border border-border/30 bg-card/50 p-3">
+                      <div key={cash.id} className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-3">
                           <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-foreground", cash.color)}>
                             <AccountTypeIcon accountType="cash" />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium text-foreground">{cash.name}</p>
                               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">Caixa</span>
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(cash)}>
+                        <Button variant="ghost" size="icon" className="self-end sm:self-auto" onClick={() => openEditDialog(cash)}>
                           <Pencil size={15} />
                         </Button>
                       </div>
@@ -562,7 +562,7 @@ export default function AccountsPage() {
           )}
         </div>
 
-        <div className="glass-card rounded-2xl border border-border/40 p-5">
+        <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
           <h3 className="text-[1.3rem] font-semibold text-foreground">Regras desta versao</h3>
           <div className="mt-4 space-y-3 text-sm text-muted-foreground">
             <p>Contas e cartoes sao cadastrados manualmente. Open Finance fica para depois.</p>

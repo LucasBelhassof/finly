@@ -11,7 +11,7 @@ interface AiInsightsProps {
 
 function AiInsightsSkeleton() {
   return (
-    <div className="glass-card p-5 animate-fade-in">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
           <Lightbulb size={14} className="text-primary" />
@@ -46,7 +46,7 @@ export default function AiInsights({ insights = [], isLoading, isError }: AiInsi
   }
 
   return (
-    <div className="glass-card p-5 animate-fade-in">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
           <Lightbulb size={14} className="text-primary" />
@@ -73,7 +73,7 @@ export default function AiInsights({ insights = [], isLoading, isError }: AiInsi
                     <Icon size={15} className={item.iconColor} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
                       <h4 className="text-sm font-medium text-foreground">{item.title}</h4>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${item.tagColor}`}>
                         {item.tag}

@@ -13,8 +13,8 @@ interface BankConnectionProps {
 
 function BankConnectionSkeleton() {
   return (
-    <div className="glass-card p-5 animate-fade-in">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
             <Landmark size={14} className="text-primary" />
@@ -70,8 +70,8 @@ export default function BankConnection({ banks = [], isLoading, isError }: BankC
   }
 
   return (
-    <div className="glass-card p-5 animate-fade-in">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
             <Landmark size={14} className="text-primary" />
@@ -93,18 +93,20 @@ export default function BankConnection({ banks = [], isLoading, isError }: BankC
       ) : (
         <div className="space-y-2.5">
           {banks.map((bank) => (
-            <div key={bank.id} className="flex items-center gap-3 rounded-lg bg-secondary/40 p-2.5">
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bank.color}`}>
-                <AccountTypeIcon accountType={bank.accountType} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+            <div key={bank.id} className="flex flex-col gap-3 rounded-lg bg-secondary/40 p-2.5 sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3 sm:flex-1 sm:items-center">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bank.color}`}>
+                  <AccountTypeIcon accountType={bank.accountType} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate text-sm font-medium text-foreground">{bank.name}</p>
                   <AccountTypeLabel accountType={bank.accountType} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{bank.formattedBalance}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">{bank.formattedBalance}</p>
               </div>
-              <Link to={appRoutes.accounts} className="text-xs text-primary hover:underline">
+              <Link to={appRoutes.accounts} className="w-full text-right text-xs text-primary hover:underline sm:w-auto">
                 Gerenciar
               </Link>
             </div>

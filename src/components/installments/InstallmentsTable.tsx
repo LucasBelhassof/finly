@@ -8,8 +8,8 @@ interface InstallmentsTableProps {
 
 export default function InstallmentsTable({ items }: InstallmentsTableProps) {
   return (
-    <div className="glass-card rounded-2xl border border-border/40 p-5">
-      <div className="mb-5 flex items-center justify-between gap-3">
+    <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Compras parceladas</h2>
           <p className="text-sm text-muted-foreground">Listagem detalhada conforme os filtros atuais.</p>

@@ -211,22 +211,22 @@ export default function HousingPage() {
   return (
     <AppShell title="Habitacao" description="Organize moradia, contas essenciais e financiamentos vinculados a bancos">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Compromisso mensal</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{currencyFormatter.format(monthlyTotal)}</p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Despesas recorrentes</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{expenses.length}</p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Vinculadas a bancos</p>
           <p className="mt-1 text-2xl font-bold text-primary">{linkedExpensesCount}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <div className="glass-card rounded-2xl border border-border/40 p-5">
+        <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
           <h2 className="text-lg font-semibold text-foreground">
             {editingExpense ? "Editar despesa recorrente" : "Nova despesa recorrente"}
           </h2>
@@ -309,14 +309,14 @@ export default function HousingPage() {
               className="h-11 rounded-xl border-border/60 bg-secondary/35"
             />
 
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               {editingExpense ? (
-                <Button variant="outline" className="shrink-0" onClick={resetForm} disabled={isSaving}>
+                <Button variant="outline" className="w-full shrink-0 sm:w-auto" onClick={resetForm} disabled={isSaving}>
                   <X size={16} />
                   Cancelar
                 </Button>
               ) : null}
-              <Button className="flex-1" onClick={() => void handleSaveExpense()} disabled={isSaving}>
+              <Button className="w-full flex-1" onClick={() => void handleSaveExpense()} disabled={isSaving}>
                 <Plus size={16} />
                 {isSaving ? "Salvando..." : editingExpense ? "Salvar alteracoes" : "Adicionar despesa"}
               </Button>
@@ -332,7 +332,7 @@ export default function HousingPage() {
           </div>
         </div>
 
-        <div className="glass-card rounded-2xl border border-border/40 p-5">
+        <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-foreground">Despesas de habitacao</h2>
             <p className="text-sm text-muted-foreground">
@@ -366,7 +366,7 @@ export default function HousingPage() {
                           <Icon size={18} />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-base font-semibold text-foreground">{expense.description}</p>
+                          <p className="break-words text-base font-semibold text-foreground">{expense.description}</p>
                           <p className="text-sm text-muted-foreground">
                             {getExpenseTypeLabel(expense.expenseType)} · vence dia {expense.dueDay}
                           </p>
@@ -381,7 +381,7 @@ export default function HousingPage() {
                           {expense.notes ? <p className="mt-1 text-sm text-muted-foreground">{expense.notes}</p> : null}
                         </div>
                       </div>
-                      <div className="flex shrink-0 items-center justify-between gap-2 md:flex-col md:items-end">
+                      <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between md:flex-col md:items-end">
                         <p className="text-lg font-bold text-foreground">{currencyFormatter.format(expense.amount)}</p>
                         <div className="flex gap-1">
                           <Button

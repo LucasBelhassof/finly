@@ -26,17 +26,17 @@ export default function SettingsPage() {
   return (
     <AppShell title="Configurações" description="Status da integração e parametros do ambiente">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">API</p>
           <p className="mt-1 text-sm font-medium text-foreground break-all">{apiUrl}</p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Backend</p>
           <p className="mt-1 text-2xl font-bold text-foreground">
             {isLoading ? "..." : data?.status === "ok" ? "Online" : "Indisponivel"}
           </p>
         </div>
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <p className="text-sm text-muted-foreground">Banco</p>
           <p className="mt-1 text-2xl font-bold text-foreground">
             {isLoading ? "..." : data?.database === "connected" ? "Conectado" : "Indisponivel"}
@@ -45,21 +45,21 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <h2 className="mb-4 text-lg font-semibold text-foreground">Diagnóstico</h2>
 
           <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between rounded-lg bg-secondary/30 px-4 py-3">
+            <div className="flex flex-col gap-1 rounded-lg bg-secondary/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-muted-foreground">Status da API</span>
               <span className="font-medium text-foreground">{data?.status ?? (isLoading ? "Carregando" : "--")}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-secondary/30 px-4 py-3">
+            <div className="flex flex-col gap-1 rounded-lg bg-secondary/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-muted-foreground">Conexao com banco</span>
               <span className="font-medium text-foreground">
                 {data?.database ?? (isLoading ? "Carregando" : "--")}
               </span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-secondary/30 px-4 py-3">
+            <div className="flex flex-col gap-1 rounded-lg bg-secondary/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-muted-foreground">Horario do servidor</span>
               <span className="font-medium text-foreground">{formatServerTime(data?.serverTime)}</span>
             </div>
@@ -72,7 +72,7 @@ export default function SettingsPage() {
           ) : null}
         </div>
 
-        <div className="glass-card p-5">
+        <div className="glass-card p-4 sm:p-5">
           <h2 className="mb-4 text-lg font-semibold text-foreground">Observações</h2>
           <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
             <p>As rotas da sidebar agora estão conectadas ao React Router e usam os dados reais da API.</p>

@@ -20,7 +20,7 @@ interface SpendingChartProps {
 
 function SpendingChartSkeleton() {
   return (
-    <div className="glass-card p-5 animate-fade-in">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
       <h3 className="mb-4 font-semibold text-foreground">Gastos por Categoria</h3>
       <Skeleton className="mb-5 h-56 w-full rounded-2xl" />
       <div className="space-y-3">
@@ -98,11 +98,11 @@ export default function SpendingChart({ transactions = [], banks = [], isLoading
   }
 
   return (
-    <div className="glass-card p-5 animate-fade-in">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="glass-card animate-fade-in p-4 sm:p-5">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="font-semibold text-foreground">Gastos por Categoria</h3>
         <Select value={selectedBankId} onValueChange={setSelectedBankId}>
-          <SelectTrigger className="h-9 w-[180px] rounded-xl border-border/60 bg-secondary/35 text-xs">
+          <SelectTrigger className="h-9 w-full rounded-xl border-border/60 bg-secondary/35 text-xs sm:w-[180px]">
             <SelectValue placeholder="Todas as contas" />
           </SelectTrigger>
           <SelectContent>

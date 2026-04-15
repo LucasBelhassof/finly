@@ -1,4 +1,4 @@
-import { Check, Download, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DateRangePickerInput } from "@/components/ui/date-picker-input";
@@ -113,7 +113,7 @@ export default function InstallmentsFilters({
 
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>Ordenacao</span>
-          <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_120px]">
             <Select
               value={filters.sortBy}
               onValueChange={(value) => update("sortBy", value as InstallmentSortBy)}
@@ -145,7 +145,7 @@ export default function InstallmentsFilters({
         </label>
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>Quantidade de parcelas</span>
-          <div className={shouldShowInstallmentCountValueSelect ? "grid grid-cols-[minmax(0,1fr)_120px] gap-2" : "grid grid-cols-1"}>
+          <div className={shouldShowInstallmentCountValueSelect ? "grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_120px]" : "grid grid-cols-1"}>
             <Select
               value={filters.installmentCountMode}
               onValueChange={(value) => {
@@ -220,7 +220,7 @@ export default function InstallmentsFilters({
 
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>período das parcelas</span>
-          <div className={shouldShowCustomPeriodInput ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2" : "grid grid-cols-1"}>
+          <div className={shouldShowCustomPeriodInput ? "grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "grid grid-cols-1"}>
             <Select
               value={periodPreset}
               onValueChange={(value) => onPeriodPresetChange(value as InstallmentsPeriodPreset)}
@@ -260,10 +260,10 @@ export default function InstallmentsFilters({
         </label>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
         <Button
           variant="destructive"
-          className="rounded-xl border-border/60 bg-secondary/20"
+          className="w-full rounded-xl border-border/60 bg-secondary/20 sm:w-auto"
           onClick={onResetFilters}
         >
           <RotateCcw size={14} />
@@ -271,7 +271,7 @@ export default function InstallmentsFilters({
         </Button>
         <Button
           variant="outline"
-          className="rounded-xl border-border/60 bg-secondary/20"
+          className="w-full rounded-xl border-border/60 bg-secondary/20 sm:w-auto"
           onClick={onApplyFilters}
         >
           <Check size={14} />

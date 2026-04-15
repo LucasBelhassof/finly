@@ -806,7 +806,7 @@ export default function TransactionsPage() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="glass-card rounded-2xl border border-border/40 p-5">
           <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-[1.7rem] font-semibold text-foreground">Todas as Transações</h2>
+            <h2 className="text-[1.35rem] font-semibold text-foreground sm:text-[1.7rem]">Todas as Transações</h2>
             <span className="text-sm text-muted-foreground">{filteredTransactions.length} transações</span>
           </div>
 

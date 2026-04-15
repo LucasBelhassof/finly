@@ -30,7 +30,7 @@ export default function Index() {
             isLoading={isLoading || isTransactionsLoading}
             isError={isError || isTransactionsError}
           />
-          <div className="h-[420px]">
+          <div className="h-[360px] sm:h-[420px]">
             <AiChat initialMessages={data?.chatMessages} />
           </div>
         </div>

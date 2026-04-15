@@ -15,8 +15,8 @@ function BalanceCardsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {fallbackLabels.map((label) => (
-        <div key={label} className="glass-card p-5 animate-fade-in">
-          <div className="mb-3 flex items-center justify-between">
+        <div key={label} className="glass-card p-4 animate-fade-in sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-8 w-8 rounded-lg" />
           </div>
@@ -37,12 +37,12 @@ export default function BalanceCards({ cards = [], isLoading, isError }: Balance
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {fallbackLabels.map((label) => (
-          <div key={label} className="glass-card p-5 animate-fade-in">
-            <div className="mb-3 flex items-center justify-between">
+          <div key={label} className="glass-card p-4 animate-fade-in sm:p-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
               <span className="text-sm text-muted-foreground">{label}</span>
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary" />
             </div>
-            <p className="mb-1 text-2xl font-bold text-foreground">--</p>
+            <p className="mb-1 break-words text-2xl font-bold text-foreground">--</p>
             <p className="text-xs text-muted-foreground">
               {isError ? "Nao foi possivel carregar os cards agora." : "Sem dados disponiveis no momento."}
             </p>
@@ -57,9 +57,9 @@ export default function BalanceCards({ cards = [], isLoading, isError }: Balance
       {cards.map((card) => (
         <div
           key={card.label}
-          className="glass-card p-5 animate-fade-in group hover:glow-border transition-all duration-300"
+          className="glass-card group animate-fade-in p-4 transition-all duration-300 hover:glow-border sm:p-5"
         >
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">{card.label}</span>
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-lg ${
@@ -69,8 +69,8 @@ export default function BalanceCards({ cards = [], isLoading, isError }: Balance
               <card.icon size={16} className={card.positive ? "text-income" : "text-expense"} />
             </div>
           </div>
-          <p className="mb-1 text-2xl font-bold text-foreground">{card.formattedValue}</p>
-          <div className="flex items-center gap-1">
+          <p className="mb-1 break-words text-2xl font-bold text-foreground">{card.formattedValue}</p>
+          <div className="flex flex-wrap items-center gap-1">
             <ArrowUpRight size={14} className={card.positive ? "text-income" : "rotate-90 text-expense"} />
             <span className={`text-xs font-medium ${card.positive ? "text-income" : "text-expense"}`}>
               {card.change}

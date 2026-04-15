@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useBanks } from "@/hooks/use-banks";
 import { useTransactions } from "@/hooks/use-transactions";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -180,6 +181,7 @@ function MetricsSkeleton() {
 }
 
 export default function ExpenseMetricsPage() {
+  const isMobile = useIsMobile();
   const { data: transactions = [], isLoading: isTransactionsLoading, isError: isTransactionsError } = useTransactions();
   const { data: banks = [], isLoading: isBanksLoading } = useBanks();
 
@@ -334,14 +336,14 @@ export default function ExpenseMetricsPage() {
           </Select>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           {typeFilters.map((filter) => (
             <button
               key={filter.value}
               type="button"
               onClick={() => setTypeFilter(filter.value)}
               className={cn(
-                "rounded-2xl px-4 py-2.5 text-sm transition-colors",
+                "min-h-11 rounded-2xl px-4 py-2.5 text-sm transition-colors sm:min-h-0",
                 typeFilter === filter.value ? "bg-primary/15 text-primary" : "bg-secondary/50 text-muted-foreground hover:text-foreground",
               )}
             >
@@ -349,15 +351,15 @@ export default function ExpenseMetricsPage() {
             </button>
           ))}
 
-          <div className="ml-auto text-xs uppercase tracking-[0.24em] text-muted-foreground">
+          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground sm:ml-auto">
             {formatDateRangeLabel(dateRange, datePreset)}
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">Despesas no periodo</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-expense/10 text-expense">
               <TrendingDown size={18} />
@@ -369,8 +371,8 @@ export default function ExpenseMetricsPage() {
           </p>
         </div>
 
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">Saldo filtrado</span>
             <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl", metrics.balance >= 0 ? "bg-income/10 text-income" : "bg-expense/10 text-expense")}>
               {metrics.balance >= 0 ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}
@@ -382,8 +384,8 @@ export default function ExpenseMetricsPage() {
           <p className="mt-2 text-sm text-muted-foreground">Receitas: {formatCurrency(metrics.totalIncomes)}</p>
         </div>
 
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">Ticket medio de despesa</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Scale size={18} />
@@ -393,8 +395,8 @@ export default function ExpenseMetricsPage() {
           <p className="mt-2 text-sm text-muted-foreground">Mediana: {formatCurrency(metrics.medianExpense)}</p>
         </div>
 
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">Dias com movimentacao</span>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-warning/10 text-warning">
               <CalendarRange size={18} />
@@ -408,8 +410,8 @@ export default function ExpenseMetricsPage() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">
                 {typeFilter === "income" ? "Tendencia de receitas" : "Tendencia de movimentacao"}
@@ -431,11 +433,18 @@ export default function ExpenseMetricsPage() {
               {isTransactionsError ? "Nao foi possivel carregar as metricas agora." : emptyStateMessage}
             </div>
           ) : (
-            <ChartContainer config={trendConfig} className="h-[300px] w-full">
-              <BarChart data={chartData} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+            <ChartContainer config={trendConfig} className="h-[220px] w-full sm:h-[300px]">
+              <BarChart data={chartData} margin={isMobile ? { top: 8, right: 4, left: -20, bottom: 0 } : { top: 8, right: 12, left: -12, bottom: 0 }}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tickLine={false} axisLine={false} width={70} tickFormatter={(value: number) => `R$ ${Math.round(value / 1000)}k`} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} minTickGap={isMobile ? 12 : 24} tick={{ fontSize: isMobile ? 10 : 12 }} />
+                <YAxis
+                  hide={isMobile}
+                  tickLine={false}
+                  axisLine={false}
+                  width={70}
+                  tickFormatter={(value: number) => `R$ ${Math.round(value / 1000)}k`}
+                  tick={{ fontSize: 12 }}
+                />
                 <ChartTooltip
                   cursor={false}
                   content={
@@ -444,7 +453,7 @@ export default function ExpenseMetricsPage() {
                         const payload = item.payload as TrendPoint;
 
                         return (
-                          <div className="flex min-w-[10rem] items-center justify-between gap-3">
+                          <div className="flex min-w-[8rem] items-center justify-between gap-3">
                             <span className="text-muted-foreground">{payload.label}</span>
                             <span className="font-medium text-foreground">{payload.formattedAmount}</span>
                           </div>
@@ -453,13 +462,13 @@ export default function ExpenseMetricsPage() {
                     />
                   }
                 />
-                <Bar dataKey="amount" radius={[12, 12, 4, 4]} fill="var(--color-amount)" />
+                <Bar dataKey="amount" radius={[12, 12, 4, 4]} fill="var(--color-amount)" maxBarSize={isMobile ? 24 : 40} />
               </BarChart>
             </ChartContainer>
           )}
         </div>
 
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
           <div className="mb-5">
             <h2 className="text-xl font-semibold text-foreground">Concentracao por categoria</h2>
             <p className="text-sm text-muted-foreground">Despesas agrupadas por familias para expor dependencia e dispersao</p>
@@ -469,14 +478,14 @@ export default function ExpenseMetricsPage() {
             items={metrics.categoryBreakdown}
             emptyMessage="Nao ha despesas suficientes para compor o concentrado por categoria."
             isError={isTransactionsError}
-            chartClassName="mb-2 h-[240px]"
+            chartClassName="mb-2 h-[200px] sm:h-[240px]"
           />
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-5 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Leituras rapidas</h2>
               <p className="text-sm text-muted-foreground">Sinais sinteticos para revisar recorrencia, concentracao e relevancia</p>
@@ -517,8 +526,8 @@ export default function ExpenseMetricsPage() {
           </div>
         </div>
 
-        <div className="glass-card rounded-[28px] border border-border/40 p-5">
-          <div className="mb-5 flex items-center justify-between">
+        <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">Ranking por conta</h2>
               <p className="text-sm text-muted-foreground">Distribuicao do volume de despesas por origem de pagamento</p>
@@ -562,8 +571,8 @@ export default function ExpenseMetricsPage() {
         </div>
       </section>
 
-      <section className="glass-card rounded-[28px] border border-border/40 p-5">
-        <div className="mb-5 flex items-center justify-between">
+      <section className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-foreground">Top categorias</h2>
             <p className="text-sm text-muted-foreground">Leitura tabular do peso relativo das categorias de despesa</p>

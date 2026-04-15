@@ -68,7 +68,7 @@ export default function CategoryPieChart({
                   const color = resolveCategoryColorPresentation(payload.color);
 
                   return (
-                    <div className="flex min-w-[12rem] items-center justify-between gap-3">
+                    <div className="flex min-w-[9rem] items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color.solid }} />
                         <span className="text-muted-foreground">{payload.label}</span>
@@ -137,7 +137,7 @@ export default function CategoryPieChart({
               aria-pressed={onSelectItem ? selected : undefined}
             >
               <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color.solid }} />
-              <div className="flex flex-1 items-center justify-between gap-3">
+              <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <span className="block truncate text-sm text-foreground">{item.label}</span>
                   <span className="text-xs text-muted-foreground">{item.formattedTotal}</span>

@@ -13,7 +13,7 @@ export default function InstallmentsInsights({ overview }: InstallmentsInsightsP
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <div className="glass-card rounded-2xl border border-border/40 p-5">
+      <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
         <div className="mb-3 flex items-center gap-2">
           <AlertTriangle size={16} className={concentration.triggered ? "text-warning" : "text-muted-foreground"} />
           <h2 className="text-lg font-semibold text-foreground">Alerta de concentracao</h2>
@@ -25,7 +25,7 @@ export default function InstallmentsInsights({ overview }: InstallmentsInsightsP
         </p>
       </div>
 
-      <div className="glass-card rounded-2xl border border-border/40 p-5">
+      <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
         <div className="mb-3 flex items-center gap-2">
           <CalendarClock size={16} className="text-info" />
           <h2 className="text-lg font-semibold text-foreground">Insight de quitacao</h2>

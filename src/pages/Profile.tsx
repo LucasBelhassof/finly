@@ -16,13 +16,13 @@ export default function ProfilePage() {
   return (
     <AppShell title="Perfil" description="Informacoes da conta e atalhos pessoais">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="glass-card rounded-2xl border border-border/40 p-6">
-          <div className="flex items-start gap-4">
+        <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
               <UserCircle2 size={32} />
             </div>
             <div className="min-w-0">
-              <h2 className="text-2xl font-semibold text-foreground">{userName}</h2>
+              <h2 className="break-words text-2xl font-semibold text-foreground">{userName}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{userEmail}</p>
               <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">ID do usuário: {userId}</p>
             </div>
@@ -45,7 +45,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-6">
-          <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
             <h3 className="text-lg font-semibold text-foreground">Ações da conta</h3>
             <div className="mt-4 space-y-3">
               <Button
@@ -67,7 +67,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="glass-card rounded-2xl border border-border/40 p-5">
+          <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
             <h3 className="text-lg font-semibold text-foreground">Resumo</h3>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Esta área concentra informações do usuário e atalhos pessoais. Ajustes técnicos e parâmetros do ambiente

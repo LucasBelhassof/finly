@@ -156,7 +156,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
                 )}
               </div>
               <div
-                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                className={`max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed sm:max-w-[85%] ${
                   message.role === "assistant"
                     ? "rounded-tl-sm bg-secondary text-secondary-foreground"
                     : "rounded-tr-sm bg-primary text-primary-foreground"

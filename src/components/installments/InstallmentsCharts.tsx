@@ -94,13 +94,13 @@ export default function InstallmentsCharts({ overview }: InstallmentsChartsProps
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-      <div className="glass-card rounded-2xl border border-border/40 p-5 xl:col-span-2">
+      <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5 xl:col-span-2">
         <div className="mb-4 space-y-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Evolucao mensal do compromisso</h2>
             <p className="text-sm text-muted-foreground">Comparativo mensal com filtro proprio apenas para este grafico.</p>
           </div>
-          <div className={shouldShowCustomPeriodInput ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2" : "grid grid-cols-1"}>
+          <div className={shouldShowCustomPeriodInput ? "grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "grid grid-cols-1"}>
             <Select value={chartPeriodPreset} onValueChange={(value) => handleChartPresetChange(value as InstallmentsChartPeriodPreset)}>
               <SelectTrigger
                 data-testid="installments-chart-period-preset-trigger"
@@ -172,7 +172,7 @@ export default function InstallmentsCharts({ overview }: InstallmentsChartsProps
         )}
       </div>
 
-      <div className="glass-card rounded-2xl border border-border/40 p-5">
+      <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground">Distribuicao por cartao</h2>
           <p className="text-sm text-muted-foreground">Participacao no compromisso mensal dos parcelamentos ativos.</p>
@@ -193,7 +193,7 @@ export default function InstallmentsCharts({ overview }: InstallmentsChartsProps
                       const payload = item.payload as (typeof distributionData)[number];
 
                       return (
-                        <div className="flex min-w-[12rem] items-center justify-between gap-3">
+                        <div className="flex min-w-[9rem] items-center justify-between gap-3">
                           <span className="text-muted-foreground">{payload.cardName}</span>
                           <div className="text-right">
                             <div className="font-medium text-foreground">{formatCurrency(payload.amount)}</div>
@@ -217,7 +217,7 @@ export default function InstallmentsCharts({ overview }: InstallmentsChartsProps
         )}
       </div>
 
-      <div className="glass-card rounded-2xl border border-border/40 p-5 xl:col-span-3">
+      <div className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5 xl:col-span-3">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground">Top categorias parceladas</h2>
           <p className="text-sm text-muted-foreground">Categorias com maior compromisso mensal no recorte atual.</p>

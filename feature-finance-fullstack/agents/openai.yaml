@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Finance Fullstack"
+  short_description: "Implement this finance app safely."
+  default_prompt: "Use $feature-finance-fullstack to make a small, safe full-stack change in this finance application while preserving existing contracts and auth flows."

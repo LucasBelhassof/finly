@@ -477,7 +477,7 @@ export default function ProfilePage() {
                 onClick={() => navigate(appRoutes.settings)}
               >
                 <Settings size={16} />
-                Abrir configuracoes tecnicas
+                Abrir configurações
               </Button>
             </div>
           </section>

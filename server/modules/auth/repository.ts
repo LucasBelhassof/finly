@@ -17,7 +17,39 @@ export interface UserRecord {
   status: "active" | "inactive" | "suspended";
   isPremium: boolean;
   premiumSince: Date | null;
+  phone: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressNeighborhood: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressPostalCode: string | null;
+  addressCountry: string | null;
 }
+
+const USER_SELECT_COLUMNS = `
+  id,
+  name,
+  email,
+  password_hash,
+  email_verified_at,
+  onboarding_completed_at,
+  onboarding_progress,
+  role,
+  status,
+  is_premium,
+  premium_since,
+  phone,
+  address_street,
+  address_number,
+  address_complement,
+  address_neighborhood,
+  address_city,
+  address_state,
+  address_postal_code,
+  address_country
+`;
 
 export interface SessionRecord {
   id: number;
@@ -67,6 +99,18 @@ function mapUser(row: Record<string, unknown>): UserRecord {
         : "active",
     isPremium: Boolean(row.is_premium),
     premiumSince: row.premium_since ? new Date(String(row.premium_since)) : null,
+    phone: row.phone === null || row.phone === undefined ? null : String(row.phone),
+    addressStreet: row.address_street === null || row.address_street === undefined ? null : String(row.address_street),
+    addressNumber: row.address_number === null || row.address_number === undefined ? null : String(row.address_number),
+    addressComplement:
+      row.address_complement === null || row.address_complement === undefined ? null : String(row.address_complement),
+    addressNeighborhood:
+      row.address_neighborhood === null || row.address_neighborhood === undefined ? null : String(row.address_neighborhood),
+    addressCity: row.address_city === null || row.address_city === undefined ? null : String(row.address_city),
+    addressState: row.address_state === null || row.address_state === undefined ? null : String(row.address_state),
+    addressPostalCode:
+      row.address_postal_code === null || row.address_postal_code === undefined ? null : String(row.address_postal_code),
+    addressCountry: row.address_country === null || row.address_country === undefined ? null : String(row.address_country),
   };
 }
 
@@ -111,6 +155,27 @@ function mapSession(row: Record<string, unknown>): SessionRecord {
               : "active",
           isPremium: Boolean(row.user_is_premium),
           premiumSince: row.user_premium_since ? new Date(String(row.user_premium_since)) : null,
+          phone: row.user_phone === null || row.user_phone === undefined ? null : String(row.user_phone),
+          addressStreet:
+            row.user_address_street === null || row.user_address_street === undefined ? null : String(row.user_address_street),
+          addressNumber:
+            row.user_address_number === null || row.user_address_number === undefined ? null : String(row.user_address_number),
+          addressComplement:
+            row.user_address_complement === null || row.user_address_complement === undefined
+              ? null
+              : String(row.user_address_complement),
+          addressNeighborhood:
+            row.user_address_neighborhood === null || row.user_address_neighborhood === undefined
+              ? null
+              : String(row.user_address_neighborhood),
+          addressCity: row.user_address_city === null || row.user_address_city === undefined ? null : String(row.user_address_city),
+          addressState: row.user_address_state === null || row.user_address_state === undefined ? null : String(row.user_address_state),
+          addressPostalCode:
+            row.user_address_postal_code === null || row.user_address_postal_code === undefined
+              ? null
+              : String(row.user_address_postal_code),
+          addressCountry:
+            row.user_address_country === null || row.user_address_country === undefined ? null : String(row.user_address_country),
         }
       : null,
   };
@@ -146,6 +211,27 @@ function mapPasswordResetToken(row: Record<string, unknown>): PasswordResetToken
               : "active",
           isPremium: Boolean(row.user_is_premium),
           premiumSince: row.user_premium_since ? new Date(String(row.user_premium_since)) : null,
+          phone: row.user_phone === null || row.user_phone === undefined ? null : String(row.user_phone),
+          addressStreet:
+            row.user_address_street === null || row.user_address_street === undefined ? null : String(row.user_address_street),
+          addressNumber:
+            row.user_address_number === null || row.user_address_number === undefined ? null : String(row.user_address_number),
+          addressComplement:
+            row.user_address_complement === null || row.user_address_complement === undefined
+              ? null
+              : String(row.user_address_complement),
+          addressNeighborhood:
+            row.user_address_neighborhood === null || row.user_address_neighborhood === undefined
+              ? null
+              : String(row.user_address_neighborhood),
+          addressCity: row.user_address_city === null || row.user_address_city === undefined ? null : String(row.user_address_city),
+          addressState: row.user_address_state === null || row.user_address_state === undefined ? null : String(row.user_address_state),
+          addressPostalCode:
+            row.user_address_postal_code === null || row.user_address_postal_code === undefined
+              ? null
+              : String(row.user_address_postal_code),
+          addressCountry:
+            row.user_address_country === null || row.user_address_country === undefined ? null : String(row.user_address_country),
         }
         : null,
   };
@@ -171,6 +257,7 @@ export async function findUserByEmail(email: string, client: Queryable = db) {
   const result = await client.query(
     `
       SELECT id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      , phone, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_postal_code, address_country
       FROM users
       WHERE LOWER(email) = LOWER($1)
       LIMIT 1
@@ -184,7 +271,7 @@ export async function findUserByEmail(email: string, client: Queryable = db) {
 export async function findUserById(userId: number, client: Queryable = db) {
   const result = await client.query(
     `
-      SELECT id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      SELECT ${USER_SELECT_COLUMNS}
       FROM users
       WHERE id = $1
       LIMIT 1
@@ -198,7 +285,7 @@ export async function findUserById(userId: number, client: Queryable = db) {
 export async function listUsersWithoutCredentials(client: Queryable = db) {
   const result = await client.query(
     `
-      SELECT id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      SELECT ${USER_SELECT_COLUMNS}
       FROM users
       WHERE email IS NULL OR password_hash IS NULL
       ORDER BY id ASC
@@ -220,7 +307,7 @@ export async function createUser(
     `
       INSERT INTO users (name, email, password_hash, updated_at)
       VALUES ($1, $2, $3, NOW())
-      RETURNING id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      RETURNING ${USER_SELECT_COLUMNS}
     `,
     [input.name, input.email, input.passwordHash],
   );
@@ -245,7 +332,7 @@ export async function attachCredentialsToUser(
           password_hash = $4,
           updated_at = NOW()
       WHERE id = $1
-      RETURNING id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      RETURNING ${USER_SELECT_COLUMNS}
     `,
     [userId, input.name, input.email, input.passwordHash],
   );
@@ -260,7 +347,7 @@ export async function updateUserPassword(userId: number, passwordHash: string, c
       SET password_hash = $2,
           updated_at = NOW()
       WHERE id = $1
-      RETURNING id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      RETURNING ${USER_SELECT_COLUMNS}
     `,
     [userId, passwordHash],
   );
@@ -324,7 +411,16 @@ export async function findSessionByTokenHash(tokenHash: string, client: Queryabl
         u.role AS user_role,
         u.status AS user_status,
         u.is_premium AS user_is_premium,
-        u.premium_since AS user_premium_since
+        u.premium_since AS user_premium_since,
+        u.phone AS user_phone,
+        u.address_street AS user_address_street,
+        u.address_number AS user_address_number,
+        u.address_complement AS user_address_complement,
+        u.address_neighborhood AS user_address_neighborhood,
+        u.address_city AS user_address_city,
+        u.address_state AS user_address_state,
+        u.address_postal_code AS user_address_postal_code,
+        u.address_country AS user_address_country
       FROM auth_sessions s
       INNER JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = $1
@@ -435,7 +531,16 @@ export async function findPasswordResetTokenByHash(tokenHash: string, client: Qu
         u.role AS user_role,
         u.status AS user_status,
         u.is_premium AS user_is_premium,
-        u.premium_since AS user_premium_since
+        u.premium_since AS user_premium_since,
+        u.phone AS user_phone,
+        u.address_street AS user_address_street,
+        u.address_number AS user_address_number,
+        u.address_complement AS user_address_complement,
+        u.address_neighborhood AS user_address_neighborhood,
+        u.address_city AS user_address_city,
+        u.address_state AS user_address_state,
+        u.address_postal_code AS user_address_postal_code,
+        u.address_country AS user_address_country
       FROM password_reset_tokens t
       INNER JOIN users u ON u.id = t.user_id
       WHERE t.token_hash = $1
@@ -525,9 +630,96 @@ export async function updateUserOnboardingState(
           END,
           updated_at = NOW()
       WHERE id = $1
-      RETURNING id, name, email, password_hash, email_verified_at, onboarding_completed_at, onboarding_progress, role, status, is_premium, premium_since
+      RETURNING ${USER_SELECT_COLUMNS}
     `,
     [userId, JSON.stringify(input.onboardingProgress), input.onboardingCompletedAt?.toISOString() ?? null],
+  );
+
+  return result.rows[0] ? mapUser(result.rows[0]) : null;
+}
+export async function findUserByEmailExcludingUserId(email: string, userId: number, client: Queryable = db) {
+  const result = await client.query(
+    `
+      SELECT ${USER_SELECT_COLUMNS}
+      FROM users
+      WHERE LOWER(email) = LOWER($1)
+        AND id <> $2
+      LIMIT 1
+    `,
+    [email, userId],
+  );
+
+  return result.rows[0] ? mapUser(result.rows[0]) : null;
+}
+
+export async function updateUserAccount(
+  userId: number,
+  input: {
+    name: string;
+    email: string;
+    resetEmailVerification: boolean;
+  },
+  client: Queryable = db,
+) {
+  const result = await client.query(
+    `
+      UPDATE users
+      SET name = $2,
+          email = $3,
+          email_verified_at = CASE WHEN $4::boolean THEN NULL ELSE email_verified_at END,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${USER_SELECT_COLUMNS}
+    `,
+    [userId, input.name, input.email, input.resetEmailVerification],
+  );
+
+  return result.rows[0] ? mapUser(result.rows[0]) : null;
+}
+
+export async function updateUserContact(
+  userId: number,
+  input: {
+    phone: string | null;
+    addressStreet: string | null;
+    addressNumber: string | null;
+    addressComplement: string | null;
+    addressNeighborhood: string | null;
+    addressCity: string | null;
+    addressState: string | null;
+    addressPostalCode: string | null;
+    addressCountry: string | null;
+  },
+  client: Queryable = db,
+) {
+  const result = await client.query(
+    `
+      UPDATE users
+      SET phone = $2,
+          address_street = $3,
+          address_number = $4,
+          address_complement = $5,
+          address_neighborhood = $6,
+          address_city = $7,
+          address_state = $8,
+          address_postal_code = $9,
+          address_country = $10,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${USER_SELECT_COLUMNS}
+    `,
+    [
+      userId,
+      input.phone,
+      input.addressStreet,
+      input.addressNumber,
+      input.addressComplement,
+      input.addressNeighborhood,
+      input.addressCity,
+      input.addressState,
+      input.addressPostalCode,
+      input.addressCountry,
+    ],
   );
 
   return result.rows[0] ? mapUser(result.rows[0]) : null;

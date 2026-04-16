@@ -4,8 +4,18 @@ import rateLimit from "express-rate-limit";
 
 import { env } from "../../shared/env.js";
 import { BadRequestError, UnauthorizedError } from "../../shared/errors.js";
-import { forgotPasswordSchema, loginSchema, onboardingProgressSchema, resetPasswordSchema, signupSchema } from "./schemas.js";
 import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  onboardingProgressSchema,
+  resetPasswordSchema,
+  signupSchema,
+  updateAccountSchema,
+  updateContactSchema,
+} from "./schemas.js";
+import {
+  changePassword,
   forgotPassword,
   getCurrentUser,
   getExpiredRefreshCookieOptions,
@@ -15,6 +25,8 @@ import {
   refreshSession,
   resetPassword,
   signup,
+  updateAccountSettings,
+  updateContactSettings,
   updateOnboardingProgress,
   verifyAccessToken,
   type AuthRequestMetadata,
@@ -184,6 +196,55 @@ export function createAuthRouter() {
     };
     const user = await updateOnboardingProgress(auth.userId, input);
     response.json({ user });
+  });
+
+  router.patch("/account", async (request, response) => {
+    const auth = await requireAccessToken(request);
+    const input = updateAccountSchema.parse(request.body ?? {});
+    const user = await updateAccountSettings(
+      auth.userId,
+      {
+        name: input.name,
+        email: input.email,
+      },
+      getRequestMetadata(request),
+    );
+    response.json({ user });
+  });
+
+  router.patch("/contact", async (request, response) => {
+    const auth = await requireAccessToken(request);
+    const input = updateContactSchema.parse(request.body ?? {});
+    const user = await updateContactSettings(
+      auth.userId,
+      {
+        phone: input.phone ?? null,
+        addressStreet: input.addressStreet ?? null,
+        addressNumber: input.addressNumber ?? null,
+        addressComplement: input.addressComplement ?? null,
+        addressNeighborhood: input.addressNeighborhood ?? null,
+        addressCity: input.addressCity ?? null,
+        addressState: input.addressState ?? null,
+        addressPostalCode: input.addressPostalCode ?? null,
+        addressCountry: input.addressCountry ?? null,
+      },
+      getRequestMetadata(request),
+    );
+    response.json({ user });
+  });
+
+  router.post("/change-password", async (request, response) => {
+    const auth = await requireAccessToken(request);
+    const input = changePasswordSchema.parse(request.body ?? {});
+    const result = await changePassword(
+      auth.userId,
+      {
+        currentPassword: input.currentPassword,
+        newPassword: input.newPassword,
+      },
+      getRequestMetadata(request),
+    );
+    response.json(result);
   });
 
   return router;

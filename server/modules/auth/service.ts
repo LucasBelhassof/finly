@@ -10,6 +10,7 @@ import {
   createPasswordResetToken,
   createSession,
   createUser,
+  findUserByEmailExcludingUserId,
   findPasswordResetTokenByHash,
   findSessionByTokenHash,
   findUserByEmail,
@@ -23,6 +24,8 @@ import {
   revokeSessionFamily,
   revokeUserSessions,
   touchSession,
+  updateUserAccount,
+  updateUserContact,
   updateUserOnboardingState,
   updateUserPassword,
   withTransaction,
@@ -97,6 +100,15 @@ function toAuthUser(user: {
   status?: "active" | "inactive" | "suspended";
   isPremium?: boolean;
   premiumSince?: Date | null;
+  phone?: string | null;
+  addressStreet?: string | null;
+  addressNumber?: string | null;
+  addressComplement?: string | null;
+  addressNeighborhood?: string | null;
+  addressCity?: string | null;
+  addressState?: string | null;
+  addressPostalCode?: string | null;
+  addressCountry?: string | null;
 }): AuthUser {
   if (!user.email) {
     throw new BadRequestError("user_email_missing", "The user does not have an email configured.");
@@ -118,6 +130,15 @@ function toAuthUser(user: {
         : "active",
     isPremium: Boolean(user.isPremium),
     premiumSince: user.premiumSince ? user.premiumSince.toISOString() : null,
+    phone: user.phone ?? null,
+    addressStreet: user.addressStreet ?? null,
+    addressNumber: user.addressNumber ?? null,
+    addressComplement: user.addressComplement ?? null,
+    addressNeighborhood: user.addressNeighborhood ?? null,
+    addressCity: user.addressCity ?? null,
+    addressState: user.addressState ?? null,
+    addressPostalCode: user.addressPostalCode ?? null,
+    addressCountry: user.addressCountry ?? null,
   };
 }
 
@@ -628,6 +649,160 @@ export async function updateOnboardingProgress(userId: number, input: AuthOnboar
   }
 
   return toAuthUser(updatedUser);
+}
+
+export async function updateAccountSettings(
+  userId: number,
+  input: {
+    name: string;
+    email: string;
+  },
+  metadata: AuthRequestMetadata,
+) {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
+  }
+
+  const normalizedEmail = normalizeEmail(input.email);
+  const normalizedName = input.name.trim();
+
+  const conflictingUser = await findUserByEmailExcludingUserId(normalizedEmail, userId);
+
+  if (conflictingUser) {
+    throw new HttpError(409, "email_already_registered", "This email is already registered.");
+  }
+
+  const emailChanged = normalizedEmail !== String(user.email).toLowerCase();
+  const updatedUser = await updateUserAccount(userId, {
+    name: normalizedName,
+    email: normalizedEmail,
+    resetEmailVerification: emailChanged,
+  });
+
+  if (!updatedUser) {
+    throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
+  }
+
+  await insertAuditEvent({
+    userId,
+    email: updatedUser.email,
+    eventType: "account_settings_updated",
+    success: true,
+    ipAddress: metadata.ipAddress,
+    userAgent: metadata.userAgent,
+    metadata: {
+      emailChanged,
+    },
+  });
+
+  return toAuthUser(updatedUser);
+}
+
+export async function updateContactSettings(
+  userId: number,
+  input: {
+    phone: string | null;
+    addressStreet: string | null;
+    addressNumber: string | null;
+    addressComplement: string | null;
+    addressNeighborhood: string | null;
+    addressCity: string | null;
+    addressState: string | null;
+    addressPostalCode: string | null;
+    addressCountry: string | null;
+  },
+  metadata: AuthRequestMetadata,
+) {
+  const user = await findUserById(userId);
+
+  if (!user) {
+    throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
+  }
+
+  const updatedUser = await updateUserContact(userId, input);
+
+  if (!updatedUser) {
+    throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
+  }
+
+  await insertAuditEvent({
+    userId,
+    email: updatedUser.email,
+    eventType: "contact_settings_updated",
+    success: true,
+    ipAddress: metadata.ipAddress,
+    userAgent: metadata.userAgent,
+  });
+
+  return toAuthUser(updatedUser);
+}
+
+export async function changePassword(
+  userId: number,
+  input: {
+    currentPassword: string;
+    newPassword: string;
+  },
+  metadata: AuthRequestMetadata,
+) {
+  const user = await findUserById(userId);
+
+  if (!user?.passwordHash || !user.email) {
+    throw new UnauthorizedError("invalid_credentials", "Current password is invalid.");
+  }
+
+  const isValidPassword = await argon2.verify(user.passwordHash, input.currentPassword);
+
+  if (!isValidPassword) {
+    await insertAuditEvent({
+      userId,
+      email: user.email,
+      eventType: "change_password_failed",
+      success: false,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      metadata: {
+        reason: "invalid_current_password",
+      },
+    });
+    throw new UnauthorizedError("invalid_credentials", "Current password is invalid.");
+  }
+
+  const isSamePassword = await argon2.verify(user.passwordHash, input.newPassword);
+
+  if (isSamePassword) {
+    throw new BadRequestError("password_unchanged", "New password must be different from the current password.");
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+
+  await withTransaction(async (client) => {
+    const updatedUser = await updateUserPassword(userId, passwordHash, client);
+
+    if (!updatedUser?.email) {
+      throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
+    }
+
+    await revokeUserSessions(userId, client);
+    await invalidateActivePasswordResetTokens(userId, client);
+    await insertAuditEvent(
+      {
+        userId,
+        email: updatedUser.email,
+        eventType: "change_password_success",
+        success: true,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+      },
+      client,
+    );
+  });
+
+  return {
+    message: "Senha atualizada com sucesso. Faca login novamente.",
+  };
 }
 
 export async function verifyAccessToken(accessToken: string) {

@@ -18,6 +18,15 @@ export interface AuthUser {
   status: "active" | "inactive" | "suspended";
   isPremium: boolean;
   premiumSince: string | null;
+  phone: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressNeighborhood: string | null;
+  addressCity: string | null;
+  addressState: string | null;
+  addressPostalCode: string | null;
+  addressCountry: string | null;
 }
 
 export interface RequestAuthContext {

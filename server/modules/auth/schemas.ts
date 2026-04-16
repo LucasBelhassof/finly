@@ -54,3 +54,72 @@ export const onboardingProgressSchema = z.object({
   skippedSteps: z.array(onboardingStepSchema).default([]),
   dismissed: z.boolean().default(false),
 });
+
+export const updateAccountSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required.").max(100, "Name must have at most 100 characters."),
+    email: z.string().trim().email("Enter a valid email."),
+    confirmEmail: z.string().trim().email("Enter a valid email."),
+  })
+  .refine((value) => value.email === value.confirmEmail, {
+    message: "Emails do not match.",
+    path: ["confirmEmail"],
+  });
+
+const optionalTrimmedText = z.string().trim().max(255).optional().nullable().transform((value) => {
+  if (value == null) {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+  return normalizedValue ? normalizedValue : null;
+});
+
+export const updateContactSchema = z.object({
+  phone: optionalTrimmedText,
+  addressStreet: optionalTrimmedText,
+  addressNumber: optionalTrimmedText,
+  addressComplement: optionalTrimmedText,
+  addressNeighborhood: optionalTrimmedText,
+  addressCity: optionalTrimmedText,
+  addressState: z
+    .string()
+    .trim()
+    .max(2)
+    .optional()
+    .nullable()
+    .transform((value) => {
+      if (value == null) {
+        return null;
+      }
+
+      const normalizedValue = value.trim().toUpperCase();
+      return normalizedValue ? normalizedValue : null;
+    }),
+  addressPostalCode: z
+    .string()
+    .trim()
+    .max(9)
+    .optional()
+    .nullable()
+    .transform((value) => {
+      if (value == null) {
+        return null;
+      }
+
+      const digits = value.replace(/\D/g, "").slice(0, 8);
+      return digits ? digits : null;
+    }),
+  addressCountry: optionalTrimmedText,
+});
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Current password is required."),
+    newPassword: passwordSchema,
+    confirmPassword: passwordSchema,
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+  });

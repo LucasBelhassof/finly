@@ -1,11 +1,14 @@
 import { ApiError, apiBaseUrl } from "@/lib/api";
 import type {
+  ChangePasswordInput,
   AuthSessionPayload,
   ForgotPasswordInput,
   ForgotPasswordResult,
   LoginInput,
   ResetPasswordInput,
   SignupInput,
+  UpdateAccountInput,
+  UpdateContactInput,
   UpdateOnboardingProgressInput,
 } from "@/modules/auth/types/auth-types";
 
@@ -106,6 +109,27 @@ export async function resetPassword(input: ResetPasswordInput) {
 export async function updateOnboardingProgress(input: UpdateOnboardingProgressInput) {
   return authRequest<{ user: AuthSessionPayload["user"] }>("/api/auth/onboarding", {
     method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAccount(input: UpdateAccountInput) {
+  return authRequest<{ user: AuthSessionPayload["user"] }>("/api/auth/account", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateContact(input: UpdateContactInput) {
+  return authRequest<{ user: AuthSessionPayload["user"] }>("/api/auth/contact", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function changePassword(input: ChangePasswordInput) {
+  return authRequest<{ message: string }>("/api/auth/change-password", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }

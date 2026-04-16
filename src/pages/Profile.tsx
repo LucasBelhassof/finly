@@ -56,6 +56,23 @@ function formatDateLabel(value?: string | null) {
   }).format(parsedDate);
 }
 
+function formatMonthReference(value?: string | null) {
+  if (!value) {
+    return "--";
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(parsedDate);
+}
+
 function normalizeProgress(progress?: AuthOnboardingProgress | null): AuthOnboardingProgress {
   const completedSteps = ONBOARDING_STEP_IDS.filter((stepId) => progress?.completedSteps?.includes(stepId));
   const skippedSteps = ONBOARDING_STEP_IDS.filter((stepId) => progress?.skippedSteps?.includes(stepId) && !completedSteps.includes(stepId));
@@ -99,6 +116,50 @@ function getPlanMeta(isPremium?: boolean, premiumSince?: string | null) {
   };
 }
 
+function addMonths(date: Date, amount: number) {
+  return new Date(date.getFullYear(), date.getMonth() + amount, date.getDate(), 12, 0, 0, 0);
+}
+
+function getSubscriptionSummary(isPremium?: boolean, premiumSince?: string | null) {
+  if (!isPremium || !premiumSince) {
+    return {
+      dueDayLabel: "--",
+      dueDescription: "Disponivel apenas para contas premium.",
+      referenceMonthLabel: "--",
+      paymentDescription: "Sem historico de assinatura disponivel para esta conta.",
+      renewalDescription: "Periodicidade e proxima cobranca dependem do backend de assinatura.",
+    };
+  }
+
+  const activationDate = new Date(premiumSince);
+
+  if (Number.isNaN(activationDate.getTime())) {
+    return {
+      dueDayLabel: "--",
+      dueDescription: "Nao foi possivel interpretar a data da assinatura premium.",
+      referenceMonthLabel: "--",
+      paymentDescription: "Ultimo pagamento indisponivel.",
+      renewalDescription: "Periodicidade e proxima cobranca dependem do backend de assinatura.",
+    };
+  }
+
+  const today = new Date();
+  const dueDay = activationDate.getDate();
+  const currentCycleStart =
+    today.getDate() >= dueDay
+      ? new Date(today.getFullYear(), today.getMonth(), dueDay, 12, 0, 0, 0)
+      : new Date(today.getFullYear(), today.getMonth() - 1, dueDay, 12, 0, 0, 0);
+  const nextRenewal = addMonths(currentCycleStart, 1);
+
+  return {
+    dueDayLabel: String(dueDay).padStart(2, "0"),
+    dueDescription: "Dia estimado a partir da data de ativacao premium.",
+    referenceMonthLabel: formatMonthReference(currentCycleStart.toISOString()),
+    paymentDescription: `Ultimo registro premium em ${formatDateLabel(premiumSince)}.`,
+    renewalDescription: `Sem marcador de plano anual no backend. Renovacao estimada para ${formatDateLabel(nextRenewal.toISOString())}.`,
+  };
+}
+
 function getOnboardingMeta(progress: AuthOnboardingProgress, hasCompletedOnboarding?: boolean) {
   if (hasCompletedOnboarding) {
     return {
@@ -121,25 +182,6 @@ function getOnboardingMeta(progress: AuthOnboardingProgress, hasCompletedOnboard
     description: "Ainda existem etapas pendentes para concluir o onboarding.",
     className: "border-primary/20 bg-primary/10 text-primary",
   };
-}
-
-function getNextOnboardingStepLabel(progress: AuthOnboardingProgress, hasCompletedOnboarding?: boolean) {
-  if (hasCompletedOnboarding) {
-    return "Tudo pronto";
-  }
-
-  const nextStepId = ONBOARDING_STEP_IDS[progress.currentStep] ?? "profile";
-
-  switch (nextStepId) {
-    case "account":
-      return "Adicionar conta";
-    case "due_dates":
-      return "Configurar vencimentos";
-    case "dashboard":
-      return "Revisar dashboard";
-    default:
-      return "Revisar perfil";
-  }
 }
 
 function getInitialPreferences() {
@@ -192,9 +234,9 @@ export default function ProfilePage() {
   const onboardingProgressValue = user?.hasCompletedOnboarding
     ? 100
     : Math.round((onboardingStepsDone / ONBOARDING_STEP_IDS.length) * 100);
-  const linkedAccounts = data?.banks.length ?? 0;
-  const referenceMonth = data?.referenceMonth ?? "--";
   const insightsCount = data?.insights.length ?? 0;
+  const isPremiumUser = Boolean(user?.isPremium);
+  const subscriptionSummary = getSubscriptionSummary(user?.isPremium, user?.premiumSince);
 
   const handlePreferenceToggle = (key: keyof ProfilePreferences, checked: boolean) => {
     setPreferences((current) => ({
@@ -214,7 +256,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <AppShell title="Perfil" description="Dados da conta e preferências pessoais">
+    <AppShell title="Perfil" description="Dados da conta, seguranca e preferencias pessoais">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <div className="space-y-6">
           <section className="glass-card rounded-2xl border border-border/40 p-4 sm:p-6">
@@ -229,7 +271,7 @@ export default function ProfilePage() {
                   <Badge className={planMeta.className}>{planMeta.label}</Badge>
                 </div>
                 <p className="mt-1 break-words text-sm text-muted-foreground">{userEmail}</p>
-                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">ID do usuário: {userId}</p>
+                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">ID do usuario: {userId}</p>
               </div>
             </div>
 
@@ -241,14 +283,6 @@ export default function ProfilePage() {
               <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
                 <p className="text-sm text-muted-foreground">Email</p>
                 <p className="mt-2 break-words text-lg font-semibold text-foreground">{userEmail}</p>
-              </div>
-              <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-                <p className="text-sm text-muted-foreground">Perfil de acesso</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{getRoleLabel(user?.role)}</p>
-              </div>
-              <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-                <p className="text-sm text-muted-foreground">Status da conta</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{statusMeta.label}</p>
               </div>
               <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
                 <p className="text-sm text-muted-foreground">Email verificado</p>
@@ -282,9 +316,6 @@ export default function ProfilePage() {
                 </div>
                 <Progress value={onboardingProgressValue} className="mt-4 h-2.5 bg-secondary/70" />
                 <p className="mt-3 text-sm text-muted-foreground">{onboardingMeta.description}</p>
-                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Proxima etapa: {getNextOnboardingStepLabel(onboardingProgress, user?.hasCompletedOnboarding)}
-                </p>
                 {!user?.hasCompletedOnboarding ? (
                   <Button
                     variant="outline"
@@ -301,24 +332,54 @@ export default function ProfilePage() {
                 <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
                   <p className="text-sm text-muted-foreground">Plano atual</p>
                   <div className="mt-2 flex items-center gap-2">
-                    <Crown size={16} className={user?.isPremium ? "text-primary" : "text-muted-foreground"} />
+                    {isPremiumUser ? <Crown size={16} className="text-primary" /> : null}
                     <p className="text-lg font-semibold text-foreground">{planMeta.label}</p>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">{planMeta.description}</p>
                 </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-                    <p className="text-sm text-muted-foreground">Contas vinculadas</p>
-                    <p className="mt-2 text-2xl font-semibold text-foreground">{linkedAccounts}</p>
+                  <div className="relative overflow-hidden rounded-xl border border-border/40 bg-secondary/20 p-4">
+                    <div className={!isPremiumUser ? "pointer-events-none select-none blur-sm" : undefined}>
+                      <p className="text-sm text-muted-foreground">Vencimento do plano</p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">Dia {subscriptionSummary.dueDayLabel}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{subscriptionSummary.dueDescription}</p>
+                    </div>
+                    {!isPremiumUser ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-card/35 px-3 text-center text-xs font-medium text-muted-foreground backdrop-blur-[2px]">
+                        Disponivel apenas no premium
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-                    <p className="text-sm text-muted-foreground">Insights</p>
-                    <p className="mt-2 text-2xl font-semibold text-foreground">{insightsCount}</p>
+
+                  <div className="relative overflow-hidden rounded-xl border border-border/40 bg-secondary/20 p-4">
+                    <div className={!isPremiumUser ? "pointer-events-none select-none blur-sm" : undefined}>
+                      <p className="text-sm text-muted-foreground">Insights</p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">{insightsCount}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {isPremiumUser ? "Insights disponiveis para a conta atual." : "Recurso liberado apenas para assinantes premium."}
+                      </p>
+                    </div>
+                    {!isPremiumUser ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-card/35 px-3 text-center text-xs font-medium text-muted-foreground backdrop-blur-[2px]">
+                        Liberado no premium
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-                <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
-                  <p className="text-sm text-muted-foreground">Mês de referência</p>
-                  <p className="mt-2 text-lg font-semibold text-foreground">{referenceMonth}</p>
+
+                <div className="relative overflow-hidden rounded-xl border border-border/40 bg-secondary/20 p-4">
+                  <div className={!isPremiumUser ? "pointer-events-none select-none blur-sm" : undefined}>
+                    <p className="text-sm text-muted-foreground">Mes de referencia</p>
+                    <p className="mt-2 text-lg font-semibold capitalize text-foreground">{subscriptionSummary.referenceMonthLabel}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{subscriptionSummary.paymentDescription}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{subscriptionSummary.renewalDescription}</p>
+                  </div>
+                  {!isPremiumUser ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-card/35 px-3 text-center text-xs font-medium text-muted-foreground backdrop-blur-[2px]">
+                      Historico de assinatura indisponivel no plano free
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -369,11 +430,12 @@ export default function ProfilePage() {
         </div>
 
         <div className="space-y-6">
+
+
           <section className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-foreground">Atalhos</h3>
             </div>
-
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {!user?.hasCompletedOnboarding ? (
                 <Button
@@ -391,7 +453,7 @@ export default function ProfilePage() {
                 onClick={() => navigate(appRoutes.notifications)}
               >
                 <BellRing size={16} />
-                Notificações
+                Notificacoes
               </Button>
               <Button
                 variant="outline"
@@ -399,7 +461,7 @@ export default function ProfilePage() {
                 onClick={() => navigate(appRoutes.expenseManagementMetrics)}
               >
                 <Rocket size={16} />
-                Métricas
+                Metricas
               </Button>
               <Button
                 variant="outline"
@@ -415,7 +477,7 @@ export default function ProfilePage() {
                 onClick={() => navigate(appRoutes.settings)}
               >
                 <Settings size={16} />
-                Abrir configurações
+                Abrir configuracoes tecnicas
               </Button>
             </div>
           </section>

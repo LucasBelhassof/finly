@@ -20,7 +20,6 @@ import type {
   CreateTransactionInput,
   ImportCommitItem,
   ImportPreviewData,
-  TransactionItem,
   UpdateCategoryInput,
   UpdateTransactionInput,
 } from "@/types/api";
@@ -44,21 +43,6 @@ export function useCategories() {
     queryKey: categoriesQueryKey,
     queryFn: getCategories,
     staleTime: 60_000,
-  });
-}
-
-function upsertTransaction(items: TransactionItem[], transaction: TransactionItem) {
-  const nextItems = items.filter((item) => String(item.id) !== String(transaction.id));
-  nextItems.push(transaction);
-
-  return nextItems.sort((left, right) => {
-    const dateDiff = new Date(right.occurredOn).getTime() - new Date(left.occurredOn).getTime();
-
-    if (dateDiff !== 0) {
-      return dateDiff;
-    }
-
-    return String(right.id).localeCompare(String(left.id), undefined, { numeric: true });
   });
 }
 
@@ -113,10 +97,9 @@ export function useCreateTransaction(limit?: number) {
 
   return useMutation({
     mutationFn: (input: CreateTransactionInput) => postTransaction(input),
-    onSuccess: (transaction) => {
-      queryClient.setQueryData<TransactionItem[]>(transactionsQueryKey(limit), (items = []) =>
-        upsertTransaction(items, transaction),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
     },
   });
@@ -127,10 +110,9 @@ export function useUpdateTransaction(limit?: number) {
 
   return useMutation({
     mutationFn: (input: UpdateTransactionInput) => patchTransaction(input),
-    onSuccess: (transaction) => {
-      queryClient.setQueryData<TransactionItem[]>(transactionsQueryKey(limit), (items = []) =>
-        upsertTransaction(items, transaction),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
     },
   });
@@ -141,10 +123,9 @@ export function useDeleteTransaction(limit?: number) {
 
   return useMutation({
     mutationFn: (id: number | string) => deleteTransaction(id),
-    onSuccess: (_, id) => {
-      queryClient.setQueryData<TransactionItem[]>(transactionsQueryKey(limit), (items = []) =>
-        items.filter((item) => String(item.id) !== String(id)),
-      );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
+      queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
     },
   });

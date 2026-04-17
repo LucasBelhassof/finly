@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { TRANSACTIONS_YEAR_SELECTION } from "@/lib/transactions-date-filter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ const monthOptions = [
   { label: "Out", value: 9 },
   { label: "Nov", value: 10 },
   { label: "Dez", value: 11 },
+  { label: "Ano", value: TRANSACTIONS_YEAR_SELECTION },
 ] as const;
 
 type TransactionsMonthYearFilterProps = {

@@ -147,6 +147,9 @@ function mapTransactionRow(row, referenceDate) {
     formattedAmount: `${amount < 0 ? "- " : "+ "}${formatCurrency(Math.abs(amount))}`,
     occurredOn: normalizeDateValue(row.occurred_on),
     relativeDate: referenceDate ? formatRelativeDate(row.occurred_on, referenceDate) : normalizeDateValue(row.occurred_on),
+    isRecurring: Boolean(row.is_recurring),
+    isRecurringProjection: Boolean(row.is_recurring_projection),
+    sourceTransactionId: row.recurring_source_transaction_id ?? row.id,
     housingId: row.housing_id ?? null,
     isInstallment: Boolean(row.installment_purchase_id),
     installmentPurchaseId: row.installment_purchase_id ?? null,
@@ -171,6 +174,119 @@ function mapTransactionRow(row, referenceDate) {
       color: row.bank_color,
     },
   };
+}
+
+function clampDayToMonth(year, monthIndex, day) {
+  return Math.min(day, new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate());
+}
+
+function buildRecurringProjectionDate(value, monthOffset) {
+  const baseDate = parseDateOnly(value);
+  const targetDate = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth() + monthOffset, 1));
+  targetDate.setUTCDate(clampDayToMonth(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), baseDate.getUTCDate()));
+  return targetDate.toISOString().slice(0, 10);
+}
+
+function sortTransactionRowsDesc(left, right) {
+  const dateDiff = new Date(right.occurred_on).getTime() - new Date(left.occurred_on).getTime();
+
+  if (dateDiff !== 0) {
+    return dateDiff;
+  }
+
+  return String(right.id).localeCompare(String(left.id), undefined, { numeric: true });
+}
+
+function buildTransactionRowsWithRecurringProjections(rows, { projectionEndDate, projectionLimit = null } = {}) {
+  const normalizedProjectionEndDate = normalizeDateValue(projectionEndDate);
+
+  if (!normalizedProjectionEndDate) {
+    return [...rows].sort(sortTransactionRowsDesc);
+  }
+
+  const expandedRows = [...rows];
+
+  rows.forEach((row) => {
+    if (!row.is_recurring || parseNumeric(row.amount) <= 0) {
+      return;
+    }
+
+    const baseDate = parseDateOnly(row.occurred_on);
+    const endDate = parseDateOnly(normalizedProjectionEndDate);
+    const monthDiff =
+      (endDate.getUTCFullYear() - baseDate.getUTCFullYear()) * 12 + (endDate.getUTCMonth() - baseDate.getUTCMonth());
+
+    for (let monthOffset = 1; monthOffset <= monthDiff; monthOffset += 1) {
+      const projectedOccurredOn = buildRecurringProjectionDate(row.occurred_on, monthOffset);
+
+      if (projectedOccurredOn > normalizedProjectionEndDate) {
+        continue;
+      }
+
+      expandedRows.push({
+        ...row,
+        id: `recurring:${row.id}:${projectedOccurredOn}`,
+        occurred_on: projectedOccurredOn,
+        is_recurring_projection: true,
+        recurring_source_transaction_id: row.id,
+      });
+    }
+  });
+
+  expandedRows.sort(sortTransactionRowsDesc);
+
+  if (Number.isInteger(projectionLimit) && projectionLimit > 0) {
+    return expandedRows.slice(0, projectionLimit);
+  }
+
+  return expandedRows;
+}
+
+function mapTransactionRows(rows) {
+  const referenceDate = normalizeDateValue(rows[0]?.occurred_on);
+  return rows.map((row) => mapTransactionRow(row, referenceDate));
+}
+
+function resolveRecurringProjectionHorizonEnd() {
+  const currentDate = new Date();
+  return new Date(Date.UTC(currentDate.getUTCFullYear() + 1, 11, 31)).toISOString().slice(0, 10);
+}
+
+function calculateMonthlyTotalsFromRows(rows, currentMonthRange, previousMonthRange) {
+  return rows.reduce(
+    (accumulator, row) => {
+      const amount = parseNumeric(row.amount);
+      const occurredOn = normalizeDateValue(row.occurred_on);
+
+      if (!occurredOn) {
+        return accumulator;
+      }
+
+      if (occurredOn >= currentMonthRange.start && occurredOn < currentMonthRange.end) {
+        if (amount > 0) {
+          accumulator.currentIncome += amount;
+        } else {
+          accumulator.currentExpenses += Math.abs(amount);
+        }
+      }
+
+      if (occurredOn >= previousMonthRange.start && occurredOn < previousMonthRange.end) {
+        if (amount > 0) {
+          accumulator.previousIncome += amount;
+        } else {
+          accumulator.previousExpenses += Math.abs(amount);
+        }
+      }
+
+      return accumulator;
+    },
+    {
+      currentIncome: 0,
+      currentExpenses: 0,
+      previousIncome: 0,
+      previousExpenses: 0,
+    },
+  );
 }
 
 function mapCategoryRow(row) {
@@ -249,6 +365,11 @@ export async function pingDatabase() {
 
 export async function getSummaryCards(userId) {
   const resolvedUserId = await requireUserId(userId);
+  const currentMonthStart = new Date();
+  currentMonthStart.setUTCDate(1);
+  currentMonthStart.setUTCHours(0, 0, 0, 0);
+  const nextMonthStart = new Date(Date.UTC(currentMonthStart.getUTCFullYear(), currentMonthStart.getUTCMonth() + 1, 1));
+  const previousMonthStart = new Date(Date.UTC(currentMonthStart.getUTCFullYear(), currentMonthStart.getUTCMonth() - 1, 1));
   const [balanceResult, monthlyTotalsResult] = await Promise.all([
     pool.query(
       `
@@ -260,58 +381,44 @@ export async function getSummaryCards(userId) {
     ),
     pool.query(
       `
-        WITH month_ranges AS (
-          SELECT
-            DATE_TRUNC('month', CURRENT_DATE)::DATE AS current_month_start,
-            (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month')::DATE AS next_month_start,
-            (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::DATE AS previous_month_start
-        )
         SELECT
-          COALESCE(SUM(CASE
-            WHEN t.occurred_on >= mr.current_month_start
-              AND t.occurred_on < mr.next_month_start
-              AND t.amount > 0
-            THEN t.amount
-            ELSE 0
-          END), 0)::NUMERIC(12, 2) AS current_income,
-          COALESCE(ABS(SUM(CASE
-            WHEN t.occurred_on >= mr.current_month_start
-              AND t.occurred_on < mr.next_month_start
-              AND t.amount < 0
-            THEN t.amount
-            ELSE 0
-          END)), 0)::NUMERIC(12, 2) AS current_expenses,
-          COALESCE(SUM(CASE
-            WHEN t.occurred_on >= mr.previous_month_start
-              AND t.occurred_on < mr.current_month_start
-              AND t.amount > 0
-            THEN t.amount
-            ELSE 0
-          END), 0)::NUMERIC(12, 2) AS previous_income,
-          COALESCE(ABS(SUM(CASE
-            WHEN t.occurred_on >= mr.previous_month_start
-              AND t.occurred_on < mr.current_month_start
-              AND t.amount < 0
-            THEN t.amount
-            ELSE 0
-          END)), 0)::NUMERIC(12, 2) AS previous_expenses
-        FROM month_ranges mr
-        LEFT JOIN transactions t
-          ON t.user_id = $1
+          t.id,
+          t.amount,
+          t.occurred_on,
+          t.is_recurring
+        FROM transactions t
+        WHERE t.user_id = $1
+          AND (
+            t.occurred_on >= $2
+            OR (t.is_recurring = TRUE AND t.amount > 0 AND t.occurred_on < $3)
+          )
       `,
-      [resolvedUserId],
+      [resolvedUserId, previousMonthStart.toISOString().slice(0, 10), nextMonthStart.toISOString().slice(0, 10)],
     ),
   ]);
 
   const balanceRow = balanceResult.rows[0] ?? {};
-  const monthlyTotalsRow = monthlyTotalsResult.rows[0] ?? {};
+  const projectedRows = buildTransactionRowsWithRecurringProjections(monthlyTotalsResult.rows, {
+    projectionEndDate: nextMonthStart.toISOString().slice(0, 10),
+  });
+  const monthlyTotalsRow = calculateMonthlyTotalsFromRows(
+    projectedRows,
+    {
+      start: currentMonthStart.toISOString().slice(0, 10),
+      end: nextMonthStart.toISOString().slice(0, 10),
+    },
+    {
+      start: previousMonthStart.toISOString().slice(0, 10),
+      end: currentMonthStart.toISOString().slice(0, 10),
+    },
+  );
 
   return buildDashboardSummaryCards({
     currentBalance: balanceRow.current_balance,
-    currentIncome: monthlyTotalsRow.current_income,
-    currentExpenses: monthlyTotalsRow.current_expenses,
-    previousIncome: monthlyTotalsRow.previous_income,
-    previousExpenses: monthlyTotalsRow.previous_expenses,
+    currentIncome: monthlyTotalsRow.currentIncome,
+    currentExpenses: monthlyTotalsRow.currentExpenses,
+    previousIncome: monthlyTotalsRow.previousIncome,
+    previousExpenses: monthlyTotalsRow.previousExpenses,
   });
 }
 
@@ -531,6 +638,7 @@ export async function listRecentTransactions(userId, limit = 8) {
         c.group_slug,
         c.group_label,
         c.group_color,
+        t.is_recurring,
         ip.installment_count,
         ip.purchase_occurred_on
       FROM transactions t
@@ -539,14 +647,16 @@ export async function listRecentTransactions(userId, limit = 8) {
       LEFT JOIN installment_purchases ip ON ip.id = t.installment_purchase_id
       WHERE t.user_id = $1
       ORDER BY t.occurred_on DESC, t.id DESC
-      LIMIT $2
     `,
-    [resolvedUserId, limit],
+    [resolvedUserId],
   );
 
-  const referenceDate = normalizeDateValue(result.rows[0]?.occurred_on);
-
-  return result.rows.map((row) => mapTransactionRow(row, referenceDate));
+  return mapTransactionRows(
+    buildTransactionRowsWithRecurringProjections(result.rows, {
+      projectionEndDate: new Date().toISOString().slice(0, 10),
+      projectionLimit: limit,
+    }),
+  );
 }
 
 export async function listTransactions(userId, limit) {
@@ -575,6 +685,7 @@ export async function listTransactions(userId, limit) {
         c.group_slug,
         c.group_label,
         c.group_color,
+        t.is_recurring,
         ip.installment_count,
         ip.purchase_occurred_on
       FROM transactions t
@@ -588,8 +699,12 @@ export async function listTransactions(userId, limit) {
     [resolvedUserId, hasLimit ? limit : null],
   );
 
-  const referenceDate = normalizeDateValue(result.rows[0]?.occurred_on);
-  return result.rows.map((row) => mapTransactionRow(row, referenceDate));
+  return mapTransactionRows(
+    buildTransactionRowsWithRecurringProjections(result.rows, {
+      projectionEndDate: resolveRecurringProjectionHorizonEnd(),
+      projectionLimit: hasLimit ? limit : null,
+    }),
+  );
 }
 
 export async function getInstallmentsOverview(userId, filters = {}) {
@@ -1724,6 +1839,7 @@ async function getTransactionById(userId, transactionId, client = pool) {
         c.group_slug,
         c.group_label,
         c.group_color,
+        t.is_recurring,
         ip.installment_count,
         ip.purchase_occurred_on
       FROM transactions t
@@ -1746,6 +1862,7 @@ export async function createTransaction(userId, input) {
   const amount = Number(input.amount);
   const occurredOn = normalizeDateValue(input.occurredOn);
   const bankConnectionId = Number(input.bankConnectionId);
+  const isRecurring = Boolean(input.isRecurring) && amount > 0;
 
   if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(bankConnectionId)) {
     throw new Error("description, amount, occurredOn and bankConnectionId are required");
@@ -1761,11 +1878,11 @@ export async function createTransaction(userId, input) {
 
   const result = await pool.query(
     `
-      INSERT INTO transactions (user_id, bank_connection_id, category_id, description, amount, occurred_on)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO transactions (user_id, bank_connection_id, category_id, description, amount, occurred_on, is_recurring)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id
     `,
-    [resolvedUserId, bankConnectionId, category.id, description, amount, occurredOn],
+    [resolvedUserId, bankConnectionId, category.id, description, amount, occurredOn, isRecurring],
   );
 
   const row = await getTransactionById(resolvedUserId, result.rows[0].id);
@@ -1778,6 +1895,7 @@ export async function updateTransaction(userId, transactionId, input) {
   const amount = Number(input.amount);
   const occurredOn = normalizeDateValue(input.occurredOn);
   const bankConnectionId = Number(input.bankConnectionId);
+  const isRecurring = Boolean(input.isRecurring) && amount > 0;
 
   if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(bankConnectionId)) {
     throw new Error("description, amount, occurredOn and bankConnectionId are required");
@@ -1833,12 +1951,13 @@ export async function updateTransaction(userId, transactionId, input) {
             category_id = $4,
             description = $5,
             amount = $6,
-            occurred_on = $7
+            occurred_on = $7,
+            is_recurring = $8
         WHERE user_id = $1
           AND id = $2
         RETURNING id
       `,
-      [resolvedUserId, transactionId, bankConnectionId, category.id, description, amount, occurredOn],
+      [resolvedUserId, transactionId, bankConnectionId, category.id, description, amount, occurredOn, isRecurring],
     );
 
     if (!result.rowCount) {

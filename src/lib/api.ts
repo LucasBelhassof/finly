@@ -514,6 +514,12 @@ export function mapTransaction(transaction: ApiTransaction): TransactionItem {
     ),
     occurredOn: safeString(transaction.occurredOn),
     relativeDate: safeString(transaction.relativeDate, safeString(transaction.occurredOn, "--")),
+    isRecurring: Boolean(transaction.isRecurring),
+    isRecurringProjection: Boolean(transaction.isRecurringProjection),
+    sourceTransactionId:
+      transaction.sourceTransactionId ??
+      transaction.id ??
+      `${safeString(transaction.description, "transaction")}-${safeString(transaction.occurredOn, "0")}`,
     housingId: transaction.housingId ?? null,
     isInstallment: Boolean(transaction.isInstallment),
     installmentPurchaseId: transaction.installmentPurchaseId ?? null,
@@ -1318,6 +1324,7 @@ export async function postTransaction(input: CreateTransactionInput) {
     amount: input.amount,
     occurredOn: input.occurredOn,
     bankConnectionId: input.bankConnectionId,
+    isRecurring: Boolean(input.isRecurring),
     ...(input.categoryId !== undefined && input.categoryId !== null && input.categoryId !== "" ? { categoryId: input.categoryId } : {}),
   };
 
@@ -1335,6 +1342,7 @@ export async function patchTransaction(input: UpdateTransactionInput) {
     amount: input.amount,
     occurredOn: input.occurredOn,
     bankConnectionId: input.bankConnectionId,
+    isRecurring: Boolean(input.isRecurring),
     ...(input.categoryId !== undefined && input.categoryId !== null && input.categoryId !== "" ? { categoryId: input.categoryId } : {}),
   };
 

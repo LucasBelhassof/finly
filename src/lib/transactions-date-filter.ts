@@ -10,6 +10,8 @@ export type TransactionsMonthSelection = {
   year: number;
 };
 
+export const TRANSACTIONS_YEAR_SELECTION = 12;
+
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }
@@ -94,8 +96,16 @@ export function getCurrentMonthSelection(now = new Date()): TransactionsMonthSel
 }
 
 export function resolveMonthYearRange(monthIndex: number, year: number): TransactionsDateRange {
-  const safeMonthIndex = Number.isInteger(monthIndex) ? Math.min(Math.max(monthIndex, 0), 11) : 0;
   const safeYear = Number.isInteger(year) ? year : new Date().getFullYear();
+
+  if (monthIndex === TRANSACTIONS_YEAR_SELECTION) {
+    return {
+      startDate: getLocalDateKey(createLocalDate(safeYear, 0, 1)),
+      endDate: getLocalDateKey(createLocalDate(safeYear, 12, 0)),
+    };
+  }
+
+  const safeMonthIndex = Number.isInteger(monthIndex) ? Math.min(Math.max(monthIndex, 0), 11) : 0;
   const startDate = createLocalDate(safeYear, safeMonthIndex, 1);
   const endDate = createLocalDate(safeYear, safeMonthIndex + 1, 0);
 

@@ -190,6 +190,41 @@ const transactions: TransactionItem[] = [
       color: "bg-primary",
     },
   },
+  {
+    id: "recurring:13:2026-04-10",
+    sourceTransactionId: 13,
+    description: "Salario",
+    amount: 5000,
+    formattedAmount: "R$ 5.000,00",
+    occurredOn: "2026-04-10",
+    relativeDate: "10 Abr",
+    isRecurring: true,
+    isRecurringProjection: true,
+    housingId: null,
+    isInstallment: false,
+    installmentPurchaseId: null,
+    installmentNumber: null,
+    installmentCount: null,
+    purchaseOccurredOn: null,
+    category: {
+      id: 3,
+      slug: "salario",
+      label: "Salario",
+      iconName: "ArrowUpCircle",
+      icon: ArrowUpCircle,
+      color: "#22c55e",
+      groupSlug: "receitas",
+      groupLabel: "Receitas",
+      groupColor: "#22c55e",
+    },
+    account: {
+      id: 1,
+      slug: "nubank",
+      name: "Nubank",
+      accountType: "bank_account",
+      color: "bg-primary",
+    },
+  },
 ];
 
 function createMutation(result?: unknown) {
@@ -330,5 +365,27 @@ describe("TransactionsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Editar categoria Transporte/i }));
 
     expect(screen.queryByRole("button", { name: "Excluir" })).not.toBeInTheDocument();
+  });
+
+  it("keeps recurring income enabled when editing a projected recurring transaction", async () => {
+    const updateTransaction = createMutation();
+    mockUseUpdateTransaction.mockReturnValue(updateTransaction);
+
+    render(<TransactionsPage />);
+
+    fireEvent.click(screen.getAllByText("Salario")[0]!);
+
+    expect(screen.getByLabelText("Marcar receita como recorrente")).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => {
+      expect(updateTransaction.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "13",
+          isRecurring: true,
+          amount: 5000,
+        }),
+      );
+    });
   });
 });

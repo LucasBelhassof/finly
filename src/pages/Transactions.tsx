@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useBanks } from "@/hooks/use-banks";
 import { useFilteredTransactionsData } from "@/hooks/use-filtered-transactions-data";
 import {
@@ -56,12 +57,14 @@ import { toast } from "@/components/ui/sonner";
 type TransactionTypeFilter = "all" | "income" | "expense";
 type TransactionFormState = {
   id?: string;
+  sourceTransactionId?: string;
   description: string;
   amount: string;
   occurredOn: string;
   bankConnectionId: string;
   categoryId: string;
   type: "income" | "expense";
+  isRecurring: boolean;
 };
 
 const transactionTypeOptions: Array<{ label: string; value: "income" | "expense" }> = [
@@ -94,6 +97,7 @@ function emptyTransactionForm(type: "income" | "expense" = "expense"): Transacti
     bankConnectionId: "",
     categoryId: "",
     type,
+    isRecurring: false,
   };
 }
 
@@ -106,6 +110,8 @@ function mapTransactionToForm(transaction: TransactionItem): TransactionFormStat
     bankConnectionId: String(transaction.account.id),
     categoryId: String(transaction.category.id),
     type: transaction.amount >= 0 ? "income" : "expense",
+    isRecurring: Boolean(transaction.isRecurring),
+    sourceTransactionId: String(transaction.sourceTransactionId ?? transaction.id),
   };
 }
 
@@ -273,13 +279,14 @@ export default function TransactionsPage() {
       amount: transactionForm.type === "expense" ? -Math.abs(parsedAmount) : Math.abs(parsedAmount),
       occurredOn: transactionForm.occurredOn,
       bankConnectionId: transactionForm.bankConnectionId,
+      isRecurring: transactionForm.type === "income" ? transactionForm.isRecurring : false,
       ...(transactionForm.categoryId ? { categoryId: transactionForm.categoryId } : {}),
     };
 
     try {
       if (transactionForm.id) {
         await updateTransaction.mutateAsync({
-          id: transactionForm.id,
+          id: transactionForm.sourceTransactionId ?? transactionForm.id,
           ...payload,
         } satisfies UpdateTransactionInput);
         toast.success("Transacao atualizada.");
@@ -391,12 +398,13 @@ export default function TransactionsPage() {
 
     try {
       await updateTransaction.mutateAsync({
-        id: transaction.id,
+        id: transaction.sourceTransactionId ?? transaction.id,
         description: transaction.description,
         amount: transaction.amount,
         occurredOn: transaction.occurredOn,
         bankConnectionId: transaction.account.id,
         categoryId: nextCategoryId,
+        isRecurring: transaction.isRecurring,
       } satisfies UpdateTransactionInput);
       setEditingCategoryTransactionId(null);
       toast.success("Categoria atualizada.");
@@ -493,7 +501,14 @@ export default function TransactionsPage() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setTransactionForm((current) => ({ ...current, type: option.value, categoryId: "" }))}
+                    onClick={() =>
+                      setTransactionForm((current) => ({
+                        ...current,
+                        type: option.value,
+                        categoryId: "",
+                        isRecurring: option.value === "income" ? current.isRecurring : false,
+                      }))
+                    }
                     className={cn(
                       "rounded-xl px-4 py-2.5 text-sm transition-colors",
                       active
@@ -555,6 +570,21 @@ export default function TransactionsPage() {
             {!categoryIsRequired ? (
               <p className="text-xs text-muted-foreground">Se nao escolher, a despesa sera salva como Outros.</p>
             ) : null}
+            {transactionForm.type === "income" ? (
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-border/50 bg-secondary/20 p-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Receita recorrente</p>
+                  <p className="text-xs text-muted-foreground">
+                    Quando ativa, essa renda sera projetada automaticamente nos proximos meses.
+                  </p>
+                </div>
+                <Switch
+                  checked={transactionForm.isRecurring}
+                  onCheckedChange={(checked) => setTransactionForm((current) => ({ ...current, isRecurring: checked }))}
+                  aria-label="Marcar receita como recorrente"
+                />
+              </div>
+            ) : null}
             <DatePickerInput
               value={transactionForm.occurredOn}
               onChange={(value) => setTransactionForm((current) => ({ ...current, occurredOn: value }))}
@@ -569,7 +599,7 @@ export default function TransactionsPage() {
                 <Button
                   variant="ghost"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setDeleteTargetId(transactionForm.id ?? null)}
+                  onClick={() => setDeleteTargetId(transactionForm.sourceTransactionId ?? transactionForm.id ?? null)}
                   disabled={removeTransaction.isPending}
                 >
                   <Trash2 size={14} />
@@ -828,11 +858,16 @@ export default function TransactionsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-start gap-2">
                           <p className="min-w-0 flex-1 break-words text-[1rem] font-medium leading-snug text-foreground sm:text-[1.15rem]">{transaction.description}</p>
-                        {transaction.isInstallment && transaction.installmentNumber && transaction.installmentCount ? (
-                          <span className="shrink-0 rounded-full bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
-                            {transaction.installmentNumber}/{transaction.installmentCount}
-                          </span>
-                        ) : null}
+                          {transaction.isRecurring ? (
+                            <span className="shrink-0 rounded-full bg-income/10 px-2 py-0.5 text-xs font-medium text-income">
+                              Recorrente
+                            </span>
+                          ) : null}
+                          {transaction.isInstallment && transaction.installmentNumber && transaction.installmentCount ? (
+                            <span className="shrink-0 rounded-full bg-info/10 px-2 py-0.5 text-xs font-medium text-info">
+                              {transaction.installmentNumber}/{transaction.installmentCount}
+                            </span>
+                          ) : null}
                           <Pencil size={14} className="mt-0.5 shrink-0 text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" />
                         </div>
                         <div className="mt-2 flex flex-col gap-2 text-sm sm:mt-1">
@@ -882,12 +917,13 @@ export default function TransactionsPage() {
                         )}
                             <span className="break-words text-muted-foreground">{transaction.account.name}</span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
-                            <span>{transaction.occurredOn.split("-").reverse().join("/")}</span>
-                            {transaction.isInstallment && transaction.purchaseOccurredOn ? (
-                              <span>Compra em {transaction.purchaseOccurredOn.split("-").reverse().join("/")}</span>
-                            ) : null}
-                          </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
+                          <span>{transaction.occurredOn.split("-").reverse().join("/")}</span>
+                          {transaction.isRecurringProjection ? <span>Ocorrencia gerada automaticamente</span> : null}
+                          {transaction.isInstallment && transaction.purchaseOccurredOn ? (
+                            <span>Compra em {transaction.purchaseOccurredOn.split("-").reverse().join("/")}</span>
+                          ) : null}
+                        </div>
                         </div>
                       </div>
                     </div>

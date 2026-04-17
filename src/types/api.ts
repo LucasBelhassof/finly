@@ -44,6 +44,9 @@ export interface ApiTransaction {
   formattedAmount?: string;
   occurredOn?: string;
   relativeDate?: string;
+  isRecurring?: boolean;
+  isRecurringProjection?: boolean;
+  sourceTransactionId?: number | string;
   housingId?: number | string | null;
   isInstallment?: boolean;
   installmentPurchaseId?: number | string | null;
@@ -404,6 +407,9 @@ export interface TransactionItem {
   formattedAmount: string;
   occurredOn: string;
   relativeDate: string;
+  isRecurring?: boolean;
+  isRecurringProjection?: boolean;
+  sourceTransactionId?: number | string;
   housingId: number | string | null;
   isInstallment: boolean;
   installmentPurchaseId: number | string | null;
@@ -447,6 +453,7 @@ export interface CreateTransactionInput {
   occurredOn: string;
   categoryId?: number | string;
   bankConnectionId: number | string;
+  isRecurring?: boolean;
 }
 
 export interface UpdateTransactionInput extends CreateTransactionInput {

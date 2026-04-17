@@ -5,7 +5,9 @@ import {
   getLocalDateKey,
   isDateInRange,
   isValidCustomRange,
+  resolveMonthYearRange,
   resolvePresetRange,
+  TRANSACTIONS_YEAR_SELECTION,
 } from "@/lib/transactions-date-filter";
 
 describe("transactions date filter utils", () => {
@@ -51,5 +53,12 @@ describe("transactions date filter utils", () => {
 
   it("creates a local date key without timezone shift", () => {
     expect(getLocalDateKey(new Date(2026, 3, 6, 23, 30, 0))).toBe("2026-04-06");
+  });
+
+  it("resolves the annual month selector to the full selected year", () => {
+    expect(resolveMonthYearRange(TRANSACTIONS_YEAR_SELECTION, 2026)).toEqual({
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+    });
   });
 });

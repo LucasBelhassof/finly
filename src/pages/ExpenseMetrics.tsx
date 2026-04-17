@@ -21,6 +21,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { resolveCategoryColorPresentation } from "@/lib/category-colors";
 import {
   formatDateRangeLabel,
+  TRANSACTIONS_YEAR_SELECTION,
   getCurrentMonthSelection,
   resolveMonthYearRange,
   resolvePresetRange,
@@ -299,13 +300,13 @@ export default function ExpenseMetricsPage() {
 
   const handleMonthChange = (monthIndex: number) => {
     setSelectedMonthIndex(monthIndex);
-    setDatePreset("month");
+    setDatePreset(monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
     setDateRange(resolveMonthYearRange(monthIndex, selectedYear));
   };
 
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
-    setDatePreset("month");
+    setDatePreset(selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
     setDateRange(resolveMonthYearRange(selectedMonthIndex, year));
   };
 

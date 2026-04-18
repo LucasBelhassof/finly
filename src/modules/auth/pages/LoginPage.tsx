@@ -116,8 +116,7 @@ export default function LoginPage() {
                   )}
                 />
 
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="text-slate-500">Sessao segura com refresh rotativo.</span>
+                <div className="flex items-center gap-4 text-sm justify-end">
                   <Link className="font-medium text-emerald-400 hover:text-emerald-300" to={appRoutes.forgotPassword}>
                     Esqueci minha senha
                   </Link>

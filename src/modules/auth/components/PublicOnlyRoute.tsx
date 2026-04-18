@@ -5,14 +5,14 @@ import { appRoutes } from "@/lib/routes";
 import { useAuthContext } from "@/modules/auth/components/AuthProvider";
 
 export function PublicOnlyRoute() {
-  const { isAuthenticated, isBootstrapping, user } = useAuthContext();
+  const { isAuthenticated, isBootstrapping } = useAuthContext();
 
   if (isBootstrapping) {
     return <AppBootLoader />;
   }
 
   if (isAuthenticated) {
-    return <Navigate to={user?.hasCompletedOnboarding === true ? appRoutes.dashboard : appRoutes.onboarding} replace />;
+    return <Navigate to={appRoutes.dashboard} replace />;
   }
 
   return <Outlet />;

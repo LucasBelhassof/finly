@@ -66,8 +66,15 @@ function buildUser(overrides: Record<string, unknown> = {}) {
     email: "joao@finance.test",
     hasCompletedOnboarding: true,
     onboardingProgress: {
-      currentStep: 3,
-      completedSteps: ["welcome", "account", "first_transaction", "result"],
+      currentStep: 5,
+      completedSteps: [
+        "dashboard_overview",
+        "recent_transactions",
+        "insights",
+        "accounts_nav",
+        "expense_management_nav",
+        "notifications",
+      ],
       skippedSteps: [],
       dismissed: false,
     },
@@ -197,7 +204,7 @@ describe("auth routes", () => {
       .set("Authorization", "Bearer access-token")
       .send({
         currentStep: 1,
-        completedSteps: ["welcome"],
+        completedSteps: ["dashboard_overview"],
         skippedSteps: [],
         dismissed: false,
       });
@@ -205,7 +212,7 @@ describe("auth routes", () => {
     expect(response.status).toBe(200);
     expect(updateOnboardingProgressMock).toHaveBeenCalledWith(7, {
       currentStep: 1,
-      completedSteps: ["welcome"],
+      completedSteps: ["dashboard_overview"],
       skippedSteps: [],
       dismissed: false,
     });

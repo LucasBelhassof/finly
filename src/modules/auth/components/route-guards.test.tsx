@@ -175,7 +175,7 @@ describe("auth route guards", () => {
     expect(await screen.findByRole("heading", { name: /admin/i })).toBeInTheDocument();
   });
 
-  it("redirects internal routes to onboarding when onboarding is still pending", async () => {
+  it("allows access to internal routes even when the product tour is still pending", async () => {
     useBanksMock.mockReturnValue({
       data: [],
       isLoading: false,
@@ -190,10 +190,10 @@ describe("auth route guards", () => {
 
     renderProtectedRoute();
 
-    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /area interna/i })).toBeInTheDocument();
   });
 
-  it("keeps onboarding route accessible while onboarding is pending", async () => {
+  it("keeps the compatibility onboarding route accessible while the product tour is pending", async () => {
     useBanksMock.mockReturnValue({
       data: [],
       isLoading: false,
@@ -214,7 +214,7 @@ describe("auth route guards", () => {
     expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
   });
 
-  it("redirects authenticated users with onboarding pending away from login to onboarding", async () => {
+  it("redirects authenticated users with pending product tour away from login to dashboard", async () => {
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
@@ -228,10 +228,10 @@ describe("auth route guards", () => {
 
     renderPublicOnlyRoute();
 
-    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /dashboard/i })).toBeInTheDocument();
   });
 
-  it("redirects dismissed onboarding users to onboarding from login", async () => {
+  it("redirects dismissed product tour users to dashboard from login", async () => {
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
@@ -245,6 +245,6 @@ describe("auth route guards", () => {
 
     renderPublicOnlyRoute();
 
-    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /dashboard/i })).toBeInTheDocument();
   });
 });

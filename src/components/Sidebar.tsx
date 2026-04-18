@@ -43,6 +43,7 @@ import { toast } from "@/components/ui/sonner";
 import { appRoutes } from "@/lib/routes";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import { useLogout } from "@/modules/auth/hooks/use-logout";
+import { useProductTour } from "@/modules/product-tour/use-product-tour";
 
 const navItems = [{ icon: LayoutDashboard, label: "Dashboard", to: appRoutes.dashboard, end: true }];
 
@@ -73,6 +74,7 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const logoutMutation = useLogout();
+  const { restartTour } = useProductTour();
   const { isMobile, openMobile, setOpenMobile, state } = useSidebar();
   const { user } = useAuthSession();
   const previousPathnameRef = useRef(location.pathname);
@@ -86,10 +88,6 @@ export default function Sidebar() {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
   const isCollapsed = state === "collapsed";
-  const shouldShowOnboarding = user?.hasCompletedOnboarding !== true;
-  const primaryNavItems = shouldShowOnboarding
-    ? [...navItems, { icon: Lightbulb, label: "Primeiros passos", to: appRoutes.onboarding }]
-    : navItems;
   const isExpenseManagementActive = Boolean(
     location.pathname === appRoutes.transactions ||
       matchPath({ path: `${appRoutes.expenseManagement}/*`, end: false }, location.pathname),
@@ -118,7 +116,7 @@ export default function Sidebar() {
 
       <SidebarContent className="px-2">
         <SidebarMenu>
-          {primaryNavItems.map((item) => {
+          {navItems.map((item) => {
             const isActive = item.end
               ? location.pathname === item.to
               : Boolean(matchPath({ path: `${item.to}/*`, end: false }, location.pathname) || location.pathname === item.to);
@@ -129,6 +127,7 @@ export default function Sidebar() {
                   asChild
                   isActive={isActive}
                   tooltip={item.label}
+                  data-tour-id={item.to === appRoutes.dashboard ? "nav-dashboard" : undefined}
                   className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                 >
                   <NavLink to={item.to} end={item.end}>
@@ -145,9 +144,9 @@ export default function Sidebar() {
               {isAdmin ? (
                 <Collapsible asChild defaultOpen={isAdminActive}>
                   <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        isActive={isAdminActive}
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    isActive={isAdminActive}
                         tooltip="Administracao"
                         className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                       >
@@ -184,6 +183,7 @@ export default function Sidebar() {
                 <SidebarMenuButton
                   isActive={isExpenseManagementActive}
                   tooltip="Gestao de Gastos"
+                  data-tour-id="nav-expense-management"
                   className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                 >
                   <Layers3 size={18} className="shrink-0" />
@@ -225,6 +225,13 @@ export default function Sidebar() {
                   asChild
                   isActive={isActive}
                   tooltip={item.label}
+                  data-tour-id={
+                    item.to === appRoutes.insights
+                      ? "nav-insights"
+                      : item.to === appRoutes.accounts
+                        ? "nav-accounts"
+                        : undefined
+                  }
                   className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
                 >
                   <NavLink to={item.to}>
@@ -287,6 +294,15 @@ export default function Sidebar() {
               <DropdownMenuItem className="gap-2" onClick={() => navigate(appRoutes.settings)}>
                 <Settings size={16} />
                 Configuracoes
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="gap-2"
+                onClick={() => {
+                  void restartTour();
+                }}
+              >
+                <Lightbulb size={16} />
+                Fazer tour novamente
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-border/60" />
               <DropdownMenuItem

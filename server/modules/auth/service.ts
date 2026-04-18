@@ -26,7 +26,6 @@ import {
   touchSession,
   updateUserAccount,
   updateUserContact,
-  getUserOnboardingStateSnapshot,
   updateUserOnboardingState,
   updateUserPassword,
   withTransaction,
@@ -39,19 +38,35 @@ export interface AuthRequestMetadata {
 }
 
 const accessSecret = new TextEncoder().encode(env.auth.accessTokenSecret);
-const ONBOARDING_STEPS: OnboardingStepId[] = ["welcome", "account", "first_transaction", "result"];
+const ONBOARDING_STEPS: OnboardingStepId[] = [
+  "dashboard_overview",
+  "recent_transactions",
+  "insights",
+  "accounts_nav",
+  "expense_management_nav",
+  "notifications",
+];
 
 function normalizeOnboardingStepId(step: unknown): OnboardingStepId | null {
   switch (step) {
-    case "welcome":
-    case "account":
-    case "first_transaction":
-    case "result":
+    case "dashboard_overview":
+    case "recent_transactions":
+    case "insights":
+    case "accounts_nav":
+    case "expense_management_nav":
+    case "notifications":
       return step;
     case "profile":
-      return "welcome";
+    case "welcome":
+      return "dashboard_overview";
+    case "account":
+    case "first_transaction":
+      return "recent_transactions";
+    case "due_dates":
+      return "expense_management_nav";
     case "dashboard":
-      return "result";
+    case "result":
+      return "notifications";
     default:
       return null;
   }
@@ -138,11 +153,11 @@ async function toAuthUser(user: {
   }
 
   const onboardingProgress = normalizeOnboardingProgress(user.onboardingProgress, user.onboardingCompletedAt);
-  const onboardingSnapshot = await getUserOnboardingStateSnapshot(Number(user.id));
   const hasCompletedOnboarding =
-    onboardingSnapshot.hasAccount &&
-    onboardingSnapshot.hasTransaction &&
-    onboardingProgress.completedSteps.includes("result");
+    user.onboardingCompletedAt != null ||
+    ONBOARDING_STEPS.every(
+      (step) => onboardingProgress.completedSteps.includes(step) || onboardingProgress.skippedSteps.includes(step),
+    );
 
   return {
     id: Number(user.id),
@@ -663,11 +678,9 @@ export async function updateOnboardingProgress(userId: number, input: AuthOnboar
   }
 
   const onboardingProgress = normalizeOnboardingProgress(input, user.onboardingCompletedAt);
-  const onboardingSnapshot = await getUserOnboardingStateSnapshot(userId);
-  const hasCompletedOnboarding =
-    onboardingSnapshot.hasAccount &&
-    onboardingSnapshot.hasTransaction &&
-    onboardingProgress.completedSteps.includes("result");
+  const hasCompletedOnboarding = ONBOARDING_STEPS.every(
+    (step) => onboardingProgress.completedSteps.includes(step) || onboardingProgress.skippedSteps.includes(step),
+  );
 
   const updatedUser = await updateUserOnboardingState(userId, {
     onboardingProgress,

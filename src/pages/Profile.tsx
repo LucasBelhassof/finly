@@ -22,6 +22,7 @@ import { useDashboard } from "@/hooks/use-dashboard";
 import { appRoutes } from "@/lib/routes";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import { useLogout } from "@/modules/auth/hooks/use-logout";
+import { useProductTour } from "@/modules/product-tour/use-product-tour";
 import type { AuthOnboardingProgress, OnboardingStepId } from "@/modules/auth/types/auth-types";
 
 type ProfilePreferences = {
@@ -31,7 +32,14 @@ type ProfilePreferences = {
 };
 
 const PROFILE_PREFERENCES_STORAGE_KEY = "finance.profile.preferences";
-const ONBOARDING_STEP_IDS: OnboardingStepId[] = ["welcome", "account", "first_transaction", "result"];
+const ONBOARDING_STEP_IDS: OnboardingStepId[] = [
+  "dashboard_overview",
+  "recent_transactions",
+  "insights",
+  "accounts_nav",
+  "expense_management_nav",
+  "notifications",
+];
 const DEFAULT_PREFERENCES: ProfilePreferences = {
   notificationsEnabled: true,
   weeklyDigestEnabled: false,
@@ -40,15 +48,24 @@ const DEFAULT_PREFERENCES: ProfilePreferences = {
 
 function normalizeOnboardingStep(step: unknown): OnboardingStepId | null {
   switch (step) {
-    case "welcome":
-    case "account":
-    case "first_transaction":
-    case "result":
+    case "dashboard_overview":
+    case "recent_transactions":
+    case "insights":
+    case "accounts_nav":
+    case "expense_management_nav":
+    case "notifications":
       return step;
     case "profile":
-      return "welcome";
+    case "welcome":
+      return "dashboard_overview";
+    case "account":
+    case "first_transaction":
+      return "recent_transactions";
+    case "due_dates":
+      return "expense_management_nav";
     case "dashboard":
-      return "result";
+    case "result":
+      return "notifications";
     default:
       return null;
   }
@@ -201,7 +218,7 @@ function getOnboardingMeta(progress: AuthOnboardingProgress, hasCompletedOnboard
 
   return {
     label: "Em andamento",
-    description: "Ainda existem etapas pendentes para concluir o onboarding.",
+    description: "Ainda existem etapas pendentes para concluir o tour do produto.",
     className: "border-primary/20 bg-primary/10 text-primary",
   };
 }
@@ -234,6 +251,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { data } = useDashboard();
   const { user } = useAuthSession();
+  const { restartTour } = useProductTour();
   const logoutMutation = useLogout();
   const [preferences, setPreferences] = useState<ProfilePreferences>(() => getInitialPreferences());
 
@@ -322,7 +340,7 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Conta</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Onboarding, plano atual e sinais operacionais da conta.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Tour do produto, plano atual e sinais operacionais da conta.</p>
               </div>
               <Badge className={onboardingMeta.className}>{onboardingMeta.label}</Badge>
             </div>
@@ -331,23 +349,23 @@ export default function ProfilePage() {
               <div className="rounded-xl border border-border/40 bg-secondary/20 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm text-muted-foreground">Primeiros passos</p>
+                    <p className="text-sm text-muted-foreground">Tour do produto</p>
                     <p className="mt-1 text-lg font-semibold text-foreground">{onboardingMeta.label}</p>
                   </div>
                   <span className="text-sm font-medium text-muted-foreground">{onboardingProgressValue}%</span>
                 </div>
                 <Progress value={onboardingProgressValue} className="mt-4 h-2.5 bg-secondary/70" />
                 <p className="mt-3 text-sm text-muted-foreground">{onboardingMeta.description}</p>
-                {!user?.hasCompletedOnboarding ? (
-                  <Button
-                    variant="outline"
-                    className="mt-4 rounded-xl border-border/60 bg-secondary/20"
-                    onClick={() => navigate(appRoutes.onboarding)}
-                  >
-                    <Rocket size={16} />
-                    Retomar onboarding
-                  </Button>
-                ) : null}
+                <Button
+                  variant="outline"
+                  className="mt-4 rounded-xl border-border/60 bg-secondary/20"
+                  onClick={() => {
+                    void restartTour();
+                  }}
+                >
+                  <Rocket size={16} />
+                  {user?.hasCompletedOnboarding ? "Fazer tour novamente" : "Retomar tour"}
+                </Button>
               </div>
 
               <div className="space-y-4">
@@ -459,16 +477,16 @@ export default function ProfilePage() {
               <h3 className="text-lg font-semibold text-foreground">Atalhos</h3>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {!user?.hasCompletedOnboarding ? (
-                <Button
-                  variant="outline"
-                  className="justify-start rounded-xl border-border/60 bg-secondary/20"
-                  onClick={() => navigate(appRoutes.onboarding)}
-                >
-                  <Lightbulb size={16} />
-                  Primeiros passos
-                </Button>
-              ) : null}
+              <Button
+                variant="outline"
+                className="justify-start rounded-xl border-border/60 bg-secondary/20"
+                onClick={() => {
+                  void restartTour();
+                }}
+              >
+                <Lightbulb size={16} />
+                Fazer tour novamente
+              </Button>
               <Button
                 variant="outline"
                 className="justify-start rounded-xl border-border/60 bg-secondary/20"

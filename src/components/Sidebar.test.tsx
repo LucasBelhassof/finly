@@ -6,8 +6,9 @@ import Sidebar from "@/components/Sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { appRoutes } from "@/lib/routes";
 
-const { logoutMutateAsync, useAuthSessionMock } = vi.hoisted(() => ({
+const { logoutMutateAsync, restartTourMock, useAuthSessionMock } = vi.hoisted(() => ({
   logoutMutateAsync: vi.fn(),
+  restartTourMock: vi.fn(),
   useAuthSessionMock: vi.fn(),
 }));
 
@@ -19,6 +20,12 @@ vi.mock("@/modules/auth/hooks/use-logout", () => ({
   useLogout: () => ({
     isPending: false,
     mutateAsync: logoutMutateAsync,
+  }),
+}));
+
+vi.mock("@/modules/product-tour/use-product-tour", () => ({
+  useProductTour: () => ({
+    restartTour: restartTourMock,
   }),
 }));
 
@@ -101,36 +108,6 @@ describe("Sidebar", () => {
     expect(getClosestElement<HTMLAnchorElement>(/visao geral/i, "a")).toHaveAttribute("href", appRoutes.adminOverview);
   });
 
-  it("shows the first steps item while onboarding is pending", () => {
-    useAuthSessionMock.mockReturnValue({
-      user: {
-        name: "Joao Silva",
-        email: "joao@finance.test",
-        role: "user",
-        hasCompletedOnboarding: false,
-      },
-    });
-
-    renderSidebar();
-
-    expect(getClosestElement<HTMLAnchorElement>(/primeiros passos/i, "a")).toHaveAttribute("href", appRoutes.onboarding);
-  });
-
-  it("hides the first steps item after onboarding is completed", () => {
-    useAuthSessionMock.mockReturnValue({
-      user: {
-        name: "Joao Silva",
-        email: "joao@finance.test",
-        role: "user",
-        hasCompletedOnboarding: true,
-      },
-    });
-
-    renderSidebar();
-
-    expect(screen.queryByText(/primeiros passos/i)).not.toBeInTheDocument();
-  });
-
   it("keeps notifications out of the sidebar navigation", () => {
     renderSidebar();
 
@@ -138,5 +115,11 @@ describe("Sidebar", () => {
     const notificationsLinks = navigationLinks.filter((link) => link.getAttribute("href") === appRoutes.notifications);
 
     expect(notificationsLinks).toHaveLength(0);
+  });
+
+  it("does not render the first steps item in the sidebar navigation", () => {
+    renderSidebar();
+
+    expect(screen.queryByText(/primeiros passos/i)).not.toBeInTheDocument();
   });
 });

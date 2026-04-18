@@ -10,6 +10,10 @@ vi.mock("@/modules/auth/components/AuthProvider", () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("@/modules/product-tour/ProductTourProvider", () => ({
+  ProductTourProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 vi.mock("@/modules/auth/components/ProtectedRoute", () => ({
   ProtectedRoute: () => <Outlet />,
 }));

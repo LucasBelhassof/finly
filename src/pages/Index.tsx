@@ -14,16 +14,24 @@ export default function Index() {
 
   return (
     <AppShell title="Bom dia" description="Aqui esta o resumo das suas financas" showGreeting>
-      <BalanceCards cards={data?.summaryCards} isLoading={isLoading} isError={isError} />
+      <div data-tour-id="dashboard-summary">
+        <BalanceCards cards={data?.summaryCards} isLoading={isLoading} isError={isError} />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <ExpensesList transactions={data?.recentTransactions} isLoading={isLoading} isError={isError} />
-          <AiInsights insights={data?.insights} isLoading={isLoading} isError={isError} />
+          <div data-tour-id="dashboard-transactions">
+            <ExpensesList transactions={data?.recentTransactions} isLoading={isLoading} isError={isError} />
+          </div>
+          <div data-tour-id="dashboard-insights">
+            <AiInsights insights={data?.insights} isLoading={isLoading} isError={isError} />
+          </div>
         </div>
 
         <div className="space-y-6">
-          <BankConnection banks={data?.banks} isLoading={isLoading} isError={isError} />
+          <div data-tour-id="dashboard-banks">
+            <BankConnection banks={data?.banks} isLoading={isLoading} isError={isError} />
+          </div>
           <SpendingChart
             transactions={transactions}
             banks={data?.banks}

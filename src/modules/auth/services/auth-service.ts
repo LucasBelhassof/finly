@@ -158,6 +158,8 @@ export async function updateOnboardingProgress(input: UpdateOnboardingProgressIn
   }, { requiresAccessToken: true });
 }
 
+export const updateProductTourProgress = updateOnboardingProgress;
+
 export async function updateAccount(input: UpdateAccountInput) {
   return authRequest<{ user: AuthSessionPayload["user"] }>("/api/auth/account", {
     method: "PATCH",

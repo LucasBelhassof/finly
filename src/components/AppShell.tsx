@@ -21,13 +21,17 @@ export default function AppShell({ title, description, children, showGreeting = 
         <Sidebar />
 
         <main className="flex-1 min-w-0 overflow-y-auto scrollbar-thin">
-          <header className="sticky top-0 z-10 border-b border-border/50 bg-background/80 px-4 py-4 backdrop-blur-lg sm:px-6">
+          <header
+            className="sticky top-0 z-10 border-b border-border/50 bg-background/80 px-4 py-4 backdrop-blur-lg sm:px-6"
+            data-tour-id="app-header"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <SidebarTrigger
                   className="mt-0.5 inline-flex h-10 w-10 shrink-0 rounded-lg border border-border/60 text-foreground hover:bg-secondary md:hidden"
                   aria-label="Abrir menu de navegacao"
                   title="Abrir menu"
+                  data-tour-id="sidebar-trigger"
                 />
 
                 <div className="min-w-0">
@@ -40,7 +44,9 @@ export default function AppShell({ title, description, children, showGreeting = 
                 </div>
               </div>
 
-              <NotificationBell />
+              <div data-tour-id="header-notifications">
+                <NotificationBell />
+              </div>
             </div>
           </header>
 

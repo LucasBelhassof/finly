@@ -1,4 +1,10 @@
-export type OnboardingStepId = "welcome" | "account" | "first_transaction" | "result";
+export type OnboardingStepId =
+  | "dashboard_overview"
+  | "recent_transactions"
+  | "insights"
+  | "accounts_nav"
+  | "expense_management_nav"
+  | "notifications";
 
 export interface AuthOnboardingProgress {
   currentStep: number;

@@ -48,12 +48,19 @@ function getRequestMetadata(request: Request): AuthRequestMetadata {
   };
 }
 
-function createAuthRateLimiter(route: string, max: number) {
+function createAuthRateLimiter(
+  route: string,
+  max: number,
+  options?: {
+    skipSuccessfulRequests?: boolean;
+  },
+) {
   return rateLimit({
     windowMs: 15 * 60 * 1000,
     max,
     standardHeaders: "draft-8",
     legacyHeaders: false,
+    skipSuccessfulRequests: options?.skipSuccessfulRequests ?? false,
     handler: async (request, response) => {
       const metadata = getRequestMetadata(request);
 
@@ -102,7 +109,9 @@ export function createAuthRouter() {
   const signupLimiter = createAuthRateLimiter("signup", 5);
   const forgotPasswordLimiter = createAuthRateLimiter("forgot_password", 3);
   const resetPasswordLimiter = createAuthRateLimiter("reset_password", 3);
-  const refreshLimiter = createAuthRateLimiter("refresh", 30);
+  const refreshLimiter = createAuthRateLimiter("refresh", 30, {
+    skipSuccessfulRequests: true,
+  });
   const refreshCookieName = env.auth.refreshCookieName;
 
   router.post("/login", loginLimiter, async (request, response) => {

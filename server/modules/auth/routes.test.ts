@@ -208,6 +208,25 @@ describe("auth routes", () => {
     expect(response.headers["set-cookie"]?.[0]).toContain(`${env.auth.refreshCookieName}=next-refresh-token`);
   });
 
+  it("does not rate limit successful refresh rotations", async () => {
+    const app = createTestApp();
+
+    for (let attempt = 0; attempt < 35; attempt += 1) {
+      const response = await request(app)
+        .post("/api/auth/refresh")
+        .set("Cookie", `${env.auth.refreshCookieName}=refresh-token`);
+
+      expect(response.status).toBe(200);
+    }
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(35);
+    expect(insertAuditEventMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "refresh_rate_limited",
+      }),
+    );
+  });
+
   it("rejects /me without a bearer token", async () => {
     const app = createTestApp();
 

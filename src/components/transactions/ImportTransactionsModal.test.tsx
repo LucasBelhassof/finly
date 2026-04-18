@@ -244,4 +244,91 @@ describe("ImportTransactionsModal", () => {
       });
     });
   });
+
+  it("hides the source layout after preview and commits multiple preview batches", async () => {
+    previewMutateAsync
+      .mockResolvedValueOnce(previewData)
+      .mockResolvedValueOnce({
+        ...previewData,
+        previewToken: "preview-2",
+        fileMetadata: {
+          ...previewData.fileMetadata,
+          originalFilename: "fatura-abril.csv",
+        },
+      });
+
+    render(
+      <ImportTransactionsModal
+        open
+        onOpenChange={vi.fn()}
+        categories={[]}
+        banks={[
+          {
+            id: 7,
+            slug: "nubank",
+            name: "Nubank",
+            accountType: "credit_card",
+            parentBankConnectionId: 2,
+            parentAccountName: "Itau",
+            statementCloseDay: 10,
+            statementDueDay: 17,
+            connected: true,
+            color: "bg-purple-500",
+            currentBalance: 0,
+            formattedBalance: "R$ 0,00",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Fatura do cartao/i }));
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "fatura-marco.csv", { type: "text/csv" })],
+      },
+    });
+
+    fireEvent.click(screen.getByRole("combobox", { name: "" }));
+    fireEvent.click(screen.getByText("Nubank"));
+    fireEvent.click(screen.getByRole("button", { name: /Gerar previa/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Adicionar fatura/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("button", { name: /Extrato bancario/i })).not.toBeInTheDocument();
+
+    const addFileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(addFileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "fatura-abril.csv", { type: "text/csv" })],
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Gerar previa da fatura/i }));
+
+    await waitFor(() => {
+      expect(previewMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Confirmar importacao/i }));
+
+    await waitFor(() => {
+      expect(commitMutateAsync).toHaveBeenCalledTimes(2);
+    });
+
+    expect(commitMutateAsync).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        previewToken: "preview-1",
+      }),
+    );
+    expect(commitMutateAsync).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        previewToken: "preview-2",
+      }),
+    );
+  });
 });

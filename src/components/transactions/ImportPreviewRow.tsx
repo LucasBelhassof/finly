@@ -1,7 +1,5 @@
-import { AlertTriangle, Plus } from "lucide-react";
+import { Info } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
@@ -14,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { CategoryItem, ImportCommitItem, ImportPreviewItem } from "@/types/api";
 
@@ -21,8 +20,8 @@ type ImportPreviewRowProps = {
   draft: ImportCommitItem;
   item: ImportPreviewItem;
   categories: CategoryItem[];
-  onChange: (rowIndex: number, patch: Partial<ImportCommitItem>) => void;
-  onCreateCategory: (rowIndex: number) => void;
+  onChange: (previewToken: string, rowIndex: number, patch: Partial<ImportCommitItem>) => void;
+  previewToken: string;
 };
 
 export default function ImportPreviewRow({
@@ -30,58 +29,75 @@ export default function ImportPreviewRow({
   item,
   categories,
   onChange,
-  onCreateCategory,
+  previewToken,
 }: ImportPreviewRowProps) {
-  const isInvalid = item.errors.length > 0;
-  const needsCategory = draft.type === "income" && !draft.categoryId;
   const filteredCategories = categories.filter((category) => category.transactionType === draft.type);
+  const descriptionWidth = `${Math.min(Math.max(draft.description.length + 2, 28), 48)}ch`;
+  const amountWidth = `${Math.min(Math.max(draft.amount.length + 2, 10), 16)}ch`;
 
   return (
-    <TableRow className={cn(draft.exclude && "opacity-55")}>
-      <TableCell className="w-[72px] px-4 py-4 align-top text-xs text-muted-foreground">#{item.rowIndex}</TableCell>
-      <TableCell className="w-[280px] px-4 py-4 align-top">
-        <Textarea
-          value={draft.description}
-          onChange={(event) => onChange(item.rowIndex, { description: event.target.value })}
-          rows={3}
-          className="min-h-[84px] resize-none whitespace-pre-wrap break-words rounded-xl border-border/50 bg-secondary/30 text-sm leading-relaxed"
-        />
-        <div className="mt-2 flex flex-wrap gap-2">
-          {isInvalid ? <Badge variant="destructive">Erro</Badge> : null}
-          {item.isInstallment ? (
-            <Badge variant="secondary" className="bg-info/10 text-info">
-              {item.installmentIndex}/{item.installmentCount} parcelas
-            </Badge>
-          ) : null}
+    <TableRow
+      className={cn(
+        draft.exclude && "opacity-55",
+        item.possibleDuplicate && "bg-warning/5 hover:bg-warning/10",
+      )}
+    >
+      <TableCell className="w-[72px] px-4 py-4 align-top text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span>#{item.rowIndex}</span>
           {item.possibleDuplicate ? (
-            <Badge variant="secondary" className="bg-warning/15 text-warning">
-              Duplicata
-            </Badge>
-          ) : null}
-          {needsCategory ? (
-            <Badge variant="secondary" className="bg-destructive/10 text-destructive">
-              Categoria obrigatoria
-            </Badge>
-          ) : null}
-          {item.suggestionSource === "history" ? (
-            <Badge variant="secondary" className="bg-primary/10 text-primary">
-              Historico
-            </Badge>
-          ) : null}
-          {item.suggestionSource === "recurring_rule" ? (
-            <Badge variant="secondary" className="bg-income/10 text-income">
-              Recorrencia
-            </Badge>
+            <TooltipProvider delayDuration={120}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full text-warning transition-colors hover:text-warning"
+                    aria-label={`Duplicata na linha ${item.rowIndex}`}
+                  >
+                    <Info size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
+                  {item.duplicateReason || "Linha semelhante encontrada."}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ) : null}
         </div>
-        {item.errors.length > 0 ? <p className="mt-2 text-xs text-destructive">{item.errors[0]}</p> : null}
-        {item.errors.length === 0 && item.warnings[0] ? <p className="mt-2 text-xs text-warning">{item.warnings[0]}</p> : null}
-        {item.errors.length === 0 && item.isInstallment && item.generatedInstallmentCount ? (
-          <p className="mt-2 text-xs text-info">
-            Esta linha sera expandida em {item.generatedInstallmentCount} despesa{item.generatedInstallmentCount > 1 ? "s" : ""} mensa
-            {item.generatedInstallmentCount > 1 ? "is" : "l"} ao confirmar a importacao.
-          </p>
-        ) : null}
+      </TableCell>
+      <TableCell className="w-[300px] px-4 py-4 align-top">
+        <div className="space-y-2">
+          <Textarea
+            value={draft.description}
+            onChange={(event) => onChange(previewToken, item.rowIndex, { description: event.target.value })}
+            rows={3}
+            style={{ width: descriptionWidth }}
+            className="min-h-[84px] max-w-full resize-none whitespace-pre-wrap break-words rounded-xl border-border/50 bg-secondary/30 text-sm leading-relaxed"
+          />
+          {item.errors.length === 0 && item.isInstallment && item.generatedInstallmentCount ? (
+            <div className="flex items-center gap-1.5 text-xs text-info">
+              <span>Parcela detectada</span>
+              <TooltipProvider delayDuration={120}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:text-foreground"
+                      aria-label={`Detalhes da parcela da linha ${item.rowIndex}`}
+                    >
+                      <Info size={12} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[260px] text-xs leading-relaxed">
+                    Esta linha sera expandida em {item.generatedInstallmentCount} despesa
+                    {item.generatedInstallmentCount > 1 ? "s" : ""} mensa
+                    {item.generatedInstallmentCount > 1 ? "is" : "l"} ao confirmar a importacao.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          ) : null}
+        </div>
         {item.errors.length === 0 &&
         (item.suggestionSource === "history" || item.suggestionSource === "recurring_rule") &&
         item.suggestedCategoryLabel ? (
@@ -97,52 +113,58 @@ export default function ImportPreviewRow({
       <TableCell className="w-[132px] px-4 py-4 align-top">
         <Input
           value={draft.amount}
-          onChange={(event) => onChange(item.rowIndex, { amount: event.target.value })}
+          onChange={(event) => onChange(previewToken, item.rowIndex, { amount: event.target.value })}
           inputMode="decimal"
-          className="h-10 rounded-xl border-border/50 bg-secondary/30 px-2.5 text-right font-medium tabular-nums"
+          style={{ width: amountWidth }}
+          className="h-10 max-w-full rounded-xl border-border/50 bg-secondary/30 px-2.5 text-right font-medium tabular-nums"
         />
       </TableCell>
-      <TableCell className="w-[132px] px-4 py-4 align-top">
+      <TableCell className="w-[156px] px-4 py-4 align-top">
         <DatePickerInput
           value={draft.occurredOn}
-          onChange={(value) => onChange(item.rowIndex, { occurredOn: value })}
-          className="h-10 rounded-xl"
+          onChange={(value) => onChange(previewToken, item.rowIndex, { occurredOn: value })}
+          className="h-10 w-[148px] rounded-xl"
           placeholder="Data"
         />
       </TableCell>
       <TableCell className="w-[156px] px-4 py-4 align-top">
-        <div className="flex rounded-xl border border-border/50 bg-secondary/35 p-1">
-          <button
-            type="button"
-            onClick={() => onChange(item.rowIndex, { type: "expense", categoryId: draft.type === "expense" ? draft.categoryId : "" })}
+        <Select
+          value={draft.type}
+          onValueChange={(value: "income" | "expense") =>
+            onChange(previewToken, item.rowIndex, {
+              type: value,
+              categoryId: draft.type === value ? draft.categoryId : "",
+            })
+          }
+        >
+          <SelectTrigger
             className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              "h-10 rounded-xl border-border/50 font-medium",
               draft.type === "expense"
-                ? "bg-expense text-white shadow-sm"
-                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                ? "bg-expense/15 text-expense"
+                : "bg-income/15 text-income",
             )}
           >
-            Despesa
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange(item.rowIndex, { type: "income", categoryId: draft.type === "income" ? draft.categoryId : "" })}
-            className={cn(
-              "flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              draft.type === "income"
-                ? "bg-income text-background shadow-sm"
-                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
-            )}
-          >
-            Receita
-          </button>
-        </div>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="expense" className="text-expense focus:text-expense">
+              Despesa
+            </SelectItem>
+            <SelectItem value="income" className="text-income focus:text-income">
+              Receita
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </TableCell>
       <TableCell className="w-[192px] px-4 py-4 align-top">
         <div className="flex items-center gap-2">
-          <Select value={String(draft.categoryId ?? "")} onValueChange={(value) => onChange(item.rowIndex, { categoryId: value })}>
+          <Select
+            value={String(draft.categoryId ?? "")}
+            onValueChange={(value) => onChange(previewToken, item.rowIndex, { categoryId: value })}
+          >
             <SelectTrigger className="h-10 rounded-xl border-border/50 bg-secondary/30">
-              <SelectValue placeholder={draft.type === "income" ? "Categoria" : "Categoria (opcional)"} />
+              <SelectValue placeholder={draft.type === "income" ? "Categoria" : "Categoria"} />
             </SelectTrigger>
             <SelectContent>
               {filteredCategories.map((category) => (
@@ -152,9 +174,6 @@ export default function ImportPreviewRow({
               ))}
             </SelectContent>
           </Select>
-          <Button type="button" size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-xl" onClick={() => onCreateCategory(item.rowIndex)}>
-            <Plus size={14} />
-          </Button>
         </div>
       </TableCell>
       <TableCell className="w-[176px] px-4 py-4 align-top">
@@ -162,7 +181,7 @@ export default function ImportPreviewRow({
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={draft.exclude}
-              onCheckedChange={(checked) => onChange(item.rowIndex, { exclude: checked === true })}
+              onCheckedChange={(checked) => onChange(previewToken, item.rowIndex, { exclude: checked === true })}
             />
             Excluir da importacao
           </label>
@@ -170,16 +189,10 @@ export default function ImportPreviewRow({
             <Checkbox
               checked={draft.ignoreDuplicate}
               disabled={!item.possibleDuplicate}
-              onCheckedChange={(checked) => onChange(item.rowIndex, { ignoreDuplicate: checked === true })}
+              onCheckedChange={(checked) => onChange(previewToken, item.rowIndex, { ignoreDuplicate: checked === true })}
             />
             Importar mesmo com duplicata
           </label>
-          {item.possibleDuplicate ? (
-            <div className="flex items-start gap-2 rounded-lg bg-warning/5 px-2 py-1.5 text-xs text-warning">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span>{item.duplicateReason || "Linha semelhante encontrada."}</span>
-            </div>
-          ) : null}
         </div>
       </TableCell>
     </TableRow>

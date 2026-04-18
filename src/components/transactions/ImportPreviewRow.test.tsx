@@ -93,12 +93,13 @@ describe("ImportPreviewRow", () => {
             categories={categories}
             onChange={vi.fn()}
             onCreateCategory={vi.fn()}
+            previewToken="preview-1"
           />
         </TableBody>
       </Table>,
     );
 
-    expect(screen.getByText("Categoria obrigatoria")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Duplicata na linha 1/i })).toBeInTheDocument();
   });
 
   it("shows fallback guidance for expenses without category", () => {
@@ -111,6 +112,7 @@ describe("ImportPreviewRow", () => {
             categories={categories}
             onChange={vi.fn()}
             onCreateCategory={vi.fn()}
+            previewToken="preview-1"
           />
         </TableBody>
       </Table>,
@@ -134,6 +136,7 @@ describe("ImportPreviewRow", () => {
             categories={categories}
             onChange={vi.fn()}
             onCreateCategory={vi.fn()}
+            previewToken="preview-1"
           />
           <ImportPreviewRow
             draft={{ ...incomeDraft, rowIndex: 2, categoryId: 1 }}
@@ -146,14 +149,15 @@ describe("ImportPreviewRow", () => {
             categories={categories}
             onChange={vi.fn()}
             onCreateCategory={vi.fn()}
+            previewToken="preview-2"
           />
         </TableBody>
       </Table>,
     );
 
-    expect(screen.getByText("Historico")).toBeInTheDocument();
-    expect(screen.getByText("Recorrencia")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Duplicata na linha 1/i })).toBeInTheDocument();
     expect(screen.getByText(/Historico do usuario: Receita - Salario/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Duplicata na linha 2/i })).toBeInTheDocument();
     expect(screen.getByText(/Regra recorrente: Receita - Salario/i)).toBeInTheDocument();
   });
 
@@ -177,12 +181,14 @@ describe("ImportPreviewRow", () => {
             categories={categories}
             onChange={vi.fn()}
             onCreateCategory={vi.fn()}
+            previewToken="preview-1"
           />
         </TableBody>
       </Table>,
     );
 
-    expect(screen.getByText("3/10 parcelas")).toBeInTheDocument();
-    expect(screen.getByText(/expandida em 8 despesas mensais/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Duplicata na linha 1/i })).toBeInTheDocument();
+    expect(screen.getByText(/Parcela detectada/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Detalhes da parcela da linha 1/i })).toBeInTheDocument();
   });
 });

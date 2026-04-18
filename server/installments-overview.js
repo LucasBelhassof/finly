@@ -381,8 +381,10 @@ function buildProjectionMonths(baseDate, count) {
   return Array.from({ length: count }, (_, index) => addMonthsClamped(monthStart, index)).filter(Boolean);
 }
 
-function buildMonthlyRowsSource(selectedPurchases, filters, referenceDate) {
-  if (isPeriodFilterActive(filters)) {
+function buildMonthlyRowsSource(selectedPurchases, filters, referenceDate, options = {}) {
+  const includeFutureProjection = Boolean(options.includeFutureProjection);
+
+  if (isPeriodFilterActive(filters) && !includeFutureProjection) {
     return selectedPurchases.flatMap((purchase) =>
       purchase.periodRows.map((row) => ({
         month: getMonthKey(row.occurredOn),
@@ -427,7 +429,7 @@ function buildGroupedAmountSeries(entries, monthOrder = null) {
 }
 
 function buildMonthlyProjection(selectedPurchases, filters, referenceDate, count) {
-  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate);
+  const entries = buildMonthlyRowsSource(selectedPurchases, filters, referenceDate, { includeFutureProjection: true });
   const baseDate = filters.purchaseStart ?? referenceDate;
   const monthStarts = buildProjectionMonths(baseDate, count);
   const monthKeys = monthStarts.map(getMonthKey).filter(Boolean);

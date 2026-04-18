@@ -173,7 +173,7 @@ describe("ImportPreviewRow", () => {
               isInstallment: true,
               installmentIndex: 3,
               installmentCount: 10,
-              generatedInstallmentCount: 8,
+              generatedInstallmentCount: 10,
               canImport: true,
               requiresCategorySelection: false,
               requiresUserAction: false,

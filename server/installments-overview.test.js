@@ -248,6 +248,24 @@ describe("installments overview helpers", () => {
     expect(overview.monthly_commitment).toBeCloseTo(669.49, 2);
   });
 
+  it("keeps next months projection populated when the visible period is limited", () => {
+    const overview = buildInstallmentsOverviewResponse(
+      baseRows,
+      {
+        purchaseStart: "2026-04-01",
+        purchaseEnd: "2026-04-30",
+        cardId: 2,
+      },
+      "2026-04-09",
+    );
+
+    expect(overview.charts.next_3_months_projection).toEqual([
+      { month: "2026-04", amount: 274.58 },
+      { month: "2026-05", amount: 274.58 },
+      { month: "2026-06", amount: 120.33 },
+    ]);
+  });
+
   it("derives due dates and tolerates installment rounding", () => {
     const overview = buildInstallmentsOverviewResponse(baseRows, { cardId: 2 }, "2026-04-09");
     const roundedItem = overview.items.find((item) => item.installment_purchase_id === 12);

@@ -91,7 +91,7 @@ export default function ImportPreviewRow({
                   <TooltipContent className="max-w-[260px] text-xs leading-relaxed">
                     Esta linha sera expandida em {item.generatedInstallmentCount} despesa
                     {item.generatedInstallmentCount > 1 ? "s" : ""} mensa
-                    {item.generatedInstallmentCount > 1 ? "is" : "l"} ao confirmar a importacao.
+                    {item.generatedInstallmentCount > 1 ? "is" : "l"} ao confirmar a importacao, incluindo parcelas anteriores.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

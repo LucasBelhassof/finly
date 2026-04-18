@@ -289,7 +289,7 @@ export function extractInstallmentMetadata(description) {
       isInstallment: true,
       installmentIndex,
       installmentCount,
-      generatedInstallmentCount: installmentCount - installmentIndex + 1,
+      generatedInstallmentCount: installmentCount,
     };
   }
 
@@ -1254,7 +1254,7 @@ function buildPreviewItem({
 
     if (installmentMetadata.isInstallment && installmentMetadata.generatedInstallmentCount) {
       warnings.push(
-        `Compra parcelada detectada: ${installmentMetadata.generatedInstallmentCount} despesas mensais serao geradas ao importar.`,
+        `Compra parcelada detectada: ${installmentMetadata.generatedInstallmentCount} despesas mensais serao geradas ao importar, incluindo parcelas anteriores.`,
       );
     }
   }
@@ -2033,6 +2033,8 @@ export function buildImportedTransactionEntries({ normalizedLine, previewItem })
     Number(previewItem.generatedInstallmentCount) > 0
       ? Number(previewItem.generatedInstallmentCount)
       : 1;
+  const installmentStartOffset =
+    previewItem?.isInstallment && Number.isInteger(previewItem.installmentIndex) ? 1 - Number(previewItem.installmentIndex) : 0;
 
   return Array.from({ length: generatedInstallmentCount }, (_, index) => ({
     description:
@@ -2042,7 +2044,7 @@ export function buildImportedTransactionEntries({ normalizedLine, previewItem })
       Number.isInteger(previewItem.installmentIndex)
         ? formatInstallmentDescription(
             previewItem.purchaseDescriptionBase,
-            Number(previewItem.installmentIndex) + index,
+            index + 1,
             Number(previewItem.installmentCount),
           )
         : normalizedLine.description,
@@ -2056,15 +2058,12 @@ export function buildImportedTransactionEntries({ normalizedLine, previewItem })
         : normalizedLine.normalizedFinalDescription,
     categoryId: normalizedLine.categoryId,
     amount: normalizedLine.signedAmount,
-    occurredOn: addMonthsToOccurredOn(normalizedLine.normalizedOccurredOn, index),
+    occurredOn: addMonthsToOccurredOn(normalizedLine.normalizedOccurredOn, installmentStartOffset + index),
     purchaseOccurredOn: previewItem?.purchaseOccurredOn ?? normalizedLine.normalizedOccurredOn,
     type: normalizedLine.type,
     installmentCount:
       previewItem?.isInstallment && Number.isInteger(previewItem.installmentCount) ? Number(previewItem.installmentCount) : null,
-    installmentNumber:
-      previewItem?.isInstallment && Number.isInteger(previewItem.installmentIndex)
-        ? Number(previewItem.installmentIndex) + index
-        : null,
+    installmentNumber: previewItem?.isInstallment ? index + 1 : null,
   }));
 }
 

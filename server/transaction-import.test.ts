@@ -210,7 +210,7 @@ describe("transaction import helpers", () => {
     expect(preview.items[0].isInstallment).toBe(true);
     expect(preview.items[0].installmentIndex).toBe(3);
     expect(preview.items[0].installmentCount).toBe(3);
-    expect(preview.items[0].generatedInstallmentCount).toBe(1);
+    expect(preview.items[0].generatedInstallmentCount).toBe(3);
     expect(preview.items[1].generatedInstallmentCount).toBe(10);
     expect(preview.items[1].purchaseDescriptionBase).toBe("Mlp *Kabum-Kabum");
   });
@@ -226,13 +226,13 @@ describe("transaction import helpers", () => {
       isInstallment: true,
       installmentIndex: 10,
       installmentCount: 12,
-      generatedInstallmentCount: 3,
+      generatedInstallmentCount: 12,
     });
     expect(extractInstallmentMetadata("COMMCENTER (Parcela 07 de 15)")).toEqual({
       isInstallment: true,
       installmentIndex: 7,
       installmentCount: 15,
-      generatedInstallmentCount: 9,
+      generatedInstallmentCount: 15,
     });
     expect(extractInstallmentMetadata("Compra a vista")).toEqual({
       isInstallment: false,
@@ -248,7 +248,7 @@ describe("transaction import helpers", () => {
     expect(formatInstallmentDescription("Kabum", 2, 10)).toBe("Kabum 2/10");
   });
 
-  it("builds monthly installment entries from the statement month onwards", () => {
+  it("builds monthly installment entries for the full purchase timeline", () => {
     const normalizedLine = validateCommitLine(
       {
         description: "Kabum - Parcela 3/10",
@@ -270,17 +270,21 @@ describe("transaction import helpers", () => {
         isInstallment: true,
         installmentIndex: 3,
         installmentCount: 10,
-        generatedInstallmentCount: 8,
+        generatedInstallmentCount: 10,
       },
     });
 
-    expect(entries).toHaveLength(8);
-    expect(entries[0].occurredOn).toBe("2026-03-25");
-    expect(entries[1].occurredOn).toBe("2026-04-25");
-    expect(entries[7].occurredOn).toBe("2026-10-25");
+    expect(entries).toHaveLength(10);
+    expect(entries[0].occurredOn).toBe("2026-01-25");
+    expect(entries[1].occurredOn).toBe("2026-02-25");
+    expect(entries[2].occurredOn).toBe("2026-03-25");
+    expect(entries[9].occurredOn).toBe("2026-10-25");
     expect(entries[0].amount).toBe(-154.25);
-    expect(entries[0].description).toBe("Kabum 3/10");
-    expect(entries[1].description).toBe("Kabum 4/10");
+    expect(entries[0].description).toBe("Kabum 1/10");
+    expect(entries[1].description).toBe("Kabum 2/10");
+    expect(entries[2].description).toBe("Kabum 3/10");
+    expect(entries[0].installmentNumber).toBe(1);
+    expect(entries[2].installmentNumber).toBe(3);
     expect(entries[0].purchaseOccurredOn).toBe("2026-02-25");
   });
 

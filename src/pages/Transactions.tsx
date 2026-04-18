@@ -1060,7 +1060,7 @@ export default function TransactionsPage() {
                 className="w-full rounded-xl border-border/60 bg-secondary/20 sm:w-auto"
                 onClick={() => setImportDialogOpen(true)}
               >
-                Importar CSV
+                Importar CSV/PDF
               </Button>
             <Button
                 variant="outline"

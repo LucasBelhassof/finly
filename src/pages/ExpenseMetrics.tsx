@@ -404,7 +404,11 @@ export default function ExpenseMetricsPage() {
           </Select>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center justify-between">
+          
+          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+            {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
+          </div>
           <div className="grid grid-cols-3 gap-2 xl:flex xl:flex-wrap">
             {typeFilters.map((filter) => (
               <button
@@ -419,10 +423,6 @@ export default function ExpenseMetricsPage() {
                 {filter.label}
               </button>
             ))}
-          </div>
-
-          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            {formatDateRangeLabel(dateRange, datePreset)}
           </div>
         </div>
       </section>

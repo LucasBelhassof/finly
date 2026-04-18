@@ -738,73 +738,77 @@ export default function HousingPage() {
         </DialogContent>
       </Dialog>
 
-      <section className="glass-card rounded-[28px] border border-border/40 p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-          <TransactionsMonthYearFilter
-            selectedMonthIndex={selectedMonthIndex}
-            selectedYear={selectedYear}
-            onMonthChange={handleMonthChange}
-            onYearChange={handleYearChange}
-          />
-
-          <TransactionsDateFilter
-            preset={datePreset}
-            range={dateRange}
-            onSelectPreset={handlePresetChange}
-            onApplyCustomRange={handleCustomRangeApply}
-            showPresetButtons={false}
-          />
-
-          <div className="relative w-full xl:flex-1">
-            <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar descricao, tipo ou conta..."
-              className="h-11 rounded-2xl border-border/60 bg-secondary/35 pl-11"
+      <div className="glass-card rounded-[28px] border border-border/40 p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+            <TransactionsMonthYearFilter
+              selectedMonthIndex={selectedMonthIndex}
+              selectedYear={selectedYear}
+              onMonthChange={handleMonthChange}
+              onYearChange={handleYearChange}
             />
+
+            <TransactionsDateFilter
+              preset={datePreset}
+              range={dateRange}
+              onSelectPreset={handlePresetChange}
+              onApplyCustomRange={handleCustomRangeApply}
+              showPresetButtons={false}
+            />
+
+            <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
+                <SelectValue placeholder="Todas as contas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as contas</SelectItem>
+                {transactionAccounts.map((bank) => (
+                  <SelectItem key={bank.id} value={String(bank.id)}>
+                    {bank.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
+                <SelectValue placeholder="Todos os tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {expenseTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-            <SelectTrigger className="h-11 w-full rounded-2xl border-border/60 bg-secondary/30 xl:w-[220px]">
-              <SelectValue placeholder="Todas as contas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as contas</SelectItem>
-              {transactionAccounts.map((bank) => (
-                <SelectItem key={bank.id} value={String(bank.id)}>
-                  {bank.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative flex-1">
+              <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar descricao, tipo ou conta..."
+                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
+              />
+            </div>
 
-          <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="h-11 w-full rounded-2xl border-border/60 bg-secondary/30 xl:w-[220px]">
-              <SelectValue placeholder="Todos os tipos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os tipos</SelectItem>
-              {expenseTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center justify-between">
-          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
+            <Button className="w-full rounded-xl xl:w-auto" onClick={openCreate}>
+              <Plus size={14} />
+              Nova despesa recorrente
+            </Button>
           </div>
 
-          <Button className="rounded-2xl" onClick={openCreate}>
-            <Plus size={14} />
-            Nova despesa recorrente
-          </Button>
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+              {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">

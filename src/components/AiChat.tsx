@@ -65,11 +65,22 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60 [animation-delay:-0.3s]" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60 [animation-delay:-0.15s]" />
+      <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60" />
+    </div>
+  );
+}
+
 export default function AiChat({ initialMessages }: AiChatProps) {
   const [input, setInput] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const { data: messages = [], isLoading, isError, error } = useChatMessages(DEFAULT_CHAT_LIMIT, initialMessages);
   const sendMessage = useSendChatMessage(DEFAULT_CHAT_LIMIT);
+  const pendingMessage = sendMessage.isPending && typeof sendMessage.variables === "string" ? sendMessage.variables : null;
 
   useEffect(() => {
     if (!isError) {
@@ -89,7 +100,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
     }
 
     container.scrollTop = container.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, pendingMessage]);
 
   const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -139,33 +150,57 @@ export default function AiChat({ initialMessages }: AiChatProps) {
             {isError ? "Nao foi possivel carregar a conversa agora." : "Comece uma conversa com o assistente."}
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-2.5 ${message.role === "user" ? "flex-row-reverse" : ""}`}
-            >
+          <>
+            {messages.map((message) => (
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                  message.role === "assistant" ? "bg-primary/10" : "bg-secondary"
-                }`}
+                key={message.id}
+                className={`flex gap-2.5 ${message.role === "user" ? "flex-row-reverse" : ""}`}
               >
-                {message.role === "assistant" ? (
-                  <Bot size={13} className="text-primary" />
-                ) : (
-                  <User size={13} className="text-muted-foreground" />
-                )}
+                <div
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                    message.role === "assistant" ? "bg-primary/10" : "bg-secondary"
+                  }`}
+                >
+                  {message.role === "assistant" ? (
+                    <Bot size={13} className="text-primary" />
+                  ) : (
+                    <User size={13} className="text-muted-foreground" />
+                  )}
+                </div>
+                <div
+                  className={`max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed sm:max-w-[85%] ${
+                    message.role === "assistant"
+                      ? "rounded-tl-sm bg-secondary text-secondary-foreground"
+                      : "rounded-tr-sm bg-primary text-primary-foreground"
+                  }`}
+                >
+                  {renderMessageContent(message.content)}
+                </div>
               </div>
-              <div
-                className={`max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed sm:max-w-[85%] ${
-                  message.role === "assistant"
-                    ? "rounded-tl-sm bg-secondary text-secondary-foreground"
-                    : "rounded-tr-sm bg-primary text-primary-foreground"
-                }`}
-              >
-                {renderMessageContent(message.content)}
-              </div>
-            </div>
-          ))
+            ))}
+
+            {pendingMessage ? (
+              <>
+                <div className="flex flex-row-reverse gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary">
+                    <User size={13} className="text-muted-foreground" />
+                  </div>
+                  <div className="max-w-full rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground sm:max-w-[85%]">
+                    {renderMessageContent(pendingMessage)}
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Bot size={13} className="text-primary" />
+                  </div>
+                  <div className="max-w-full rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-3 text-sm text-secondary-foreground sm:max-w-[85%]">
+                    <TypingIndicator />
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </>
         )}
       </div>
 

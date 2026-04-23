@@ -24,7 +24,13 @@ export default function Index() {
             <ExpensesList transactions={data?.recentTransactions} isLoading={isLoading} isError={isError} />
           </div>
           <div data-tour-id="dashboard-insights">
-            <AiInsights insights={data?.insights} isLoading={isLoading} isError={isError} />
+            <AiInsights
+              insights={data?.insights}
+              isLoading={isLoading}
+              isError={isError}
+              isDisabled
+              disabledReason="Os insights estao desabilitados ate a definicao da regra de negocio. Use o chat para analises financeiras por enquanto."
+            />
           </div>
         </div>
 

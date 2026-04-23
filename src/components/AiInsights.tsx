@@ -11,6 +11,8 @@ interface AiInsightsProps {
   isLoading?: boolean;
   isError?: boolean;
   showRecommendedActions?: boolean;
+  isDisabled?: boolean;
+  disabledReason?: string;
 }
 
 function getPriorityClasses(priority: InsightItem["priority"]) {
@@ -68,7 +70,32 @@ function AiInsightsSkeleton() {
   );
 }
 
-export default function AiInsights({ insights = [], isLoading, isError, showRecommendedActions = false }: AiInsightsProps) {
+export default function AiInsights({
+  insights = [],
+  isLoading,
+  isError,
+  showRecommendedActions = false,
+  isDisabled = false,
+  disabledReason = "Os insights estao desabilitados ate a definicao da regra de negocio.",
+}: AiInsightsProps) {
+  if (isDisabled) {
+    return (
+      <div className="glass-card animate-fade-in p-4 sm:p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+            <Lightbulb size={14} className="text-primary" />
+          </div>
+          <h3 className="font-semibold text-foreground">Insights da IA</h3>
+        </div>
+
+        <div className="rounded-xl border border-dashed border-border/50 bg-secondary/30 p-4">
+          <p className="text-sm font-medium text-foreground">Recurso desabilitado</p>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{disabledReason}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return <AiInsightsSkeleton />;
   }

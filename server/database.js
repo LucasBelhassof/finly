@@ -18,7 +18,7 @@ import {
 import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.js";
 import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
 import { buildDashboardSummaryCards } from "./dashboard-summary.js";
-import { generateInsights } from "./insights-engine.js";
+import { generateChatReply } from "./chat-ai-service.js";
 import { buildTransactionCategorySyncPlan } from "./transaction-update.js";
 import {
   buildPreviousMonthEndDate,
@@ -2378,54 +2378,8 @@ export async function listSpendingByCategory(userId) {
 }
 
 export async function listInsights(userId) {
-  const resolvedUserId = await requireUserId(userId);
-  const [balanceResult, transactionsResult] = await Promise.all([
-    pool.query(
-      `
-        SELECT COALESCE(SUM(current_balance), 0)::NUMERIC(12, 2) AS total_balance
-        FROM bank_connections
-        WHERE user_id = $1
-      `,
-      [resolvedUserId],
-    ),
-    pool.query(
-      `
-        SELECT
-          t.id,
-          t.description,
-          ABS(t.amount)::NUMERIC(12, 2) AS amount,
-          t.occurred_on,
-          t.installment_purchase_id,
-          c.slug AS category_slug,
-          c.label AS category_label,
-          c.group_slug,
-          c.group_label
-        FROM transactions t
-        INNER JOIN categories c ON c.id = t.category_id
-        WHERE t.user_id = $1
-          AND t.amount < 0
-        ORDER BY t.occurred_on DESC, t.id DESC
-        LIMIT 500
-      `,
-      [resolvedUserId],
-    ),
-  ]);
-
-  return generateInsights({
-    balances: [parseNumeric(balanceResult.rows[0]?.total_balance)],
-    transactions: transactionsResult.rows.map((row) => ({
-      id: row.id,
-      description: row.description,
-      amount: parseNumeric(row.amount),
-      occurredOn: normalizeDateValue(row.occurred_on),
-      isInstallment: Boolean(row.installment_purchase_id),
-      installmentPurchaseId: row.installment_purchase_id ?? null,
-      categorySlug: row.category_slug,
-      categoryLabel: row.category_label,
-      groupSlug: row.group_slug,
-      groupLabel: row.group_label,
-    })),
-  });
+  await requireUserId(userId);
+  return [];
 }
 
 export async function listChatMessages(userId, limit = 20) {
@@ -2453,74 +2407,95 @@ export async function listChatMessages(userId, limit = 20) {
   }));
 }
 
-async function getDeliverySpend(userId) {
+async function listChatContextTransactions(userId, limit = 40) {
+  const resolvedUserId = await requireUserId(userId);
   const result = await pool.query(
     `
-      WITH latest_month AS (
-        SELECT MAX(month_start) AS month_start
-        FROM monthly_summaries
-        WHERE user_id = $1
-      )
-      SELECT COALESCE(ABS(SUM(t.amount)), 0) AS total
+      SELECT
+        t.id,
+        t.description,
+        t.amount,
+        t.occurred_on,
+        t.is_recurring,
+        t.housing_id,
+        t.installment_purchase_id,
+        t.installment_number,
+        ip.installment_count,
+        c.label AS category_label,
+        c.group_label,
+        b.name AS account_name,
+        b.account_type
       FROM transactions t
       INNER JOIN categories c ON c.id = t.category_id
-      INNER JOIN latest_month lm
-        ON DATE_TRUNC('month', t.occurred_on)::DATE = lm.month_start
+      INNER JOIN bank_connections b ON b.id = t.bank_connection_id
+      LEFT JOIN installment_purchases ip ON ip.id = t.installment_purchase_id
       WHERE t.user_id = $1
-        AND t.amount < 0
-        AND c.slug IN ('restaurantes', 'cafe')
+      ORDER BY t.occurred_on DESC, t.id DESC
+      LIMIT $2
     `,
-    [userId],
+    [resolvedUserId, limit],
   );
 
-  return parseNumeric(result.rows[0]?.total);
+  return result.rows.map((row) => ({
+    id: row.id,
+    description: row.description,
+    amount: parseNumeric(row.amount),
+    formattedAmount: formatCurrency(row.amount),
+    occurredOn: normalizeDateValue(row.occurred_on),
+    type: getTransactionTypeFromAmount(row.amount),
+    categoryLabel: row.category_label,
+    groupLabel: row.group_label,
+    accountName: row.account_name,
+    accountType: row.account_type,
+    isRecurring: Boolean(row.is_recurring),
+    isHousing: Boolean(row.housing_id),
+    isInstallment: Boolean(row.installment_purchase_id),
+    installmentNumber: row.installment_number ?? null,
+    installmentCount: row.installment_count ?? null,
+  }));
 }
 
-function buildAssistantReply(message, context) {
-  const text = message.toLowerCase();
-  const balanceCard = context.summaryCards.find((card) => card.label === "Saldo Total");
-  const expenseCard = context.summaryCards.find((card) => card.label === "Despesas");
-  const topCategory = context.spendingByCategory[0];
+async function buildChatAdvisorContext(userId) {
+  const resolvedUserId = await requireUserId(userId);
+  const user = await getUserById(resolvedUserId);
 
-  if (text.includes("delivery") || text.includes("ifood") || text.includes("alimenta")) {
-    return [
-      `Hoje a sua maior pressao continua em ${topCategory?.label ?? "Alimentacao"} (${topCategory?.percentage ?? 0}% do total mensal).`,
-      `So em delivery, cafes e restaurantes voce ja consumiu ${formatCurrency(context.deliverySpend)} no mes.`,
-      "",
-      "Sugestoes praticas:",
-      "1. Defina um teto semanal para delivery e acompanhe toda sexta.",
-      "2. Troque 2 pedidos por mercado planejado no fim de semana.",
-      "3. Centralize assinaturas e cupons em um unico dia para evitar compras por impulso.",
-    ].join("\n");
+  if (!user) {
+    throw new Error("user not found");
   }
 
-  if (text.includes("econom")) {
-    return [
-      `Seu saldo atual esta em ${balanceCard?.formattedValue ?? formatCurrency(0)} e as despesas do mes somam ${expenseCard?.formattedValue ?? formatCurrency(0)}.`,
-      `Hoje o maior peso esta em ${topCategory?.label ?? "Moradia"} (${topCategory?.percentage ?? 0}% do total).`,
-      "",
-      "Se quiser economizar mais rapido, comece por:",
-      "1. Alimentacao fora de casa.",
-      "2. Transporte por aplicativo nas sextas.",
-      "3. Assinaturas com pouco uso.",
-    ].join("\n");
-  }
+  const [summaryCards, banks, spendingByCategory, recentTransactions, housing, installmentsOverview, recentChatMessages, snapshots] =
+    await Promise.all([
+      getSummaryCards(resolvedUserId),
+      listBanks(resolvedUserId),
+      listSpendingByCategory(resolvedUserId),
+      listChatContextTransactions(resolvedUserId),
+      listHousing(resolvedUserId),
+      getInstallmentsOverview(resolvedUserId),
+      listChatMessages(resolvedUserId, 12),
+      getReferenceMonth(resolvedUserId),
+    ]);
 
-  if (text.includes("uber") || text.includes("transporte")) {
-    return [
-      "O gasto com transporte esta concentrado em corridas curtas e picos nas sextas.",
-      "Uma regra simples para testar por 2 semanas:",
-      "1. Use Uber apenas para deslocamentos acima de 5 km.",
-      "2. Agrupe compromissos no mesmo dia.",
-      "3. Compare o total semanal com a media atual.",
-    ].join("\n");
-  }
-
-  return [
-    `Seu saldo atual esta em ${balanceCard?.formattedValue ?? formatCurrency(0)}.`,
-    `As despesas do mes estao em ${expenseCard?.formattedValue ?? formatCurrency(0)} e a categoria mais pesada e ${topCategory?.label ?? "Moradia"}.`,
-    "Se quiser, eu posso detalhar onde cortar gastos por categoria.",
-  ].join("\n");
+  return {
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    },
+    referenceMonth: normalizeDateValue(snapshots[0]?.month_start),
+    summaryCards,
+    banks,
+    spendingByCategory,
+    recentTransactions,
+    housing,
+    installments: {
+      activeInstallmentsCount: installmentsOverview.activeInstallmentsCount,
+      monthlyCommitment: installmentsOverview.monthlyCommitment,
+      remainingBalanceTotal: installmentsOverview.remainingBalanceTotal,
+      payoffProjectionMonth: installmentsOverview.payoffProjectionMonth,
+      topItems: installmentsOverview.items.slice(0, 8),
+    },
+    recentChatMessages,
+  };
 }
 
 async function insertChatMessage(userId, role, content) {
@@ -2546,16 +2521,17 @@ async function insertChatMessage(userId, role, content) {
 export async function createChatReply(userId, message) {
   const resolvedUserId = await requireUserId(userId);
   const userMessage = await insertChatMessage(resolvedUserId, "user", message);
-  const [summaryCards, spendingByCategory, deliverySpend] = await Promise.all([
-    getSummaryCards(resolvedUserId),
-    listSpendingByCategory(resolvedUserId),
-    getDeliverySpend(resolvedUserId),
-  ]);
-
-  const assistantContent = buildAssistantReply(message, {
-    summaryCards,
-    spendingByCategory,
-    deliverySpend,
+  const context = await buildChatAdvisorContext(resolvedUserId);
+  const recentHistory = context.recentChatMessages.slice(-12).map((item) => ({
+    role: item.role,
+    content: item.content,
+    createdAt: item.createdAt,
+  }));
+  const { content: assistantContent } = await generateChatReply({
+    message,
+    generatedAt: new Date().toISOString(),
+    context,
+    history: recentHistory,
   });
 
   const assistantMessage = await insertChatMessage(resolvedUserId, "assistant", assistantContent);
@@ -2574,12 +2550,11 @@ export async function getDashboardData(userId) {
     throw new Error("user not found");
   }
 
-  const [summaryCards, recentTransactions, spendingByCategory, insights, banks, chatMessages, snapshots] =
+  const [summaryCards, recentTransactions, spendingByCategory, banks, chatMessages, snapshots] =
     await Promise.all([
       getSummaryCards(resolvedUserId),
       listRecentTransactions(resolvedUserId),
       listSpendingByCategory(resolvedUserId),
-      listInsights(resolvedUserId),
       listBanks(resolvedUserId),
       listChatMessages(resolvedUserId),
       getReferenceMonth(resolvedUserId),
@@ -2591,7 +2566,7 @@ export async function getDashboardData(userId) {
     summaryCards,
     recentTransactions,
     spendingByCategory,
-    insights,
+    insights: [],
     banks,
     chatMessages,
   };

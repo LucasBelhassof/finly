@@ -49,7 +49,7 @@ const navItems = [{ icon: LayoutDashboard, label: "Dashboard", to: appRoutes.das
 
 const secondaryNavItems = [
   { icon: MessageSquare, label: "Chat IA", to: appRoutes.chat },
-  { icon: Lightbulb, label: "Insights", to: appRoutes.insights },
+  { icon: Lightbulb, label: "Insights", to: appRoutes.insights, disabled: true },
   { icon: Building2, label: "Contas", to: appRoutes.accounts },
 ];
 
@@ -222,7 +222,7 @@ export default function Sidebar() {
             return (
               <SidebarMenuItem key={item.label}>
                 <SidebarMenuButton
-                  asChild
+                  asChild={!item.disabled}
                   isActive={isActive}
                   tooltip={item.label}
                   data-tour-id={
@@ -233,11 +233,27 @@ export default function Sidebar() {
                         : undefined
                   }
                   className="h-11 rounded-lg px-3 text-muted-foreground hover:bg-secondary hover:text-foreground data-[active=true]:bg-primary/10 data-[active=true]:text-primary group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+                  onClick={
+                    item.disabled
+                      ? () => {
+                          toast.info("Insights desabilitados", {
+                            description: "O recurso volta quando a regra de negocio estiver definida. Use o chat financeiro por enquanto.",
+                          });
+                        }
+                      : undefined
+                  }
                 >
-                  <NavLink to={item.to}>
-                    <item.icon size={18} className="shrink-0" />
-                    <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
-                  </NavLink>
+                  {item.disabled ? (
+                    <>
+                      <item.icon size={18} className="shrink-0" />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    </>
+                  ) : (
+                    <NavLink to={item.to}>
+                      <item.icon size={18} className="shrink-0" />
+                      <span className="truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    </NavLink>
+                  )}
                 </SidebarMenuButton>
               </SidebarMenuItem>
             );

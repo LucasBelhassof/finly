@@ -15,11 +15,12 @@ import {
   validateCommitItemsShape,
   validateCommitLine,
 } from "./transaction-import.js";
-import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.js";
+import { getImportAiConfig, isImportAiDisabledError, suggestImportCategories } from "./import-ai-service.js";
 import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
 import { buildDashboardSummaryCards } from "./dashboard-summary.js";
 import { generateInsights } from "./insights-engine.js";
 import { buildTransactionCategorySyncPlan } from "./transaction-update.js";
+import { createChatReplyWithOpenClaw } from "./chat-service.js";
 import {
   buildPreviousMonthEndDate,
   buildTransactionRowsWithRecurringProjections,
@@ -2117,20 +2118,49 @@ export async function getTransactionImportAiSuggestions(userId, input) {
     };
   }
 
-  const result = await enrichPreviewSessionWithAi({
-    session,
-    categories,
-    rowIndexes: input.rowIndexes,
-    maxRows: config.maxRowsPerRequest,
-    suggestCategories: async ({ items, categories: allowedCategories }) => {
-      const response = await suggestImportCategories({
-        items,
-        categories: allowedCategories,
-      });
+  let result;
 
-      return response.items;
-    },
-  });
+  try {
+    result = await enrichPreviewSessionWithAi({
+      session,
+      categories,
+      rowIndexes: input.rowIndexes,
+      maxRows: config.maxRowsPerRequest,
+      suggestCategories: async ({ items, categories: allowedCategories }) => {
+        const response = await suggestImportCategories({
+          items,
+          categories: allowedCategories,
+        });
+
+        if (response.status !== "completed") {
+          throw {
+            code: "import_ai_disabled",
+            message: response.reason ?? "A IA de importacao esta indisponivel no momento.",
+          };
+        }
+
+        return response.items;
+      },
+      rethrowError: isImportAiDisabledError,
+    });
+  } catch (error) {
+    if (isImportAiDisabledError(error)) {
+      return {
+        previewToken: String(input.previewToken),
+        status: "disabled",
+        autoApplyThreshold: config.autoApplyThreshold,
+        items: [],
+        summary: {
+          requestedRows: Array.isArray(input.rowIndexes) ? input.rowIndexes.length : 0,
+          suggestedRows: 0,
+          noMatchRows: 0,
+          failedRows: 0,
+        },
+      };
+    }
+
+    throw error;
+  }
 
   return {
     previewToken: String(input.previewToken),
@@ -2476,65 +2506,7 @@ async function getDeliverySpend(userId) {
   return parseNumeric(result.rows[0]?.total);
 }
 
-function buildAssistantReply(message, context) {
-  const text = message.toLowerCase();
-  const balanceCard = context.summaryCards.find((card) => card.label === "Saldo Total");
-  const expenseCard = context.summaryCards.find((card) => card.label === "Despesas");
-  const topCategory = context.spendingByCategory[0];
-
-  if (text.includes("delivery") || text.includes("ifood") || text.includes("alimenta")) {
-    return [
-      `Hoje a sua maior pressao continua em ${topCategory?.label ?? "Alimentacao"} (${topCategory?.percentage ?? 0}% do total mensal).`,
-      `So em delivery, cafes e restaurantes voce ja consumiu ${formatCurrency(context.deliverySpend)} no mes.`,
-      "",
-      "Sugestoes praticas:",
-      "1. Defina um teto semanal para delivery e acompanhe toda sexta.",
-      "2. Troque 2 pedidos por mercado planejado no fim de semana.",
-      "3. Centralize assinaturas e cupons em um unico dia para evitar compras por impulso.",
-    ].join("\n");
-  }
-
-  if (text.includes("econom")) {
-    return [
-      `Seu saldo atual esta em ${balanceCard?.formattedValue ?? formatCurrency(0)} e as despesas do mes somam ${expenseCard?.formattedValue ?? formatCurrency(0)}.`,
-      `Hoje o maior peso esta em ${topCategory?.label ?? "Moradia"} (${topCategory?.percentage ?? 0}% do total).`,
-      "",
-      "Se quiser economizar mais rapido, comece por:",
-      "1. Alimentacao fora de casa.",
-      "2. Transporte por aplicativo nas sextas.",
-      "3. Assinaturas com pouco uso.",
-    ].join("\n");
-  }
-
-  if (text.includes("uber") || text.includes("transporte")) {
-    return [
-      "O gasto com transporte esta concentrado em corridas curtas e picos nas sextas.",
-      "Uma regra simples para testar por 2 semanas:",
-      "1. Use Uber apenas para deslocamentos acima de 5 km.",
-      "2. Agrupe compromissos no mesmo dia.",
-      "3. Compare o total semanal com a media atual.",
-    ].join("\n");
-  }
-
-  return [
-    `Seu saldo atual esta em ${balanceCard?.formattedValue ?? formatCurrency(0)}.`,
-    `As despesas do mes estao em ${expenseCard?.formattedValue ?? formatCurrency(0)} e a categoria mais pesada e ${topCategory?.label ?? "Moradia"}.`,
-    "Se quiser, eu posso detalhar onde cortar gastos por categoria.",
-  ].join("\n");
-}
-
-async function insertChatMessage(userId, role, content) {
-  const result = await pool.query(
-    `
-      INSERT INTO chat_messages (user_id, role, content)
-      VALUES ($1, $2, $3)
-      RETURNING id, role, content, created_at
-    `,
-    [userId, role, content],
-  );
-
-  const row = result.rows[0];
-
+function mapChatMessageRow(row) {
   return {
     id: row.id,
     role: row.role,
@@ -2543,27 +2515,65 @@ async function insertChatMessage(userId, role, content) {
   };
 }
 
+async function insertChatReplyPair(userId, userContent, assistantContent) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `
+        INSERT INTO chat_messages (user_id, role, content)
+        VALUES ($1, $2, $3)
+        RETURNING id, role, content, created_at
+      `,
+      [userId, "user", userContent],
+    );
+    const assistantResult = await client.query(
+      `
+        INSERT INTO chat_messages (user_id, role, content)
+        VALUES ($1, $2, $3)
+        RETURNING id, role, content, created_at
+      `,
+      [userId, "assistant", assistantContent],
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      userMessage: mapChatMessageRow(userResult.rows[0]),
+      assistantMessage: mapChatMessageRow(assistantResult.rows[0]),
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function createChatReply(userId, message) {
   const resolvedUserId = await requireUserId(userId);
-  const userMessage = await insertChatMessage(resolvedUserId, "user", message);
-  const [summaryCards, spendingByCategory, deliverySpend] = await Promise.all([
-    getSummaryCards(resolvedUserId),
-    listSpendingByCategory(resolvedUserId),
-    getDeliverySpend(resolvedUserId),
-  ]);
 
-  const assistantContent = buildAssistantReply(message, {
-    summaryCards,
-    spendingByCategory,
-    deliverySpend,
+  return createChatReplyWithOpenClaw({
+    userId: resolvedUserId,
+    message,
+    loadContext: async () => {
+      const [summaryCards, spendingByCategory, deliverySpend] = await Promise.all([
+        getSummaryCards(resolvedUserId),
+        listSpendingByCategory(resolvedUserId),
+        getDeliverySpend(resolvedUserId),
+      ]);
+
+      return {
+        summaryCards,
+        spendingByCategory,
+        deliverySpend,
+      };
+    },
+    saveReplyPair: ({ userContent, assistantContent }) =>
+      insertChatReplyPair(resolvedUserId, userContent, assistantContent),
   });
-
-  const assistantMessage = await insertChatMessage(resolvedUserId, "assistant", assistantContent);
-
-  return {
-    userMessage,
-    assistantMessage,
-  };
 }
 
 export async function getDashboardData(userId) {

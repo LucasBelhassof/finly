@@ -13,16 +13,17 @@ describe("import-ai-service", () => {
     process.env = { ...originalEnv };
   });
 
-  it("defaults provider to openai when not configured", async () => {
+  it("defaults provider to openclaw when not configured", async () => {
     const { getImportAiConfig } = await import("./import-ai-service.js");
 
     process.env.IMPORT_AI_ENABLED = "false";
     delete process.env.IMPORT_AI_PROVIDER;
 
-    expect(getImportAiConfig().provider).toBe("openai");
+    expect(getImportAiConfig().provider).toBe("openclaw");
+    expect(getImportAiConfig().fallbackProviders).toEqual([]);
   });
 
-  it("requires OPENAI_API_KEY for direct OpenAI mode", async () => {
+  it("degrades gracefully when OpenAI is selected without OPENAI_API_KEY", async () => {
     const { suggestImportCategories } = await import("./import-ai-service.js");
 
     process.env.IMPORT_AI_ENABLED = "true";
@@ -35,10 +36,13 @@ describe("import-ai-service", () => {
         items: [],
         categories: [],
       }),
-    ).rejects.toThrow("OPENAI_API_KEY is required");
+    ).resolves.toMatchObject({
+      status: "disabled",
+      provider: "openai",
+    });
   });
 
-  it("requires GEMINI_API_KEY for direct Gemini mode", async () => {
+  it("degrades gracefully when Gemini is selected without GEMINI_API_KEY", async () => {
     const { suggestImportCategories } = await import("./import-ai-service.js");
 
     process.env.IMPORT_AI_ENABLED = "true";
@@ -51,7 +55,10 @@ describe("import-ai-service", () => {
         items: [],
         categories: [],
       }),
-    ).rejects.toThrow("GEMINI_API_KEY is required");
+    ).resolves.toMatchObject({
+      status: "disabled",
+      provider: "gemini",
+    });
   });
 
   it("keeps webhook mode isolated from direct provider keys", async () => {
@@ -76,5 +83,94 @@ describe("import-ai-service", () => {
 
     expect(webhookMock).toHaveBeenCalledTimes(1);
     expect(result.status).toBe("completed");
+  });
+
+  it("degrades to disabled when OpenClaw is unavailable", async () => {
+    vi.doMock("./shared/openclaw-client.js", () => {
+      class OpenClawSocketError extends Error {
+        code: string;
+
+        constructor(code: string, message: string) {
+          super(message);
+          this.name = "OpenClawSocketError";
+          this.code = code;
+        }
+      }
+
+      return {
+        OpenClawSocketError,
+        sendMessage: vi.fn().mockRejectedValue(new OpenClawSocketError("timeout", "O OpenClaw nao respondeu.")),
+      };
+    });
+
+    const { suggestImportCategories } = await import("./import-ai-service.js");
+
+    process.env.IMPORT_AI_ENABLED = "true";
+    process.env.IMPORT_AI_MODE = "direct";
+    process.env.IMPORT_AI_PROVIDER = "openclaw";
+    process.env.OPENCLAW_BASE_URL = "wss://127.0.0.1:11434/ws";
+    process.env.OPENCLAW_MODEL = "openclaw-test";
+
+    const result = await suggestImportCategories({
+      items: [{ rowIndex: 1 }],
+      categories: [],
+    });
+
+    expect(result.status).toBe("disabled");
+    expect(result.items).toEqual([]);
+    expect(result.provider).toBe("openclaw");
+  });
+
+  it("falls back to the next configured provider when openclaw fails", async () => {
+    const openClawSendMock = vi.fn().mockRejectedValue(new Error("socket down"));
+    const directProviderMock = vi.fn().mockResolvedValue([
+      {
+        rowIndex: 1,
+        suggestedType: "expense",
+        categoryKey: "transport",
+        confidence: 0.9,
+        reason: "Fallback provider.",
+        status: "suggested",
+      },
+    ]);
+
+    vi.doMock("./shared/openclaw-client.js", () => ({
+      OpenClawSocketError: class OpenClawSocketError extends Error {
+        code: string;
+
+        constructor(code: string, message: string) {
+          super(message);
+          this.name = "OpenClawSocketError";
+          this.code = code;
+        }
+      },
+      sendMessage: openClawSendMock,
+    }));
+    vi.doMock("./import-ai-provider-direct.js", () => ({
+      normalizeAiCategorizationResults: vi.fn((value) => value.items),
+      requestDirectImportAiSuggestions: directProviderMock,
+    }));
+
+    const { suggestImportCategories } = await import("./import-ai-service.js");
+
+    process.env.IMPORT_AI_ENABLED = "true";
+    process.env.IMPORT_AI_MODE = "direct";
+    process.env.IMPORT_AI_PROVIDER = "openclaw,openai";
+    process.env.OPENAI_API_KEY = "openai-test-key";
+
+    const result = await suggestImportCategories({
+      items: [{ rowIndex: 1, description: "Uber" }],
+      categories: [],
+    });
+
+    expect(openClawSendMock).toHaveBeenCalledTimes(1);
+    expect(directProviderMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        provider: "openai",
+      }),
+    );
+    expect(result.status).toBe("completed");
+    expect(result.provider).toBe("openai");
   });
 });

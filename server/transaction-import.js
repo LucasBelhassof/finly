@@ -1697,6 +1697,7 @@ export async function enrichPreviewSessionWithAi({
   rowIndexes,
   maxRows,
   suggestCategories,
+  rethrowError,
 }) {
   const requestedIndexes = normalizeRowIndexes(rowIndexes, session, maxRows);
   const targetItems = session.items.filter((item) => requestedIndexes.includes(item.rowIndex));
@@ -1730,6 +1731,8 @@ export async function enrichPreviewSessionWithAi({
         items: pendingItems.map((item) => ({
           rowIndex: item.rowIndex,
           description: item.original.description,
+          amount: item.original.amount,
+          occurredOn: item.original.occurredOn,
           normalizedDescription: item.original.normalizedDescription,
           type: item.original.type,
         })),
@@ -1764,6 +1767,10 @@ export async function enrichPreviewSessionWithAi({
         responseItems.push(suggestion);
       }
     } catch (error) {
+      if (typeof rethrowError === "function" && rethrowError(error)) {
+        throw error;
+      }
+
       for (const sessionItem of pendingItems) {
         const suggestion = createAiSuggestionResult(sessionItem.rowIndex, {
           aiStatus: "error",

@@ -41,6 +41,29 @@ describe("import-ai-provider-direct", () => {
     expect(request.body.response_format.json_schema.strict).toBe(true);
   });
 
+  it("builds an OpenClaw HTTP request with local OpenAI-compatible schema output", () => {
+    const request = buildProviderRequest(
+      "openclaw",
+      {
+        items: [{ rowIndex: 1, description: "Uber", normalizedDescription: "uber", type: "expense" }],
+        categories: [{ categoryKey: "transport", label: "Transporte" }],
+      },
+      {
+        model: "openclaw-test",
+        openClawBaseUrl: "http://127.0.0.1:11434/v1",
+        openClawApiKey: "local-key",
+        openAiApiKey: "",
+        geminiApiKey: "",
+        timeoutMs: 8000,
+      },
+    );
+
+    expect(request.url).toBe("http://127.0.0.1:11434/v1/chat/completions");
+    expect(request.headers.Authorization).toBe("Bearer local-key");
+    expect(request.body.model).toBe("openclaw-test");
+    expect(request.body.response_format.type).toBe("json_schema");
+  });
+
   it("builds a Gemini HTTP request with JSON schema output", () => {
     const request = buildProviderRequest(
       "gemini",
@@ -109,6 +132,50 @@ describe("import-ai-provider-direct", () => {
         status: "suggested",
       },
     ]);
+  });
+
+  it("uses OpenAI as the default direct provider when no override is provided", async () => {
+    delete process.env.IMPORT_AI_PROVIDER;
+    process.env.OPENAI_API_KEY = "test-key";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    items: [
+                      {
+                        rowIndex: 1,
+                        suggestedType: "expense",
+                        categoryKey: "transport",
+                        confidence: 0.9,
+                        reason: "Descricao de transporte.",
+                        status: "suggested",
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }),
+      }),
+    );
+
+    const items = await requestDirectImportAiSuggestions({
+      items: [{ rowIndex: 1, description: "Uber", normalizedDescription: "uber", type: "expense" }],
+      categories: [{ categoryKey: "transport", label: "Transporte" }],
+    });
+
+    expect(items[0]).toMatchObject({
+      rowIndex: 1,
+      categoryKey: "transport",
+      status: "suggested",
+    });
   });
 
   it("extracts and normalizes a valid Gemini structured response", async () => {
@@ -243,8 +310,6 @@ describe("import-ai-provider-direct", () => {
   });
 
   it("throws a controlled error when the structured body is missing", () => {
-    expect(() => extractStructuredBody("openai", { choices: [{ message: { content: "" } }] })).toThrow(
-      "A OpenAI nao retornou conteudo estruturado.",
-    );
+    expect(() => extractStructuredBody("openai", { choices: [{ message: { content: "" } }] })).toThrow("OpenAI");
   });
 });

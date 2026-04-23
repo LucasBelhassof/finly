@@ -1,3 +1,6 @@
+import { getOpenClawConfig } from "./openclaw-config.js";
+import { extractOpenAiCompatibleContent, requestOpenClawChatCompletion } from "./openclaw-client.js";
+
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
@@ -41,10 +44,20 @@ function parseTimeoutMs(value) {
 }
 
 export function getDirectProviderConfig() {
-  return {
-    provider: process.env.IMPORT_AI_PROVIDER?.trim() === "gemini" ? "gemini" : "openai",
-    model: process.env.IMPORT_AI_MODEL?.trim() || "",
+  const configuredProvider = process.env.IMPORT_AI_PROVIDER?.trim();
+  const provider =
+    configuredProvider === "gemini" ? "gemini" : "openai";
+  const openClawConfig = getOpenClawConfig({
+    model: process.env.IMPORT_AI_MODEL?.trim() || undefined,
     timeoutMs: parseTimeoutMs(process.env.IMPORT_AI_TIMEOUT_MS),
+  });
+
+  return {
+    provider,
+    model: process.env.IMPORT_AI_MODEL?.trim() || openClawConfig.model,
+    timeoutMs: openClawConfig.timeoutMs,
+    openClawBaseUrl: openClawConfig.baseUrl,
+    openClawApiKey: openClawConfig.apiKey,
     openAiApiKey: process.env.OPENAI_API_KEY?.trim() || "",
     geminiApiKey: process.env.GEMINI_API_KEY?.trim() || "",
   };
@@ -70,6 +83,38 @@ function buildPrompt(payload) {
 
 export function buildProviderRequest(provider, payload, config) {
   const prompt = buildPrompt(payload);
+
+  if (provider === "openclaw") {
+    return {
+      url: `${config.openClawBaseUrl}/chat/completions`,
+      headers: {
+        "Content-Type": "application/json",
+        ...(config.openClawApiKey ? { Authorization: `Bearer ${config.openClawApiKey}` } : {}),
+      },
+      body: {
+        model: config.model,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Voce classifica transacoes financeiras e sempre responde no schema fornecido sem inventar categorias.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "transaction_import_ai_suggestions",
+            strict: true,
+            schema: aiCategorizationSchema,
+          },
+        },
+      },
+    };
+  }
 
   if (provider === "gemini") {
     return {
@@ -176,22 +221,13 @@ export function extractStructuredBody(provider, responseBody) {
     }
   }
 
-  const refusal = responseBody?.choices?.[0]?.message?.refusal;
-
-  if (refusal) {
-    throw new Error("A OpenAI recusou a solicitacao de categorizacao.");
-  }
-
-  const content = responseBody?.choices?.[0]?.message?.content;
-
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("A OpenAI nao retornou conteudo estruturado.");
-  }
+  const providerLabel = provider === "openclaw" ? "OpenClaw" : "OpenAI";
+  const content = extractOpenAiCompatibleContent(responseBody, providerLabel);
 
   try {
     return JSON.parse(content);
   } catch {
-    throw new Error("A OpenAI retornou JSON estruturado invalido.");
+    throw new Error(`O ${providerLabel} retornou JSON estruturado invalido.`);
   }
 }
 
@@ -298,6 +334,40 @@ async function requestOpenAiImportSuggestions(payload, config) {
   return normalizeAiCategorizationResults(structuredBody);
 }
 
+async function requestOpenClawImportSuggestions(payload, config) {
+  const responseBody = await requestOpenClawChatCompletion(
+    {
+      messages: [
+        {
+          role: "system",
+          content:
+            "Voce classifica transacoes financeiras e sempre responde no schema fornecido sem inventar categorias.",
+        },
+        {
+          role: "user",
+          content: buildPrompt(payload),
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "transaction_import_ai_suggestions",
+          strict: true,
+          schema: aiCategorizationSchema,
+        },
+      },
+    },
+    {
+      baseUrl: config.openClawBaseUrl,
+      model: config.model,
+      timeoutMs: config.timeoutMs,
+      apiKey: config.openClawApiKey,
+    },
+  );
+  const structuredBody = extractStructuredBody("openclaw", responseBody);
+  return normalizeAiCategorizationResults(structuredBody);
+}
+
 async function requestGeminiImportSuggestions(payload, config) {
   const request = buildProviderRequest("gemini", payload, config);
   const responseBody = await executeProviderRequest(request, config.timeoutMs);
@@ -305,10 +375,19 @@ async function requestGeminiImportSuggestions(payload, config) {
   return normalizeAiCategorizationResults(structuredBody);
 }
 
-export async function requestDirectImportAiSuggestions(payload) {
-  const config = getDirectProviderConfig();
+export async function requestDirectImportAiSuggestions(payload, overrides = {}) {
+  const config = {
+    ...getDirectProviderConfig(),
+    ...overrides,
+  };
 
-  return config.provider === "gemini"
-    ? requestGeminiImportSuggestions(payload, config)
-    : requestOpenAiImportSuggestions(payload, config);
+  if (config.provider === "gemini") {
+    return requestGeminiImportSuggestions(payload, config);
+  }
+
+  if (config.provider === "openclaw") {
+    return requestOpenClawImportSuggestions(payload, config);
+  }
+
+  return requestOpenAiImportSuggestions(payload, config);
 }

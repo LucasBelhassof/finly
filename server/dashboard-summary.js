@@ -38,8 +38,31 @@ function formatPercentageChange(currentValue, previousValue) {
   };
 }
 
+export function resolveDashboardCurrentBalance({
+  currentBalance,
+  fallbackBalance = 0,
+  hasConfiguredBalance = false,
+}) {
+  const parsedCurrentBalance = parseNumeric(currentBalance);
+  const parsedFallbackBalance = parseNumeric(fallbackBalance);
+
+  if (hasConfiguredBalance) {
+    return parsedCurrentBalance;
+  }
+
+  if (parsedCurrentBalance !== 0) {
+    return parsedCurrentBalance;
+  }
+
+  return parsedFallbackBalance;
+}
+
 export function buildDashboardSummaryCards(metrics) {
-  const currentBalance = parseNumeric(metrics.currentBalance);
+  const currentBalance = resolveDashboardCurrentBalance({
+    currentBalance: metrics.currentBalance,
+    fallbackBalance: metrics.fallbackBalance,
+    hasConfiguredBalance: Boolean(metrics.hasConfiguredBalance),
+  });
   const currentIncome = parseNumeric(metrics.currentIncome);
   const currentExpenses = parseNumeric(metrics.currentExpenses);
   const previousIncome = parseNumeric(metrics.previousIncome);

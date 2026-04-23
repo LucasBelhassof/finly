@@ -306,15 +306,18 @@ export async function pingDatabase() {
 
 export async function getSummaryCards(userId) {
   const resolvedUserId = await requireUserId(userId);
+  const today = new Date().toISOString().slice(0, 10);
   const currentMonthStart = new Date();
   currentMonthStart.setUTCDate(1);
   currentMonthStart.setUTCHours(0, 0, 0, 0);
   const nextMonthStart = new Date(Date.UTC(currentMonthStart.getUTCFullYear(), currentMonthStart.getUTCMonth() + 1, 1));
   const previousMonthStart = new Date(Date.UTC(currentMonthStart.getUTCFullYear(), currentMonthStart.getUTCMonth() - 1, 1));
-  const [balanceResult, monthlyTotalsResult] = await Promise.all([
+  const [balanceResult, monthlyTotalsResult, transactionBalanceResult] = await Promise.all([
     pool.query(
       `
-        SELECT COALESCE(SUM(current_balance), 0)::NUMERIC(12, 2) AS current_balance
+        SELECT
+          COALESCE(SUM(current_balance), 0)::NUMERIC(12, 2) AS current_balance,
+          COUNT(*) FILTER (WHERE COALESCE(current_balance, 0) <> 0) AS configured_balance_count
         FROM bank_connections
         WHERE user_id = $1
       `,
@@ -337,9 +340,19 @@ export async function getSummaryCards(userId) {
       `,
       [resolvedUserId, previousMonthStart.toISOString().slice(0, 10), nextMonthStart.toISOString().slice(0, 10)],
     ),
+    pool.query(
+      `
+        SELECT COALESCE(SUM(amount), 0)::NUMERIC(12, 2) AS transaction_balance
+        FROM transactions
+        WHERE user_id = $1
+          AND occurred_on <= $2
+      `,
+      [resolvedUserId, today],
+    ),
   ]);
 
   const balanceRow = balanceResult.rows[0] ?? {};
+  const transactionBalanceRow = transactionBalanceResult.rows[0] ?? {};
   const projectedRows = buildTransactionRowsWithRecurringProjections(monthlyTotalsResult.rows, {
     projectionEndDate: nextMonthStart.toISOString().slice(0, 10),
   });
@@ -357,6 +370,8 @@ export async function getSummaryCards(userId) {
 
   return buildDashboardSummaryCards({
     currentBalance: balanceRow.current_balance,
+    fallbackBalance: transactionBalanceRow.transaction_balance,
+    hasConfiguredBalance: Number(balanceRow.configured_balance_count ?? 0) > 0,
     currentIncome: monthlyTotalsRow.currentIncome,
     currentExpenses: monthlyTotalsRow.currentExpenses,
     previousIncome: monthlyTotalsRow.previousIncome,

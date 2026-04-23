@@ -1,6 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDashboardSummaryCards } from "./dashboard-summary.js";
+import { buildDashboardSummaryCards, resolveDashboardCurrentBalance } from "./dashboard-summary.js";
+
+describe("resolveDashboardCurrentBalance", () => {
+  it("falls back to transaction net balance when configured account balances are all zero", () => {
+    expect(
+      resolveDashboardCurrentBalance({
+        currentBalance: 0,
+        fallbackBalance: 3800,
+        hasConfiguredBalance: false,
+      }),
+    ).toBe(3800);
+  });
+
+  it("keeps the stored account balance when there is a configured balance", () => {
+    expect(
+      resolveDashboardCurrentBalance({
+        currentBalance: 1250,
+        fallbackBalance: 3800,
+        hasConfiguredBalance: true,
+      }),
+    ).toBe(1250);
+  });
+});
 
 describe("buildDashboardSummaryCards", () => {
   it("builds the dashboard cards from current balances and monthly transaction totals", () => {
@@ -75,6 +97,24 @@ describe("buildDashboardSummaryCards", () => {
         description: "vs mes anterior",
       },
     ]);
+  });
+
+  it("uses the transaction net balance when account balances are still zeroed", () => {
+    const cards = buildDashboardSummaryCards({
+      currentBalance: 0,
+      fallbackBalance: 3800,
+      hasConfiguredBalance: false,
+      currentIncome: 5000,
+      currentExpenses: 1200,
+      previousIncome: 4000,
+      previousExpenses: 1000,
+    });
+
+    expect(cards[0]).toMatchObject({
+      label: "Saldo Total",
+      value: 3800,
+      positive: true,
+    });
   });
 
   it("derives the previous balance from the current balance and current month net movement", () => {

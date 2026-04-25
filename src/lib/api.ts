@@ -7,6 +7,9 @@ import type {
   ApiBanksResponse,
   ApiCategoriesResponse,
   ApiCategory,
+  ApiChatConversation,
+  ApiChatConversationResponse,
+  ApiChatConversationsResponse,
   ApiChatMessage,
   ApiChatMessagesResponse,
   ApiChatReplyResponse,
@@ -47,6 +50,7 @@ import type {
   BankItem,
   CreateAdminNotificationInput,
   CategoryItem,
+  ChatConversation,
   ChatMessage,
   ChatReply,
   ChatRole,
@@ -679,7 +683,7 @@ export function mapHousingItem(item: ApiHousingItem): HousingItem {
 }
 
 export function mapChatMessage(message: ApiChatMessage): ChatMessage {
-  return {
+  const mapped = {
     id: message.id ?? `${normalizeChatRole(message.role)}-${safeString(message.createdAt, "0")}`,
     role: normalizeChatRole(message.role),
     content: safeString(message.content, "Sem conteúdo"),
@@ -691,6 +695,24 @@ export function mapChatMessage(message: ApiChatMessage): ChatMessage {
     requestCount: typeof message.requestCount === "number" ? message.requestCount : null,
     estimatedCostUsd: typeof message.estimatedCostUsd === "number" ? message.estimatedCostUsd : null,
     createdAt: safeString(message.createdAt, new Date(0).toISOString()),
+  };
+
+  if (message.chatId !== undefined) {
+    return {
+      ...mapped,
+      chatId: message.chatId,
+    };
+  }
+
+  return mapped;
+}
+
+export function mapChatConversation(chat: ApiChatConversation): ChatConversation {
+  return {
+    id: safeString(chat.id, ""),
+    title: safeString(chat.title, "Novo chat"),
+    createdAt: safeString(chat.createdAt, new Date(0).toISOString()),
+    updatedAt: safeString(chat.updatedAt, new Date(0).toISOString()),
   };
 }
 
@@ -841,8 +863,17 @@ export function mapChatMessagesResponse(response: ApiChatMessagesResponse) {
   return (response.messages ?? []).map(mapChatMessage);
 }
 
+export function mapChatConversationsResponse(response: ApiChatConversationsResponse) {
+  return (response.chats ?? []).map(mapChatConversation).filter((chat) => chat.id);
+}
+
+export function mapChatConversationResponse(response: ApiChatConversationResponse) {
+  return mapChatConversation(response.chat ?? {});
+}
+
 export function mapChatReplyResponse(response: ApiChatReplyResponse): ChatReply {
   return {
+    chat: response.chat ? mapChatConversation(response.chat) : null,
     userMessage: mapChatMessage(response.userMessage ?? { role: "user" }),
     assistantMessage: mapChatMessage(response.assistantMessage ?? { role: "assistant" }),
   };
@@ -1300,6 +1331,41 @@ export async function getChatMessages(limit?: number) {
 
 export async function postChatMessage(message: string) {
   const response = await request<ApiChatReplyResponse>("/api/chat/messages", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+
+  return mapChatReplyResponse(response);
+}
+
+export async function getChatConversations() {
+  const response = await request<ApiChatConversationsResponse>("/api/chats");
+  return mapChatConversationsResponse(response);
+}
+
+export async function createChatConversation() {
+  const response = await request<ApiChatConversationResponse>("/api/chats", {
+    method: "POST",
+  });
+
+  return mapChatConversationResponse(response);
+}
+
+export async function deleteChatConversation(chatId: string) {
+  await request<null>(`/api/chats/${encodeURIComponent(chatId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getChatConversationMessages(chatId: string, limit?: number) {
+  const response = await request<ApiChatMessagesResponse>(
+    buildPath(`/api/chats/${encodeURIComponent(chatId)}/messages`, { limit }),
+  );
+  return mapChatMessagesResponse(response);
+}
+
+export async function postChatConversationMessage(chatId: string, message: string) {
+  const response = await request<ApiChatReplyResponse>(`/api/chats/${encodeURIComponent(chatId)}/messages`, {
     method: "POST",
     body: JSON.stringify({ message }),
   });

@@ -78,3 +78,93 @@ export async function generateChatReply(payload) {
 
   throw new Error("OPENAI_API_KEY is required when CHAT_AI_PROVIDER=openai.");
 }
+
+function normalizeGeneratedTitle(value, fallback) {
+  const normalized = String(value ?? "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[?.!,;:]+$/g, "");
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  return normalized.length > 60 ? `${normalized.slice(0, 57).trim()}...` : normalized;
+}
+
+function buildFallbackTitle(message) {
+  const normalized = String(message ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[?.!,;:]+$/g, "");
+
+  if (!normalized) {
+    return "Novo chat";
+  }
+
+  return normalized.length > 60 ? `${normalized.slice(0, 57).trim()}...` : normalized;
+}
+
+export async function generateChatTitle(payload) {
+  const fallback = buildFallbackTitle(payload.message);
+  const config = getChatAiConfig();
+
+  if (!config.enabled) {
+    return {
+      content: fallback,
+      provider: "local",
+      model: "rule-based-fallback",
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        requestCount: 0,
+      },
+      estimatedCostUsd: 0,
+    };
+  }
+
+  const titlePayload = {
+    task: "title",
+    message: payload.message,
+    generatedAt: payload.generatedAt,
+    history: [
+      {
+        role: "user",
+        content: payload.message,
+      },
+    ],
+  };
+
+  const canUseGemini = Boolean(config.geminiApiKey);
+  const canUseOpenAi = Boolean(config.openAiApiKey);
+  let reply;
+
+  if (config.provider === "gemini") {
+    if (canUseGemini) {
+      try {
+        reply = await requestDirectChatReplyByProvider(titlePayload, "gemini", config);
+      } catch (error) {
+        if (!canUseOpenAi) {
+          throw error;
+        }
+
+        reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+      }
+    } else if (canUseOpenAi) {
+      reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+    } else {
+      throw new Error("Configure GEMINI_API_KEY ou OPENAI_API_KEY para usar o chat com IA.");
+    }
+  } else if (canUseOpenAi) {
+    reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+  } else {
+    throw new Error("OPENAI_API_KEY is required when CHAT_AI_PROVIDER=openai.");
+  }
+
+  return {
+    ...reply,
+    content: normalizeGeneratedTitle(reply.content, fallback),
+  };
+}

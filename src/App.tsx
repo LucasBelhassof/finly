@@ -74,6 +74,7 @@ const App = () => (
                 <Route path={appRoutes.expenseManagementHousing} element={<Suspense fallback={<PageLoader />}><HousingPage /></Suspense>} />
                 <Route path={appRoutes.expenseManagementMetrics} element={<Suspense fallback={<PageLoader />}><ExpenseMetricsPage /></Suspense>} />
                 <Route path={appRoutes.chat} element={<Suspense fallback={<PageLoader />}><ChatPage /></Suspense>} />
+                <Route path={appRoutes.chatConversation} element={<Suspense fallback={<PageLoader />}><ChatPage /></Suspense>} />
                 <Route path={appRoutes.insights} element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
                 <Route path={appRoutes.notifications} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
                 <Route path={`${appRoutes.notifications}/:recipientId`} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import pg from "pg";
+import { randomUUID } from "node:crypto";
 
 import { runMigrations } from "./migrations.js";
 import {
@@ -19,7 +20,7 @@ import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.
 import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
 import { buildDashboardSummaryCards } from "./dashboard-summary.js";
 import { normalizeDashboardFilters, shiftDashboardDateKey } from "./dashboard-filters.js";
-import { generateChatReply } from "./chat-ai-service.js";
+import { generateChatReply, generateChatTitle } from "./chat-ai-service.js";
 import { buildTransactionCategorySyncPlan } from "./transaction-update.js";
 import {
   buildPreviousMonthEndDate,
@@ -2557,25 +2558,147 @@ export async function listInsights(userId) {
   return [];
 }
 
-export async function listChatMessages(userId, limit = 20) {
+function mapChatConversation(row) {
+  return {
+    id: row.public_id,
+    title: row.title,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapChatMessage(row) {
+  return {
+    id: row.id,
+    chatId: row.chat_public_id ?? row.chat_id ?? null,
+    role: row.role,
+    content: row.content,
+    provider: row.provider ?? null,
+    model: row.model ?? null,
+    inputTokens: row.input_tokens === null ? null : Number(row.input_tokens),
+    outputTokens: row.output_tokens === null ? null : Number(row.output_tokens),
+    totalTokens: row.total_tokens === null ? null : Number(row.total_tokens),
+    requestCount: row.request_count === null ? null : Number(row.request_count),
+    estimatedCostUsd: row.estimated_cost_usd === null ? null : Number.parseFloat(row.estimated_cost_usd),
+    createdAt: row.created_at,
+  };
+}
+
+function buildFallbackChatTitle(message) {
+  const normalized = String(message ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return "Novo chat";
+  }
+
+  const withoutTrailingPunctuation = normalized.replace(/[?.!,;:]+$/g, "");
+  return withoutTrailingPunctuation.length > 60
+    ? `${withoutTrailingPunctuation.slice(0, 57).trim()}...`
+    : withoutTrailingPunctuation;
+}
+
+async function getChatConversationByPublicId(userId, publicId) {
+  const result = await pool.query(
+    `
+      SELECT id, public_id, title, created_at, updated_at
+      FROM chat_conversations
+      WHERE user_id = $1 AND public_id = $2
+    `,
+    [userId, publicId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+async function getLatestChatConversation(userId) {
+  const result = await pool.query(
+    `
+      SELECT id, public_id, title, created_at, updated_at
+      FROM chat_conversations
+      WHERE user_id = $1
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1
+    `,
+    [userId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function listChatConversations(userId) {
   const resolvedUserId = await requireUserId(userId);
   const result = await pool.query(
     `
+      SELECT public_id, title, created_at, updated_at
+      FROM chat_conversations
+      WHERE user_id = $1
+      ORDER BY updated_at DESC, id DESC
+    `,
+    [resolvedUserId],
+  );
+
+  return result.rows.map(mapChatConversation);
+}
+
+export async function createChatConversation(userId) {
+  const resolvedUserId = await requireUserId(userId);
+  const result = await pool.query(
+    `
+      INSERT INTO chat_conversations (user_id, public_id, title)
+      VALUES ($1, $2, 'Novo chat')
+      RETURNING public_id, title, created_at, updated_at
+    `,
+    [resolvedUserId, randomUUID()],
+  );
+
+  return mapChatConversation(result.rows[0]);
+}
+
+export async function deleteChatConversation(userId, publicId) {
+  const resolvedUserId = await requireUserId(userId);
+  const result = await pool.query(
+    `
+      DELETE FROM chat_conversations
+      WHERE user_id = $1 AND public_id = $2
+    `,
+    [resolvedUserId, publicId],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("chat not found");
+  }
+}
+
+export async function listChatMessages(userId, publicId, limit = 20) {
+  const resolvedUserId = await requireUserId(userId);
+  const conversation = await getChatConversationByPublicId(resolvedUserId, publicId);
+
+  if (!conversation) {
+    throw new Error("chat not found");
+  }
+
+  const result = await pool.query(
+    `
       SELECT
-        id,
-        role,
-        content,
-        provider,
-        model,
-        input_tokens,
-        output_tokens,
-        total_tokens,
-        request_count,
-        estimated_cost_usd,
-        created_at
+        recent.id,
+        recent.chat_id,
+        $2 AS chat_public_id,
+        recent.role,
+        recent.content,
+        recent.provider,
+        recent.model,
+        recent.input_tokens,
+        recent.output_tokens,
+        recent.total_tokens,
+        recent.request_count,
+        recent.estimated_cost_usd,
+        recent.created_at
       FROM (
         SELECT
           id,
+          chat_id,
           role,
           content,
           provider,
@@ -2587,28 +2710,27 @@ export async function listChatMessages(userId, limit = 20) {
           estimated_cost_usd,
           created_at
         FROM chat_messages
-        WHERE user_id = $1
+        WHERE user_id = $1 AND chat_id = $3
         ORDER BY created_at DESC, id DESC
-        LIMIT $2
+        LIMIT $4
       ) recent
-      ORDER BY created_at ASC, id ASC
+      ORDER BY recent.created_at ASC, recent.id ASC
     `,
-    [resolvedUserId, limit],
+    [resolvedUserId, conversation.public_id, conversation.id, limit],
   );
 
-    return result.rows.map((row) => ({
-      id: row.id,
-      role: row.role,
-      content: row.content,
-      provider: row.provider ?? null,
-      model: row.model ?? null,
-      inputTokens: row.input_tokens === null ? null : Number(row.input_tokens),
-      outputTokens: row.output_tokens === null ? null : Number(row.output_tokens),
-      totalTokens: row.total_tokens === null ? null : Number(row.total_tokens),
-      requestCount: row.request_count === null ? null : Number(row.request_count),
-      estimatedCostUsd: row.estimated_cost_usd === null ? null : Number.parseFloat(row.estimated_cost_usd),
-      createdAt: row.created_at,
-    }));
+  return result.rows.map(mapChatMessage);
+}
+
+export async function listLatestChatMessages(userId, limit = 20) {
+  const resolvedUserId = await requireUserId(userId);
+  const conversation = await getLatestChatConversation(resolvedUserId);
+
+  if (!conversation) {
+    return [];
+  }
+
+  return listChatMessages(resolvedUserId, conversation.public_id, limit);
 }
 
 async function listChatContextTransactions(userId, limit = 40) {
@@ -2659,7 +2781,7 @@ async function listChatContextTransactions(userId, limit = 40) {
   }));
 }
 
-async function buildChatAdvisorContext(userId) {
+async function buildChatAdvisorContext(userId, recentChatMessages = []) {
   const resolvedUserId = await requireUserId(userId);
   const user = await getUserById(resolvedUserId);
 
@@ -2667,7 +2789,7 @@ async function buildChatAdvisorContext(userId) {
     throw new Error("user not found");
   }
 
-  const [summaryCards, banks, spendingByCategory, recentTransactions, housing, installmentsOverview, recentChatMessages, snapshots] =
+  const [summaryCards, banks, spendingByCategory, recentTransactions, housing, installmentsOverview, snapshots] =
     await Promise.all([
       getSummaryCards(resolvedUserId),
       listBanks(resolvedUserId),
@@ -2675,7 +2797,6 @@ async function buildChatAdvisorContext(userId) {
       listChatContextTransactions(resolvedUserId),
       listHousing(resolvedUserId),
       getInstallmentsOverview(resolvedUserId),
-      listChatMessages(resolvedUserId, 12),
       getReferenceMonth(resolvedUserId),
     ]);
 
@@ -2702,11 +2823,12 @@ async function buildChatAdvisorContext(userId) {
   };
 }
 
-async function insertChatMessage(userId, role, content, metadata = {}) {
+async function insertChatMessage(userId, chatId, role, content, metadata = {}) {
   const result = await pool.query(
     `
       INSERT INTO chat_messages (
         user_id,
+        chat_id,
         role,
         content,
         provider,
@@ -2717,9 +2839,10 @@ async function insertChatMessage(userId, role, content, metadata = {}) {
         request_count,
         estimated_cost_usd
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING
         id,
+        chat_id,
         role,
         content,
         provider,
@@ -2733,6 +2856,7 @@ async function insertChatMessage(userId, role, content, metadata = {}) {
     `,
     [
       userId,
+      chatId,
       role,
       content,
       metadata.provider ?? null,
@@ -2747,25 +2871,54 @@ async function insertChatMessage(userId, role, content, metadata = {}) {
 
   const row = result.rows[0];
 
-  return {
-    id: row.id,
-    role: row.role,
-    content: row.content,
-    provider: row.provider ?? null,
-    model: row.model ?? null,
-    inputTokens: row.input_tokens === null ? null : Number(row.input_tokens),
-    outputTokens: row.output_tokens === null ? null : Number(row.output_tokens),
-    totalTokens: row.total_tokens === null ? null : Number(row.total_tokens),
-    requestCount: row.request_count === null ? null : Number(row.request_count),
-    estimatedCostUsd: row.estimated_cost_usd === null ? null : Number.parseFloat(row.estimated_cost_usd),
-    createdAt: row.created_at,
-  };
+  return mapChatMessage(row);
 }
 
-export async function createChatReply(userId, message) {
+async function updateChatConversationTitle(userId, chatId, title) {
+  const normalizedTitle = buildFallbackChatTitle(title);
+  const result = await pool.query(
+    `
+      UPDATE chat_conversations
+      SET title = $3, updated_at = NOW()
+      WHERE user_id = $1 AND id = $2
+      RETURNING public_id, title, created_at, updated_at
+    `,
+    [userId, chatId, normalizedTitle],
+  );
+
+  return mapChatConversation(result.rows[0]);
+}
+
+async function touchChatConversation(userId, chatId) {
+  const result = await pool.query(
+    `
+      UPDATE chat_conversations
+      SET updated_at = NOW()
+      WHERE user_id = $1 AND id = $2
+      RETURNING public_id, title, created_at, updated_at
+    `,
+    [userId, chatId],
+  );
+
+  return mapChatConversation(result.rows[0]);
+}
+
+export async function createChatReply(userId, publicId, message) {
   const resolvedUserId = await requireUserId(userId);
-  const userMessage = await insertChatMessage(resolvedUserId, "user", message);
-  const context = await buildChatAdvisorContext(resolvedUserId);
+  const conversation = await getChatConversationByPublicId(resolvedUserId, publicId);
+
+  if (!conversation) {
+    throw new Error("chat not found");
+  }
+
+  const previousMessages = await listChatMessages(resolvedUserId, conversation.public_id, 12);
+  const isFirstMessage = previousMessages.length === 0;
+  const userMessage = {
+    ...(await insertChatMessage(resolvedUserId, conversation.id, "user", message)),
+    chatId: conversation.public_id,
+  };
+  const historyMessages = [...previousMessages, userMessage];
+  const context = await buildChatAdvisorContext(resolvedUserId, historyMessages);
   const recentHistory = context.recentChatMessages.slice(-12).map((item) => ({
     role: item.role,
     content: item.content,
@@ -2778,17 +2931,37 @@ export async function createChatReply(userId, message) {
     history: recentHistory,
   });
 
-  const assistantMessage = await insertChatMessage(resolvedUserId, "assistant", assistantReply.content, {
-    provider: assistantReply.provider,
-    model: assistantReply.model,
-    inputTokens: assistantReply.usage?.inputTokens ?? null,
-    outputTokens: assistantReply.usage?.outputTokens ?? null,
-    totalTokens: assistantReply.usage?.totalTokens ?? null,
-    requestCount: assistantReply.usage?.requestCount ?? null,
-    estimatedCostUsd: assistantReply.estimatedCostUsd ?? null,
-  });
+  const assistantMessage = {
+    ...(await insertChatMessage(resolvedUserId, conversation.id, "assistant", assistantReply.content, {
+      provider: assistantReply.provider,
+      model: assistantReply.model,
+      inputTokens: assistantReply.usage?.inputTokens ?? null,
+      outputTokens: assistantReply.usage?.outputTokens ?? null,
+      totalTokens: assistantReply.usage?.totalTokens ?? null,
+      requestCount: assistantReply.usage?.requestCount ?? null,
+      estimatedCostUsd: assistantReply.estimatedCostUsd ?? null,
+    })),
+    chatId: conversation.public_id,
+  };
+
+  let chat = mapChatConversation(conversation);
+
+  if (isFirstMessage) {
+    try {
+      const title = await generateChatTitle({
+        message,
+        generatedAt: new Date().toISOString(),
+      });
+      chat = await updateChatConversationTitle(resolvedUserId, conversation.id, title.content);
+    } catch {
+      chat = await updateChatConversationTitle(resolvedUserId, conversation.id, buildFallbackChatTitle(message));
+    }
+  } else {
+    chat = await touchChatConversation(resolvedUserId, conversation.id);
+  }
 
   return {
+    chat,
     userMessage,
     assistantMessage,
   };
@@ -2809,7 +2982,7 @@ export async function getDashboardData(userId, filters = {}) {
       listRecentTransactions(resolvedUserId, 8, normalizedFilters),
       listSpendingByCategory(resolvedUserId, normalizedFilters),
       listBanks(resolvedUserId),
-      listChatMessages(resolvedUserId),
+      listLatestChatMessages(resolvedUserId),
       getReferenceMonth(resolvedUserId),
     ]);
 

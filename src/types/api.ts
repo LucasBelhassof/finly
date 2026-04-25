@@ -116,6 +116,7 @@ export interface ApiBank {
 
 export interface ApiChatMessage {
   id?: number | string;
+  chatId?: number | string | null;
   role?: string;
   content?: string;
   provider?: string | null;
@@ -126,6 +127,13 @@ export interface ApiChatMessage {
   requestCount?: number | null;
   estimatedCostUsd?: number | null;
   createdAt?: string;
+}
+
+export interface ApiChatConversation {
+  id?: string;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ApiDashboardResponse {
@@ -273,7 +281,16 @@ export interface ApiChatMessagesResponse {
   messages?: ApiChatMessage[];
 }
 
+export interface ApiChatConversationsResponse {
+  chats?: ApiChatConversation[];
+}
+
+export interface ApiChatConversationResponse {
+  chat?: ApiChatConversation;
+}
+
 export interface ApiChatReplyResponse {
+  chat?: ApiChatConversation;
   userMessage?: ApiChatMessage;
   assistantMessage?: ApiChatMessage;
 }
@@ -708,6 +725,7 @@ export interface TransactionAccount {
 
 export interface ChatMessage {
   id: number | string;
+  chatId?: number | string | null;
   role: ChatRole;
   content: string;
   provider: string | null;
@@ -720,7 +738,15 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface ChatConversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatReply {
+  chat?: ChatConversation | null;
   userMessage: ChatMessage;
   assistantMessage: ChatMessage;
 }

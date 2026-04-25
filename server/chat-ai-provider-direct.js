@@ -103,6 +103,17 @@ export function getDirectChatProviderConfig() {
 }
 
 function buildSystemInstruction(payload) {
+  if (payload.task === "title") {
+    return [
+      "Voce cria titulos curtos para conversas em portugues do Brasil.",
+      "Responda apenas com o titulo, sem aspas, pontuacao final, prefixos ou explicacoes.",
+      "O titulo deve ter no maximo 60 caracteres.",
+      "Use a pergunta do usuario como base e mantenha o titulo especifico.",
+      "",
+      `Data de referencia: ${payload.generatedAt}`,
+    ].join("\n");
+  }
+
   return [
     "Voce e o Assistente Finly, um consultor financeiro pessoal em portugues do Brasil.",
     "Use apenas o contexto financeiro fornecido para analisar gastos, riscos e oportunidades.",

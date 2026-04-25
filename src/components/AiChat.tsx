@@ -3,11 +3,10 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { toast } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DEFAULT_CHAT_LIMIT, useChatMessages, useSendChatMessage } from "@/hooks/use-chat";
-import type { ChatMessage } from "@/types/api";
+import { DEFAULT_CHAT_LIMIT, useChatConversationMessages, useSendChatConversationMessage } from "@/hooks/use-chat";
 
 interface AiChatProps {
-  initialMessages?: ChatMessage[];
+  chatId?: string;
 }
 
 function ChatLoadingState() {
@@ -75,11 +74,11 @@ function TypingIndicator() {
   );
 }
 
-export default function AiChat({ initialMessages }: AiChatProps) {
+export default function AiChat({ chatId }: AiChatProps) {
   const [input, setInput] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const { data: messages = [], isLoading, isError, error } = useChatMessages(DEFAULT_CHAT_LIMIT, initialMessages);
-  const sendMessage = useSendChatMessage(DEFAULT_CHAT_LIMIT);
+  const { data: messages = [], isLoading, isError, error } = useChatConversationMessages(chatId, DEFAULT_CHAT_LIMIT);
+  const sendMessage = useSendChatConversationMessage(chatId, DEFAULT_CHAT_LIMIT);
   const pendingMessage = sendMessage.isPending && typeof sendMessage.variables === "string" ? sendMessage.variables : null;
 
   useEffect(() => {
@@ -87,7 +86,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
       return;
     }
 
-    toast.error("Não foi possível carregar o histórico do chat.", {
+    toast.error("Nao foi possivel carregar o historico do chat.", {
       description: getErrorMessage(error, "Tente novamente em instantes."),
     });
   }, [error, isError]);
@@ -107,7 +106,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
 
     const message = input.trim();
 
-    if (!message || sendMessage.isPending) {
+    if (!message || sendMessage.isPending || !chatId) {
       return;
     }
 
@@ -117,7 +116,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
       await sendMessage.mutateAsync(message);
     } catch (mutationError) {
       setInput(message);
-      toast.error("Não foi possível enviar sua mensagem.", {
+      toast.error("Nao foi possivel enviar sua mensagem.", {
         description: getErrorMessage(mutationError, "Tente novamente em instantes."),
       });
     }
@@ -147,7 +146,7 @@ export default function AiChat({ initialMessages }: AiChatProps) {
       <div ref={scrollContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
         {!messages.length ? (
           <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-            {isError ? "Não foi possível carregar a conversa agora." : "Comece uma conversa com o assistente."}
+            {isError ? "Nao foi possivel carregar a conversa agora." : "Comece uma conversa com o assistente."}
           </div>
         ) : (
           <>
@@ -210,12 +209,13 @@ export default function AiChat({ initialMessages }: AiChatProps) {
             <input
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Pergunte sobre suas finanças..."
-              className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              placeholder={chatId ? "Pergunte sobre suas financas..." : "Crie ou selecione um chat"}
+              disabled={!chatId}
+              className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
             />
             <button
               type="submit"
-              disabled={sendMessage.isPending || !input.trim()}
+              disabled={sendMessage.isPending || !input.trim() || !chatId}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
               {sendMessage.isPending ? (

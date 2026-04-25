@@ -9,11 +9,13 @@ import {
   commitTransactionImport,
   createBankConnection,
   createCategory,
+  createChatConversation,
   createChatReply,
   createHousing,
   createTransaction,
   deleteBankConnection,
   deleteCategory,
+  deleteChatConversation,
   deleteHousing,
   deleteTransaction,
   getDashboardData,
@@ -21,6 +23,8 @@ import {
   getTransactionImportAiSuggestions,
   listBanks,
   listCategories,
+  listChatConversations,
+  listLatestChatMessages,
   listChatMessages,
   listHousing,
   listInsights,
@@ -304,9 +308,48 @@ export function createApp() {
     response.status(204).send();
   });
 
+  app.get("/api/chats", async (request, response) => {
+    const chats = await listChatConversations(getAuthenticatedUserId(request));
+    response.json({ chats });
+  });
+
+  app.post("/api/chats", async (request, response) => {
+    const chat = await createChatConversation(getAuthenticatedUserId(request));
+    response.status(201).json({ chat });
+  });
+
+  app.get("/api/chats/:chatId/messages", async (request, response) => {
+    const limit = Number.parseInt(String(request.query.limit ?? "20"), 10);
+    const messages = await listChatMessages(
+      getAuthenticatedUserId(request),
+      request.params.chatId,
+      Number.isNaN(limit) ? 20 : limit,
+    );
+    response.json({ messages });
+  });
+
+  app.post("/api/chats/:chatId/messages", async (request, response) => {
+    const message = request.body?.message;
+
+    if (typeof message !== "string" || !message.trim()) {
+      response.status(400).json({
+        error: "message is required",
+      });
+      return;
+    }
+
+    const reply = await createChatReply(getAuthenticatedUserId(request), request.params.chatId, message.trim());
+    response.status(201).json(reply);
+  });
+
+  app.delete("/api/chats/:chatId", async (request, response) => {
+    await deleteChatConversation(getAuthenticatedUserId(request), request.params.chatId);
+    response.status(204).send();
+  });
+
   app.get("/api/chat/messages", async (request, response) => {
     const limit = Number.parseInt(String(request.query.limit ?? "20"), 10);
-    const messages = await listChatMessages(getAuthenticatedUserId(request), Number.isNaN(limit) ? 20 : limit);
+    const messages = await listLatestChatMessages(getAuthenticatedUserId(request), Number.isNaN(limit) ? 20 : limit);
     response.json({ messages });
   });
 
@@ -320,7 +363,8 @@ export function createApp() {
       return;
     }
 
-    const reply = await createChatReply(getAuthenticatedUserId(request), message.trim());
+    const chat = await createChatConversation(getAuthenticatedUserId(request));
+    const reply = await createChatReply(getAuthenticatedUserId(request), chat.id, message.trim());
     response.status(201).json(reply);
   });
 

@@ -230,6 +230,7 @@ describe("api mappers", () => {
         createdAt: "2026-04-06T10:00:00.000Z",
       });
     expect(reply.userMessage.role).toBe("user");
+      expect(reply.userMessages).toHaveLength(1);
       expect(reply.assistantMessage.role).toBe("assistant");
       expect(reply.assistantMessage.content).toBe("Comece pelo delivery.");
       expect(reply.assistantMessage.totalTokens).toBe(192);

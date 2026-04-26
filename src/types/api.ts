@@ -132,8 +132,19 @@ export interface ApiChatMessage {
 export interface ApiChatConversation {
   id?: string;
   title?: string;
+  pinned?: boolean;
+  planId?: string | null;
+  planTitle?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ApiChatSearchResult {
+  chatId?: string;
+  title?: string;
+  matchedText?: string;
+  matchedAt?: string;
+  matchType?: string;
 }
 
 export interface ApiDashboardResponse {
@@ -289,9 +300,81 @@ export interface ApiChatConversationResponse {
   chat?: ApiChatConversation;
 }
 
+export interface ApiChatSearchResponse {
+  results?: ApiChatSearchResult[];
+}
+
+export interface ApiPlanItem {
+  id?: number | string;
+  title?: string;
+  description?: string;
+  status?: string;
+  sortOrder?: number;
+}
+
+export interface ApiPlanGoal {
+  type?: string;
+  source?: string;
+  targetAmount?: number | null;
+  transactionType?: string;
+  categoryIds?: Array<number | string>;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface ApiPlanProgress {
+  type?: string;
+  percentage?: number;
+  currentValue?: number | null;
+  targetValue?: number | null;
+  formattedCurrentValue?: string | null;
+  formattedTargetValue?: string | null;
+  completedItems?: number | null;
+  totalItems?: number | null;
+}
+
+export interface ApiPlan {
+  id?: string;
+  title?: string;
+  description?: string;
+  source?: string;
+  goal?: ApiPlanGoal;
+  progress?: ApiPlanProgress;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: ApiPlanItem[];
+  chats?: ApiChatConversation[];
+}
+
+export interface ApiPlansResponse {
+  plans?: ApiPlan[];
+}
+
+export interface ApiPlanResponse {
+  plan?: ApiPlan;
+}
+
+export interface ApiPlanDraftResponse {
+  draft?: {
+    title?: string;
+    description?: string;
+    goal?: ApiPlanGoal;
+    items?: ApiPlanItem[];
+  };
+}
+
+export interface ApiPlanLinkSuggestionResponse {
+  suggestion?: {
+    action?: string;
+    planId?: string | null;
+    rationale?: string;
+  };
+}
+
 export interface ApiChatReplyResponse {
   chat?: ApiChatConversation;
   userMessage?: ApiChatMessage;
+  userMessages?: ApiChatMessage[];
   assistantMessage?: ApiChatMessage;
 }
 
@@ -741,13 +824,107 @@ export interface ChatMessage {
 export interface ChatConversation {
   id: string;
   title: string;
+  pinned: boolean;
+  planId: string | null;
+  planTitle: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ChatSearchResult {
+  chatId: string;
+  title: string;
+  matchedText: string;
+  matchedAt: string;
+  matchType: "title" | "message";
+}
+
+export type PlanItemStatus = "todo" | "done";
+export type PlanGoalType = "items" | "transaction_sum";
+export type PlanGoalSource = "manual" | "ai";
+export type PlanTransactionType = "income" | "expense";
+
+export interface PlanItem {
+  id: number | string;
+  title: string;
+  description: string;
+  status: PlanItemStatus;
+  sortOrder: number;
+}
+
+export interface PlanGoal {
+  type: PlanGoalType;
+  source: PlanGoalSource;
+  targetAmount: number | null;
+  transactionType: PlanTransactionType;
+  categoryIds: Array<number | string>;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface PlanProgress {
+  type: PlanGoalType;
+  percentage: number;
+  currentValue: number | null;
+  targetValue: number | null;
+  formattedCurrentValue: string | null;
+  formattedTargetValue: string | null;
+  completedItems: number | null;
+  totalItems: number | null;
+}
+
+export interface Plan {
+  id: string;
+  title: string;
+  description: string;
+  source: "manual" | "ai";
+  goal: PlanGoal;
+  progress: PlanProgress;
+  createdAt: string;
+  updatedAt: string;
+  items: PlanItem[];
+  chats: ChatConversation[];
+}
+
+export interface PlanDraft {
+  title: string;
+  description: string;
+  goal: PlanGoal;
+  items: PlanItem[];
+}
+
+export interface PlanLinkSuggestion {
+  action: "link" | "create";
+  planId: string | null;
+  rationale: string;
+}
+
+export interface CreatePlanInput {
+  title: string;
+  description?: string;
+  source?: "manual" | "ai";
+  goal?: PlanGoal;
+  items?: Array<{
+    title: string;
+    description?: string;
+    status?: PlanItemStatus;
+    sortOrder?: number;
+  }>;
+  chatIds?: string[];
+}
+
+export interface UpdatePlanInput {
+  planId: string;
+  title?: string;
+  description?: string;
+  goal?: PlanGoal;
+  items?: CreatePlanInput["items"];
 }
 
 export interface ChatReply {
   chat?: ChatConversation | null;
   userMessage: ChatMessage;
+  userMessages: ChatMessage[];
   assistantMessage: ChatMessage;
 }
 

@@ -50,6 +50,14 @@ describe("useSendChatMessage", () => {
         content: "Como economizar?",
         createdAt: "2026-04-06T10:01:00.000Z",
       },
+      userMessages: [
+        {
+          id: 2,
+          role: "user",
+          content: "Como economizar?",
+          createdAt: "2026-04-06T10:01:00.000Z",
+        },
+      ],
       assistantMessage: {
         id: 3,
         role: "assistant",

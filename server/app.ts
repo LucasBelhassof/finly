@@ -12,14 +12,18 @@ import {
   createChatConversation,
   createChatReply,
   createHousing,
+  createPlan,
   createTransaction,
   deleteBankConnection,
   deleteCategory,
   deleteChatConversation,
   deleteHousing,
+  deletePlan,
   deleteTransaction,
+  generatePlanDraftFromChat,
   getDashboardData,
   getInstallmentsOverview,
+  getPlanDetail,
   getTransactionImportAiSuggestions,
   listBanks,
   listCategories,
@@ -28,13 +32,20 @@ import {
   listChatMessages,
   listHousing,
   listInsights,
+  listPlans,
   listSpendingByCategory,
   listTransactions,
+  linkChatToPlan,
   pingDatabase,
   previewTransactionImport,
+  searchChatConversations,
+  suggestPlanLinkForChat,
+  unlinkChatFromPlan,
+  updateChatConversation,
   updateBankConnection,
   updateCategory,
   updateHousing,
+  updatePlan,
   updateTransaction,
 } from "./database.js";
 import { createAdminRouter } from "./modules/admin/routes.js";
@@ -64,6 +75,13 @@ function parseIntegerRouteParam(value: string | undefined, errorCode: string) {
   return {
     value: parsed,
   };
+}
+
+function parseChatRequestMessages(body: unknown) {
+  const payload = body as { message?: unknown; messages?: unknown };
+  const rawMessages = Array.isArray(payload?.messages) ? payload.messages : [payload?.message];
+
+  return rawMessages.map((message) => (typeof message === "string" ? message.trim() : "")).filter(Boolean);
 }
 
 export function createApp() {
@@ -308,6 +326,69 @@ export function createApp() {
     response.status(204).send();
   });
 
+  app.get("/api/plans", async (request, response) => {
+    const plans = await listPlans(getAuthenticatedUserId(request));
+    response.json({ plans });
+  });
+
+  app.post("/api/plans", async (request, response) => {
+    const plan = await createPlan(getAuthenticatedUserId(request), request.body ?? {});
+    response.status(201).json({ plan });
+  });
+
+  app.post("/api/plans/ai/draft", async (request, response) => {
+    const chatId = request.body?.chatId;
+
+    if (typeof chatId !== "string" || !chatId.trim()) {
+      response.status(400).json({
+        error: "chatId is required",
+      });
+      return;
+    }
+
+    const draft = await generatePlanDraftFromChat(getAuthenticatedUserId(request), chatId.trim());
+    response.json({ draft });
+  });
+
+  app.post("/api/plans/ai/suggest-link", async (request, response) => {
+    const chatId = request.body?.chatId;
+
+    if (typeof chatId !== "string" || !chatId.trim()) {
+      response.status(400).json({
+        error: "chatId is required",
+      });
+      return;
+    }
+
+    const suggestion = await suggestPlanLinkForChat(getAuthenticatedUserId(request), chatId.trim());
+    response.json({ suggestion });
+  });
+
+  app.get("/api/plans/:planId", async (request, response) => {
+    const plan = await getPlanDetail(getAuthenticatedUserId(request), request.params.planId);
+    response.json({ plan });
+  });
+
+  app.patch("/api/plans/:planId", async (request, response) => {
+    const plan = await updatePlan(getAuthenticatedUserId(request), request.params.planId, request.body ?? {});
+    response.json({ plan });
+  });
+
+  app.delete("/api/plans/:planId", async (request, response) => {
+    await deletePlan(getAuthenticatedUserId(request), request.params.planId);
+    response.status(204).send();
+  });
+
+  app.post("/api/plans/:planId/chats/:chatId", async (request, response) => {
+    const plan = await linkChatToPlan(getAuthenticatedUserId(request), request.params.planId, request.params.chatId);
+    response.json({ plan });
+  });
+
+  app.delete("/api/plans/:planId/chats/:chatId", async (request, response) => {
+    const plan = await unlinkChatFromPlan(getAuthenticatedUserId(request), request.params.planId, request.params.chatId);
+    response.json({ plan });
+  });
+
   app.get("/api/chats", async (request, response) => {
     const chats = await listChatConversations(getAuthenticatedUserId(request));
     response.json({ chats });
@@ -316,6 +397,43 @@ export function createApp() {
   app.post("/api/chats", async (request, response) => {
     const chat = await createChatConversation(getAuthenticatedUserId(request));
     response.status(201).json({ chat });
+  });
+
+  app.get("/api/chats/search", async (request, response) => {
+    const query = String(request.query.q ?? "");
+    const limit = Number.parseInt(String(request.query.limit ?? "12"), 10);
+    const results = await searchChatConversations(getAuthenticatedUserId(request), query, Number.isNaN(limit) ? 12 : limit);
+    response.json({ results });
+  });
+
+  app.patch("/api/chats/:chatId", async (request, response) => {
+    const input = request.body ?? {};
+    const hasTitle = Object.prototype.hasOwnProperty.call(input, "title");
+    const hasPinned = Object.prototype.hasOwnProperty.call(input, "pinned");
+
+    if (hasTitle && (typeof input.title !== "string" || !input.title.trim())) {
+      response.status(400).json({
+        error: "title is required",
+      });
+      return;
+    }
+
+    if (hasPinned && typeof input.pinned !== "boolean") {
+      response.status(400).json({
+        error: "pinned must be boolean",
+      });
+      return;
+    }
+
+    if (!hasTitle && !hasPinned) {
+      response.status(400).json({
+        error: "chat update is required",
+      });
+      return;
+    }
+
+    const chat = await updateChatConversation(getAuthenticatedUserId(request), request.params.chatId, input);
+    response.json({ chat });
   });
 
   app.get("/api/chats/:chatId/messages", async (request, response) => {
@@ -329,16 +447,16 @@ export function createApp() {
   });
 
   app.post("/api/chats/:chatId/messages", async (request, response) => {
-    const message = request.body?.message;
+    const messages = parseChatRequestMessages(request.body);
 
-    if (typeof message !== "string" || !message.trim()) {
+    if (!messages.length) {
       response.status(400).json({
         error: "message is required",
       });
       return;
     }
 
-    const reply = await createChatReply(getAuthenticatedUserId(request), request.params.chatId, message.trim());
+    const reply = await createChatReply(getAuthenticatedUserId(request), request.params.chatId, messages);
     response.status(201).json(reply);
   });
 
@@ -354,9 +472,9 @@ export function createApp() {
   });
 
   app.post("/api/chat/messages", async (request, response) => {
-    const message = request.body?.message;
+    const messages = parseChatRequestMessages(request.body);
 
-    if (typeof message !== "string" || !message.trim()) {
+    if (!messages.length) {
       response.status(400).json({
         error: "message is required",
       });
@@ -364,7 +482,7 @@ export function createApp() {
     }
 
     const chat = await createChatConversation(getAuthenticatedUserId(request));
-    const reply = await createChatReply(getAuthenticatedUserId(request), chat.id, message.trim());
+    const reply = await createChatReply(getAuthenticatedUserId(request), chat.id, messages);
     response.status(201).json(reply);
   });
 

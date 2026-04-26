@@ -33,6 +33,8 @@ const InsightsPage = lazy(() => import("./pages/Insights.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const NotificationsPage = lazy(() => import("./pages/Notifications.tsx"));
 const OnboardingPage = lazy(() => import("./pages/Onboarding.tsx"));
+const PlanDetailPage = lazy(() => import("./pages/PlanDetail.tsx"));
+const PlansPage = lazy(() => import("./pages/Plans.tsx"));
 const ProfilePage = lazy(() => import("./pages/Profile.tsx"));
 const SettingsPage = lazy(() => import("./pages/Settings.tsx"));
 const TransactionsPage = lazy(() => import("./pages/Transactions.tsx"));
@@ -75,6 +77,8 @@ const App = () => (
                 <Route path={appRoutes.expenseManagementMetrics} element={<Suspense fallback={<PageLoader />}><ExpenseMetricsPage /></Suspense>} />
                 <Route path={appRoutes.chat} element={<Suspense fallback={<PageLoader />}><ChatPage /></Suspense>} />
                 <Route path={appRoutes.chatConversation} element={<Suspense fallback={<PageLoader />}><ChatPage /></Suspense>} />
+                <Route path={appRoutes.plans} element={<Suspense fallback={<PageLoader />}><PlansPage /></Suspense>} />
+                <Route path={appRoutes.planDetail} element={<Suspense fallback={<PageLoader />}><PlanDetailPage /></Suspense>} />
                 <Route path={appRoutes.insights} element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
                 <Route path={appRoutes.notifications} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
                 <Route path={`${appRoutes.notifications}/:recipientId`} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />

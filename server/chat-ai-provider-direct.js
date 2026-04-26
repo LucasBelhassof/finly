@@ -114,6 +114,36 @@ function buildSystemInstruction(payload) {
     ].join("\n");
   }
 
+  if (payload.task === "plan_draft") {
+    return [
+      "Voce cria planejamentos financeiros pessoais em portugues do Brasil.",
+      "Responda somente com JSON valido, sem markdown, sem crases e sem explicacoes.",
+      "Formato obrigatorio: {\"title\":\"...\",\"description\":\"...\",\"goal\":{\"type\":\"items|transaction_sum\",\"source\":\"ai\",\"targetAmount\":null,\"transactionType\":\"expense|income\",\"categoryIds\":[],\"startDate\":null,\"endDate\":null},\"items\":[{\"title\":\"...\",\"description\":\"...\",\"status\":\"todo\"}]}",
+      "Crie de 3 a 7 itens objetivos e acionaveis.",
+      "Use status sempre como \"todo\".",
+      "Use goal.type \"transaction_sum\" apenas quando houver meta financeira clara, valor alvo, periodo e categorias compativeis no contexto.",
+      "Quando usar categoryIds, use somente ids existentes em context.categories.",
+      "Quando nao houver base suficiente para meta financeira, use goal.type \"items\" com targetAmount, startDate e endDate como null.",
+      "Baseie o planejamento apenas no chat e no contexto financeiro fornecidos.",
+      "Nao invente saldos, transacoes, contas, datas ou metas que nao estejam no contexto.",
+      "",
+      `Data de referencia: ${payload.generatedAt}`,
+    ].join("\n");
+  }
+
+  if (payload.task === "plan_link_suggestion") {
+    return [
+      "Voce decide se uma conversa deve ser vinculada a um planejamento existente.",
+      "Responda somente com JSON valido, sem markdown, sem crases e sem explicacoes.",
+      "Formato obrigatorio: {\"action\":\"link|create\",\"planId\":null,\"rationale\":\"...\"}.",
+      "Use action \"link\" apenas quando houver um planejamento claramente relacionado.",
+      "Use action \"create\" quando nenhum planejamento existente representar bem o chat.",
+      "Se action for \"link\", planId deve ser exatamente um dos ids fornecidos.",
+      "",
+      `Data de referencia: ${payload.generatedAt}`,
+    ].join("\n");
+  }
+
   return [
     "Voce e o Assistente Finly, um consultor financeiro pessoal em portugues do Brasil.",
     "Use apenas o contexto financeiro fornecido para analisar gastos, riscos e oportunidades.",

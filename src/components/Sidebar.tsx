@@ -2,6 +2,7 @@ import {
   Bell,
   Building2,
   ChevronDown,
+  FolderKanban,
   Layers3,
   LayoutDashboard,
   Lightbulb,
@@ -49,6 +50,7 @@ const navItems = [{ icon: LayoutDashboard, label: "Dashboard", to: appRoutes.das
 
 const secondaryNavItems = [
   { icon: MessageSquare, label: "Chat IA", to: appRoutes.chat },
+  { icon: FolderKanban, label: "Planejamentos", to: appRoutes.plans },
   { icon: Lightbulb, label: "Insights", to: appRoutes.insights, disabled: true },
   { icon: Building2, label: "Contas", to: appRoutes.accounts },
 ];

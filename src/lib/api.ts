@@ -13,6 +13,8 @@ import type {
   ApiChatMessage,
   ApiChatMessagesResponse,
   ApiChatReplyResponse,
+  ApiChatSearchResponse,
+  ApiChatSearchResult,
   ApiAdminActivityResponse,
   ApiAdminFinancialMetricsResponse,
   ApiAdminNotificationsResponse,
@@ -41,6 +43,14 @@ import type {
   ApiInstallmentsOverviewResponse,
   ApiInsightsResponse,
   ApiNotificationsResponse,
+  ApiPlan,
+  ApiPlanDraftResponse,
+  ApiPlanGoal,
+  ApiPlanItem,
+  ApiPlanLinkSuggestionResponse,
+  ApiPlanProgress,
+  ApiPlanResponse,
+  ApiPlansResponse,
   ApiSpendingItem,
   ApiSpendingResponse,
   ApiSummaryCard,
@@ -54,9 +64,11 @@ import type {
   ChatMessage,
   ChatReply,
   ChatRole,
+  ChatSearchResult,
   CreateBankConnectionInput,
   CreateCategoryInput,
   CreateHousingInput,
+  CreatePlanInput,
   CreateSelfNotificationInput,
   CreateTransactionInput,
   DeleteTransactionInput,
@@ -81,8 +93,15 @@ import type {
   NotificationsData,
   NotificationItem,
   NotificationsFilters,
+  Plan,
+  PlanDraft,
+  PlanGoal,
+  PlanItem,
+  PlanProgress,
+  PlanLinkSuggestion,
   UpdateCategoryInput,
   UpdateHousingInput,
+  UpdatePlanInput,
   UpdateTransactionInput,
   UpdateBankConnectionInput,
 } from "@/types/api";
@@ -711,8 +730,126 @@ export function mapChatConversation(chat: ApiChatConversation): ChatConversation
   return {
     id: safeString(chat.id, ""),
     title: safeString(chat.title, "Novo chat"),
+    pinned: Boolean(chat.pinned),
+    planId: safeString(chat.planId, "") || null,
+    planTitle: safeString(chat.planTitle, "") || null,
     createdAt: safeString(chat.createdAt, new Date(0).toISOString()),
     updatedAt: safeString(chat.updatedAt, new Date(0).toISOString()),
+  };
+}
+
+function normalizePlanItemStatus(status?: string) {
+  return status === "done" ? "done" : "todo";
+}
+
+function normalizePlanGoalType(type?: string) {
+  return type === "transaction_sum" ? "transaction_sum" : "items";
+}
+
+function normalizePlanGoalSource(source?: string) {
+  return source === "ai" ? "ai" : "manual";
+}
+
+function normalizePlanTransactionType(transactionType?: string) {
+  return transactionType === "income" ? "income" : "expense";
+}
+
+function clampPercentage(value: unknown) {
+  const numberValue = safeNumber(value);
+  return Math.max(0, Math.min(100, Math.round(numberValue)));
+}
+
+function mapPlanGoal(goal: ApiPlanGoal = {}): PlanGoal {
+  const type = normalizePlanGoalType(goal.type);
+
+  return {
+    type,
+    source: normalizePlanGoalSource(goal.source),
+    targetAmount: type === "transaction_sum" ? safeNumber(goal.targetAmount) : null,
+    transactionType: normalizePlanTransactionType(goal.transactionType),
+    categoryIds: (goal.categoryIds ?? []).filter((categoryId) => categoryId !== undefined && categoryId !== null && categoryId !== ""),
+    startDate: safeString(goal.startDate, "") || null,
+    endDate: safeString(goal.endDate, "") || null,
+  };
+}
+
+function mapPlanProgress(progress: ApiPlanProgress = {}, goal: PlanGoal, items: PlanItem[]): PlanProgress {
+  if (progress.type) {
+    return {
+      type: normalizePlanGoalType(progress.type),
+      percentage: clampPercentage(progress.percentage),
+      currentValue: progress.currentValue === null || progress.currentValue === undefined ? null : safeNumber(progress.currentValue),
+      targetValue: progress.targetValue === null || progress.targetValue === undefined ? null : safeNumber(progress.targetValue),
+      formattedCurrentValue: safeString(progress.formattedCurrentValue, "") || null,
+      formattedTargetValue: safeString(progress.formattedTargetValue, "") || null,
+      completedItems: progress.completedItems === null || progress.completedItems === undefined ? null : safeNumber(progress.completedItems),
+      totalItems: progress.totalItems === null || progress.totalItems === undefined ? null : safeNumber(progress.totalItems),
+    };
+  }
+
+  const completedItems = items.filter((item) => item.status === "done").length;
+  const totalItems = items.length;
+
+  if (goal.type === "transaction_sum") {
+    return {
+      type: "transaction_sum",
+      percentage: 0,
+      currentValue: 0,
+      targetValue: goal.targetAmount,
+      formattedCurrentValue: formatCurrency(0),
+      formattedTargetValue: goal.targetAmount !== null ? formatCurrency(goal.targetAmount) : null,
+      completedItems: null,
+      totalItems: null,
+    };
+  }
+
+  return {
+    type: "items",
+    percentage: totalItems > 0 ? clampPercentage((completedItems / totalItems) * 100) : 0,
+    currentValue: null,
+    targetValue: null,
+    formattedCurrentValue: null,
+    formattedTargetValue: null,
+    completedItems,
+    totalItems,
+  };
+}
+
+export function mapPlanItem(item: ApiPlanItem): PlanItem {
+  return {
+    id: item.id ?? `item-${safeString(item.title, "plan")}`,
+    title: safeString(item.title, "Item do planejamento"),
+    description: safeString(item.description, ""),
+    status: normalizePlanItemStatus(item.status),
+    sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : 0,
+  };
+}
+
+export function mapPlan(plan: ApiPlan): Plan {
+  const goal = mapPlanGoal(plan.goal);
+  const items = (plan.items ?? []).map(mapPlanItem).sort((left, right) => left.sortOrder - right.sortOrder);
+
+  return {
+    id: safeString(plan.id, ""),
+    title: safeString(plan.title, "Planejamento"),
+    description: safeString(plan.description, ""),
+    source: plan.source === "ai" ? "ai" : "manual",
+    goal,
+    progress: mapPlanProgress(plan.progress, goal, items),
+    createdAt: safeString(plan.createdAt, new Date(0).toISOString()),
+    updatedAt: safeString(plan.updatedAt, new Date(0).toISOString()),
+    items,
+    chats: (plan.chats ?? []).map(mapChatConversation).filter((chat) => chat.id),
+  };
+}
+
+export function mapChatSearchResult(result: ApiChatSearchResult): ChatSearchResult {
+  return {
+    chatId: safeString(result.chatId, ""),
+    title: safeString(result.title, "Novo chat"),
+    matchedText: safeString(result.matchedText, ""),
+    matchedAt: safeString(result.matchedAt, new Date(0).toISOString()),
+    matchType: result.matchType === "message" ? "message" : "title",
   };
 }
 
@@ -871,10 +1008,48 @@ export function mapChatConversationResponse(response: ApiChatConversationRespons
   return mapChatConversation(response.chat ?? {});
 }
 
+export function mapChatSearchResponse(response: ApiChatSearchResponse) {
+  return (response.results ?? []).map(mapChatSearchResult).filter((result) => result.chatId);
+}
+
+export function mapPlansResponse(response: ApiPlansResponse) {
+  return (response.plans ?? []).map(mapPlan).filter((plan) => plan.id);
+}
+
+export function mapPlanResponse(response: ApiPlanResponse) {
+  return mapPlan(response.plan ?? {});
+}
+
+export function mapPlanDraftResponse(response: ApiPlanDraftResponse): PlanDraft {
+  const items = (response.draft?.items ?? []).map(mapPlanItem);
+  const goal = mapPlanGoal(response.draft?.goal ?? { source: "ai" });
+
+  return {
+    title: safeString(response.draft?.title, "Planejamento"),
+    description: safeString(response.draft?.description, ""),
+    goal,
+    items,
+  };
+}
+
+export function mapPlanLinkSuggestionResponse(response: ApiPlanLinkSuggestionResponse): PlanLinkSuggestion {
+  const suggestion = response.suggestion ?? {};
+  return {
+    action: suggestion.action === "link" ? "link" : "create",
+    planId: safeString(suggestion.planId, "") || null,
+    rationale: safeString(suggestion.rationale, ""),
+  };
+}
+
 export function mapChatReplyResponse(response: ApiChatReplyResponse): ChatReply {
+  const userMessages = Array.isArray(response.userMessages) && response.userMessages.length
+    ? response.userMessages.map(mapChatMessage)
+    : [mapChatMessage(response.userMessage ?? { role: "user" })];
+
   return {
     chat: response.chat ? mapChatConversation(response.chat) : null,
-    userMessage: mapChatMessage(response.userMessage ?? { role: "user" }),
+    userMessage: userMessages[0],
+    userMessages,
     assistantMessage: mapChatMessage(response.assistantMessage ?? { role: "assistant" }),
   };
 }
@@ -1357,6 +1532,99 @@ export async function deleteChatConversation(chatId: string) {
   });
 }
 
+export async function patchChatConversation(chatId: string, input: { title?: string; pinned?: boolean }) {
+  const response = await request<ApiChatConversationResponse>(`/api/chats/${encodeURIComponent(chatId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+
+  return mapChatConversationResponse(response);
+}
+
+export async function searchChatConversations(query: string, limit = 12) {
+  const response = await request<ApiChatSearchResponse>(buildPath("/api/chats/search", { q: query, limit }));
+  return mapChatSearchResponse(response);
+}
+
+export async function getPlans() {
+  const response = await request<ApiPlansResponse>("/api/plans");
+  return mapPlansResponse(response);
+}
+
+export async function getPlan(planId: string) {
+  const response = await request<ApiPlanResponse>(`/api/plans/${encodeURIComponent(planId)}`);
+  return mapPlanResponse(response);
+}
+
+export async function postPlan(input: CreatePlanInput) {
+  const response = await request<ApiPlanResponse>("/api/plans", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+  return mapPlanResponse(response);
+}
+
+export async function patchPlan(input: UpdatePlanInput) {
+  const response = await request<ApiPlanResponse>(`/api/plans/${encodeURIComponent(input.planId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      title: input.title,
+      description: input.description,
+      goal: input.goal,
+      items: input.items,
+    }),
+  });
+
+  return mapPlanResponse(response);
+}
+
+export async function deletePlan(planId: string) {
+  await request<null>(`/api/plans/${encodeURIComponent(planId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function linkChatToPlan(planId: string, chatId: string) {
+  const response = await request<ApiPlanResponse>(
+    `/api/plans/${encodeURIComponent(planId)}/chats/${encodeURIComponent(chatId)}`,
+    {
+      method: "POST",
+    },
+  );
+
+  return mapPlanResponse(response);
+}
+
+export async function unlinkChatFromPlan(planId: string, chatId: string) {
+  const response = await request<ApiPlanResponse>(
+    `/api/plans/${encodeURIComponent(planId)}/chats/${encodeURIComponent(chatId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  return mapPlanResponse(response);
+}
+
+export async function generatePlanDraft(chatId: string) {
+  const response = await request<ApiPlanDraftResponse>("/api/plans/ai/draft", {
+    method: "POST",
+    body: JSON.stringify({ chatId }),
+  });
+
+  return mapPlanDraftResponse(response);
+}
+
+export async function suggestPlanLink(chatId: string) {
+  const response = await request<ApiPlanLinkSuggestionResponse>("/api/plans/ai/suggest-link", {
+    method: "POST",
+    body: JSON.stringify({ chatId }),
+  });
+
+  return mapPlanLinkSuggestionResponse(response);
+}
+
 export async function getChatConversationMessages(chatId: string, limit?: number) {
   const response = await request<ApiChatMessagesResponse>(
     buildPath(`/api/chats/${encodeURIComponent(chatId)}/messages`, { limit }),
@@ -1368,6 +1636,15 @@ export async function postChatConversationMessage(chatId: string, message: strin
   const response = await request<ApiChatReplyResponse>(`/api/chats/${encodeURIComponent(chatId)}/messages`, {
     method: "POST",
     body: JSON.stringify({ message }),
+  });
+
+  return mapChatReplyResponse(response);
+}
+
+export async function postChatConversationMessages(chatId: string, messages: string[]) {
+  const response = await request<ApiChatReplyResponse>(`/api/chats/${encodeURIComponent(chatId)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ messages }),
   });
 
   return mapChatReplyResponse(response);

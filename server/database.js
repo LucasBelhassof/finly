@@ -20,7 +20,7 @@ import { getImportAiConfig, suggestImportCategories } from "./import-ai-service.
 import { buildInstallmentsOverviewResponse } from "./installments-overview.js";
 import { buildDashboardSummaryCards } from "./dashboard-summary.js";
 import { normalizeDashboardFilters, shiftDashboardDateKey } from "./dashboard-filters.js";
-import { generateChatReply, generateChatTitle } from "./chat-ai-service.js";
+import { generateChatReply, generateChatTitle, generatePlanDraft, suggestPlanLink } from "./chat-ai-service.js";
 import { buildTransactionCategorySyncPlan } from "./transaction-update.js";
 import {
   buildPreviousMonthEndDate,
@@ -2558,12 +2558,717 @@ export async function listInsights(userId) {
   return [];
 }
 
+function normalizePlanStatus(value) {
+  return value === "done" ? "done" : "todo";
+}
+
+function normalizePlanItems(items = []) {
+  if (!Array.isArray(items)) {
+    throw new Error("invalid plan items");
+  }
+
+  return items
+    .map((item, index) => ({
+      title: String(item?.title ?? "").replace(/\s+/g, " ").trim(),
+      description: String(item?.description ?? "").trim(),
+      status: normalizePlanStatus(item?.status),
+      sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item.sortOrder) : index,
+    }))
+    .filter((item) => item.title);
+}
+
+function normalizePlanGoalType(value) {
+  return value === "transaction_sum" ? "transaction_sum" : "items";
+}
+
+function normalizePlanGoalSource(value, fallback = "manual") {
+  if (value === "ai") {
+    return "ai";
+  }
+
+  return fallback === "ai" ? "ai" : "manual";
+}
+
+function normalizePlanTransactionType(value) {
+  return value === "income" ? "income" : "expense";
+}
+
+function normalizePlanGoalDate(value) {
+  const normalized = normalizeDateValue(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = new Date(`${normalized}T12:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : normalized;
+}
+
+function normalizePlanGoalCategoryIds(categoryIds) {
+  if (!Array.isArray(categoryIds)) {
+    return [];
+  }
+
+  const ids = categoryIds
+    .map((categoryId) => Number(categoryId))
+    .filter((categoryId) => Number.isInteger(categoryId) && categoryId > 0);
+
+  return Array.from(new Set(ids));
+}
+
+function parsePlanGoalAmount(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  const text = String(value ?? "").trim();
+  return Number(text.includes(",") ? text.replace(/\./g, "").replace(",", ".") : text);
+}
+
+function buildDefaultPlanGoal(source = "manual") {
+  return {
+    type: "items",
+    source: normalizePlanGoalSource(source),
+    targetAmount: null,
+    transactionType: "expense",
+    categoryIds: [],
+    startDate: null,
+    endDate: null,
+  };
+}
+
+function normalizePlanGoal(goal = {}, options = {}) {
+  const source = normalizePlanGoalSource(goal?.source, options.source);
+  const type = normalizePlanGoalType(goal?.type);
+
+  if (type !== "transaction_sum") {
+    return buildDefaultPlanGoal(source);
+  }
+
+  const targetAmount = parsePlanGoalAmount(goal?.targetAmount ?? goal?.target_amount);
+  const startDate = normalizePlanGoalDate(goal?.startDate ?? goal?.start_date);
+  const endDate = normalizePlanGoalDate(goal?.endDate ?? goal?.end_date);
+
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    throw new Error("goal target amount is required");
+  }
+
+  if (!startDate || !endDate) {
+    throw new Error("goal period is required");
+  }
+
+  if (startDate > endDate) {
+    throw new Error("goal start date must be before end date");
+  }
+
+  return {
+    type,
+    source,
+    targetAmount: Number(targetAmount.toFixed(2)),
+    transactionType: normalizePlanTransactionType(goal?.transactionType ?? goal?.transaction_type),
+    categoryIds: normalizePlanGoalCategoryIds(goal?.categoryIds ?? goal?.category_ids),
+    startDate,
+    endDate,
+  };
+}
+
+function parsePlanGoalCategoryIds(value) {
+  if (Array.isArray(value)) {
+    return normalizePlanGoalCategoryIds(value);
+  }
+
+  if (typeof value === "string") {
+    return normalizePlanGoalCategoryIds(value.replace(/[{}]/g, "").split(","));
+  }
+
+  return [];
+}
+
+function normalizePlanInput(input = {}, options = {}) {
+  const title = String(input.title ?? "").replace(/\s+/g, " ").trim();
+
+  if (!title && options.requireTitle !== false) {
+    throw new Error("plan title is required");
+  }
+
+  const source = input.source === "ai" ? "ai" : "manual";
+
+  return {
+    title,
+    description: String(input.description ?? "").trim(),
+    source,
+    goal: normalizePlanGoal(input.goal, { source }),
+    items: normalizePlanItems(input.items ?? []),
+    chatIds: Array.isArray(input.chatIds)
+      ? Array.from(new Set(input.chatIds.map((chatId) => String(chatId ?? "").trim()).filter(Boolean)))
+      : [],
+  };
+}
+
+function mapPlanGoal(row) {
+  const goal = {
+    type: normalizePlanGoalType(row.goal_type),
+    source: normalizePlanGoalSource(row.goal_source, row.source),
+    targetAmount: row.goal_target_amount === null || row.goal_target_amount === undefined ? null : parseNumeric(row.goal_target_amount),
+    transactionType: normalizePlanTransactionType(row.goal_transaction_type),
+    categoryIds: parsePlanGoalCategoryIds(row.goal_category_ids),
+    startDate: normalizePlanGoalDate(row.goal_start_date),
+    endDate: normalizePlanGoalDate(row.goal_end_date),
+  };
+
+  return goal.type === "transaction_sum" ? goal : buildDefaultPlanGoal(goal.source);
+}
+
+function mapPlanRow(row) {
+  return {
+    id: row.public_id,
+    title: row.title,
+    description: row.description,
+    source: row.source,
+    goal: mapPlanGoal(row),
+    progress: null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    items: [],
+    chats: [],
+  };
+}
+
+function mapPlanItem(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    status: normalizePlanStatus(row.status),
+    sortOrder: Number(row.sort_order ?? 0),
+  };
+}
+
+function mapPlanChat(row) {
+  return {
+    id: row.public_id,
+    title: row.title,
+    pinned: Boolean(row.pinned),
+    planId: row.plan_public_id ?? null,
+    planTitle: row.plan_title ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function clampPlanProgress(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function buildPlanItemsProgress(plan) {
+  const totalItems = plan.items.length;
+  const completedItems = plan.items.filter((item) => item.status === "done").length;
+
+  return {
+    type: "items",
+    percentage: totalItems > 0 ? clampPlanProgress((completedItems / totalItems) * 100) : 0,
+    currentValue: null,
+    targetValue: null,
+    formattedCurrentValue: null,
+    formattedTargetValue: null,
+    completedItems,
+    totalItems,
+  };
+}
+
+function buildPlanTransactionProgress(plan, currentValue) {
+  const targetValue = plan.goal.targetAmount ?? 0;
+
+  return {
+    type: "transaction_sum",
+    percentage: targetValue > 0 ? clampPlanProgress((currentValue / targetValue) * 100) : 0,
+    currentValue,
+    targetValue,
+    formattedCurrentValue: formatCurrency(currentValue),
+    formattedTargetValue: formatCurrency(targetValue),
+    completedItems: null,
+    totalItems: null,
+  };
+}
+
+async function getPlanTransactionGoalCurrentValue(userId, goal) {
+  const params = [userId, goal.startDate, goal.endDate];
+  const conditions = [
+    "t.user_id = $1",
+    "t.occurred_on >= $2::date",
+    "t.occurred_on <= $3::date",
+    goal.transactionType === "income" ? "t.amount > 0" : "t.amount < 0",
+  ];
+
+  if (goal.categoryIds.length) {
+    params.push(goal.categoryIds);
+    conditions.push(`t.category_id = ANY($${params.length}::int[])`);
+  }
+
+  const result = await pool.query(
+    `
+      SELECT COALESCE(SUM(ABS(t.amount)), 0)::NUMERIC(12, 2) AS current_value
+      FROM transactions t
+      WHERE ${conditions.join(" AND ")}
+    `,
+    params,
+  );
+
+  return parseNumeric(result.rows[0]?.current_value);
+}
+
+async function hydratePlanProgress(userId, plans) {
+  await Promise.all(
+    plans.map(async (plan) => {
+      if (plan.goal.type !== "transaction_sum") {
+        plan.progress = buildPlanItemsProgress(plan);
+        return;
+      }
+
+      const currentValue = await getPlanTransactionGoalCurrentValue(userId, plan.goal);
+      plan.progress = buildPlanTransactionProgress(plan, currentValue);
+    }),
+  );
+
+  return plans;
+}
+
+async function hydratePlans(planRows, userId = null) {
+  if (!planRows.length) {
+    return [];
+  }
+
+  const plans = planRows.map(mapPlanRow);
+  const plansByInternalId = new Map(planRows.map((row, index) => [row.id, plans[index]]));
+  const planIds = planRows.map((row) => row.id);
+  const [itemsResult, chatsResult] = await Promise.all([
+    pool.query(
+      `
+        SELECT id, plan_id, title, description, status, sort_order
+        FROM plan_items
+        WHERE plan_id = ANY($1::int[])
+        ORDER BY sort_order ASC, id ASC
+      `,
+      [planIds],
+    ),
+    pool.query(
+      `
+        SELECT
+          c.public_id,
+          c.title,
+          c.pinned,
+          p.public_id AS plan_public_id,
+          p.title AS plan_title,
+          c.plan_id,
+          c.created_at,
+          c.updated_at
+        FROM chat_conversations c
+        INNER JOIN plans p ON p.id = c.plan_id
+        WHERE c.plan_id = ANY($1::int[])
+        ORDER BY c.updated_at DESC, c.id DESC
+      `,
+      [planIds],
+    ),
+  ]);
+
+  itemsResult.rows.forEach((row) => {
+    plansByInternalId.get(row.plan_id)?.items.push(mapPlanItem(row));
+  });
+
+  chatsResult.rows.forEach((row) => {
+    plansByInternalId.get(row.plan_id)?.chats.push(mapPlanChat(row));
+  });
+
+  return userId ? hydratePlanProgress(userId, plans) : plans;
+}
+
+async function getPlanRowByPublicId(userId, publicId) {
+  const result = await pool.query(
+    `
+      SELECT
+        id,
+        public_id,
+        title,
+        description,
+        source,
+        goal_type,
+        goal_source,
+        goal_target_amount,
+        goal_transaction_type,
+        goal_category_ids,
+        goal_start_date,
+        goal_end_date,
+        created_at,
+        updated_at
+      FROM plans
+      WHERE user_id = $1 AND public_id = $2
+    `,
+    [userId, publicId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function getPlanDetail(userId, publicId) {
+  const row = await getPlanRowByPublicId(userId, publicId);
+
+  if (!row) {
+    throw new Error("plan not found");
+  }
+
+  const [plan] = await hydratePlans([row], userId);
+  return plan;
+}
+
+async function replacePlanItems(client, planId, items) {
+  await client.query("DELETE FROM plan_items WHERE plan_id = $1", [planId]);
+
+  for (const [index, item] of items.entries()) {
+    await client.query(
+      `
+        INSERT INTO plan_items (plan_id, title, description, status, sort_order)
+        VALUES ($1, $2, $3, $4, $5)
+      `,
+      [planId, item.title, item.description, item.status, item.sortOrder ?? index],
+    );
+  }
+}
+
+async function attachChatsToPlan(client, userId, planId, chatIds) {
+  if (!chatIds.length) {
+    return;
+  }
+
+  const result = await client.query(
+    `
+      UPDATE chat_conversations
+      SET plan_id = $3, updated_at = NOW()
+      WHERE user_id = $1 AND public_id = ANY($2::text[])
+      RETURNING public_id
+    `,
+    [userId, chatIds, planId],
+  );
+
+  if (result.rowCount !== chatIds.length) {
+    throw new Error("chat not found");
+  }
+}
+
+export async function listPlans(userId) {
+  const resolvedUserId = await requireUserId(userId);
+  const result = await pool.query(
+    `
+      SELECT
+        id,
+        public_id,
+        title,
+        description,
+        source,
+        goal_type,
+        goal_source,
+        goal_target_amount,
+        goal_transaction_type,
+        goal_category_ids,
+        goal_start_date,
+        goal_end_date,
+        created_at,
+        updated_at
+      FROM plans
+      WHERE user_id = $1
+      ORDER BY updated_at DESC, id DESC
+    `,
+    [resolvedUserId],
+  );
+
+  return hydratePlans(result.rows, resolvedUserId);
+}
+
+export async function createPlan(userId, input = {}) {
+  const resolvedUserId = await requireUserId(userId);
+  const normalizedInput = normalizePlanInput(input);
+  const client = await pool.connect();
+  let planPublicId;
+
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `
+        INSERT INTO plans (
+          user_id,
+          public_id,
+          title,
+          description,
+          source,
+          goal_type,
+          goal_source,
+          goal_target_amount,
+          goal_transaction_type,
+          goal_category_ids,
+          goal_start_date,
+          goal_end_date
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::int[], $11::date, $12::date)
+        RETURNING public_id, id
+      `,
+      [
+        resolvedUserId,
+        randomUUID(),
+        normalizedInput.title,
+        normalizedInput.description,
+        normalizedInput.source,
+        normalizedInput.goal.type,
+        normalizedInput.goal.source,
+        normalizedInput.goal.targetAmount,
+        normalizedInput.goal.transactionType,
+        normalizedInput.goal.categoryIds,
+        normalizedInput.goal.startDate,
+        normalizedInput.goal.endDate,
+      ],
+    );
+    const row = result.rows[0];
+    planPublicId = row.public_id;
+    await replacePlanItems(client, row.id, normalizedInput.items);
+    await attachChatsToPlan(client, resolvedUserId, row.id, normalizedInput.chatIds);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return getPlanDetail(resolvedUserId, planPublicId);
+}
+
+export async function updatePlan(userId, publicId, input = {}) {
+  const resolvedUserId = await requireUserId(userId);
+  const planRow = await getPlanRowByPublicId(resolvedUserId, publicId);
+
+  if (!planRow) {
+    throw new Error("plan not found");
+  }
+
+  const hasTitle = Object.prototype.hasOwnProperty.call(input, "title");
+  const hasDescription = Object.prototype.hasOwnProperty.call(input, "description");
+  const hasItems = Object.prototype.hasOwnProperty.call(input, "items");
+  const hasGoal = Object.prototype.hasOwnProperty.call(input, "goal");
+  const title = hasTitle ? String(input.title ?? "").replace(/\s+/g, " ").trim() : planRow.title;
+
+  if (hasTitle && !title) {
+    throw new Error("plan title is required");
+  }
+
+  const description = hasDescription ? String(input.description ?? "").trim() : planRow.description;
+  const items = hasItems ? normalizePlanItems(input.items ?? []) : null;
+  const goal = hasGoal ? normalizePlanGoal(input.goal, { source: planRow.source }) : mapPlanGoal(planRow);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `
+        UPDATE plans
+        SET
+          title = $3,
+          description = $4,
+          goal_type = $5,
+          goal_source = $6,
+          goal_target_amount = $7,
+          goal_transaction_type = $8,
+          goal_category_ids = $9::int[],
+          goal_start_date = $10::date,
+          goal_end_date = $11::date,
+          updated_at = NOW()
+        WHERE user_id = $1 AND id = $2
+      `,
+      [
+        resolvedUserId,
+        planRow.id,
+        title,
+        description,
+        goal.type,
+        goal.source,
+        goal.targetAmount,
+        goal.transactionType,
+        goal.categoryIds,
+        goal.startDate,
+        goal.endDate,
+      ],
+    );
+
+    if (items) {
+      await replacePlanItems(client, planRow.id, items);
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return getPlanDetail(resolvedUserId, publicId);
+}
+
+export async function deletePlan(userId, publicId) {
+  const resolvedUserId = await requireUserId(userId);
+  const result = await pool.query(
+    `
+      DELETE FROM plans
+      WHERE user_id = $1 AND public_id = $2
+    `,
+    [resolvedUserId, publicId],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("plan not found");
+  }
+}
+
+export async function linkChatToPlan(userId, planPublicId, chatPublicId) {
+  const resolvedUserId = await requireUserId(userId);
+  const planRow = await getPlanRowByPublicId(resolvedUserId, planPublicId);
+
+  if (!planRow) {
+    throw new Error("plan not found");
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE chat_conversations
+      SET plan_id = $3, updated_at = NOW()
+      WHERE user_id = $1 AND public_id = $2
+      RETURNING public_id
+    `,
+    [resolvedUserId, chatPublicId, planRow.id],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("chat not found");
+  }
+
+  return getPlanDetail(resolvedUserId, planPublicId);
+}
+
+export async function unlinkChatFromPlan(userId, planPublicId, chatPublicId) {
+  const resolvedUserId = await requireUserId(userId);
+  const planRow = await getPlanRowByPublicId(resolvedUserId, planPublicId);
+
+  if (!planRow) {
+    throw new Error("plan not found");
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE chat_conversations
+      SET plan_id = NULL, updated_at = NOW()
+      WHERE user_id = $1 AND public_id = $2 AND plan_id = $3
+      RETURNING public_id
+    `,
+    [resolvedUserId, chatPublicId, planRow.id],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("chat not found");
+  }
+
+  return getPlanDetail(resolvedUserId, planPublicId);
+}
+
+async function buildPlanAiChatPayload(userId, chatPublicId) {
+  const resolvedUserId = await requireUserId(userId);
+  const conversation = await getChatConversationByPublicId(resolvedUserId, chatPublicId);
+
+  if (!conversation) {
+    throw new Error("chat not found");
+  }
+
+  const [messages, context, categories] = await Promise.all([
+    listChatMessages(resolvedUserId, chatPublicId, 30),
+    buildChatAdvisorContext(resolvedUserId, []),
+    listCategories(),
+  ]);
+
+  return {
+    userId: resolvedUserId,
+    chat: {
+      id: conversation.public_id,
+      title: conversation.title,
+      messages: messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt,
+      })),
+    },
+    context: {
+      ...context,
+      categories: categories.map((category) => ({
+        id: category.id,
+        label: category.label,
+        transactionType: category.transactionType,
+        groupLabel: category.groupLabel,
+      })),
+    },
+  };
+}
+
+export async function generatePlanDraftFromChat(userId, chatPublicId) {
+  const payload = await buildPlanAiChatPayload(userId, chatPublicId);
+  return generatePlanDraft({
+    chat: payload.chat,
+    context: payload.context,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+export async function suggestPlanLinkForChat(userId, chatPublicId) {
+  const payload = await buildPlanAiChatPayload(userId, chatPublicId);
+  const plans = await listPlans(payload.userId);
+
+  if (!plans.length) {
+    return {
+      action: "create",
+      planId: null,
+      rationale: "Nenhum planejamento existente foi encontrado para este chat.",
+    };
+  }
+
+  return suggestPlanLink({
+    chat: payload.chat,
+    plans: plans.map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      description: plan.description,
+      items: plan.items.map((item) => ({ title: item.title, status: item.status })),
+    })),
+    generatedAt: new Date().toISOString(),
+  });
+}
+
 function mapChatConversation(row) {
   return {
     id: row.public_id,
     title: row.title,
+    pinned: Boolean(row.pinned),
+    planId: row.plan_public_id ?? null,
+    planTitle: row.plan_title ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapChatSearchResult(row) {
+  return {
+    chatId: row.public_id,
+    title: row.title,
+    matchedText: row.matched_text,
+    matchedAt: row.matched_at,
+    matchType: row.match_type,
   };
 }
 
@@ -2594,6 +3299,10 @@ function buildFallbackChatTitle(message) {
   }
 
   const withoutTrailingPunctuation = normalized.replace(/[?.!,;:]+$/g, "");
+  if (!withoutTrailingPunctuation) {
+    return "Novo chat";
+  }
+
   return withoutTrailingPunctuation.length > 60
     ? `${withoutTrailingPunctuation.slice(0, 57).trim()}...`
     : withoutTrailingPunctuation;
@@ -2602,9 +3311,18 @@ function buildFallbackChatTitle(message) {
 async function getChatConversationByPublicId(userId, publicId) {
   const result = await pool.query(
     `
-      SELECT id, public_id, title, created_at, updated_at
-      FROM chat_conversations
-      WHERE user_id = $1 AND public_id = $2
+      SELECT
+        c.id,
+        c.public_id,
+        c.title,
+        c.pinned,
+        p.public_id AS plan_public_id,
+        p.title AS plan_title,
+        c.created_at,
+        c.updated_at
+      FROM chat_conversations c
+      LEFT JOIN plans p ON p.id = c.plan_id
+      WHERE c.user_id = $1 AND c.public_id = $2
     `,
     [userId, publicId],
   );
@@ -2615,10 +3333,19 @@ async function getChatConversationByPublicId(userId, publicId) {
 async function getLatestChatConversation(userId) {
   const result = await pool.query(
     `
-      SELECT id, public_id, title, created_at, updated_at
-      FROM chat_conversations
-      WHERE user_id = $1
-      ORDER BY updated_at DESC, id DESC
+      SELECT
+        c.id,
+        c.public_id,
+        c.title,
+        c.pinned,
+        p.public_id AS plan_public_id,
+        p.title AS plan_title,
+        c.created_at,
+        c.updated_at
+      FROM chat_conversations c
+      LEFT JOIN plans p ON p.id = c.plan_id
+      WHERE c.user_id = $1
+      ORDER BY c.pinned DESC, c.updated_at DESC, c.id DESC
       LIMIT 1
     `,
     [userId],
@@ -2631,10 +3358,18 @@ export async function listChatConversations(userId) {
   const resolvedUserId = await requireUserId(userId);
   const result = await pool.query(
     `
-      SELECT public_id, title, created_at, updated_at
-      FROM chat_conversations
-      WHERE user_id = $1
-      ORDER BY updated_at DESC, id DESC
+      SELECT
+        c.public_id,
+        c.title,
+        c.pinned,
+        p.public_id AS plan_public_id,
+        p.title AS plan_title,
+        c.created_at,
+        c.updated_at
+      FROM chat_conversations c
+      LEFT JOIN plans p ON p.id = c.plan_id
+      WHERE c.user_id = $1
+      ORDER BY c.pinned DESC, c.updated_at DESC, c.id DESC
     `,
     [resolvedUserId],
   );
@@ -2648,12 +3383,114 @@ export async function createChatConversation(userId) {
     `
       INSERT INTO chat_conversations (user_id, public_id, title)
       VALUES ($1, $2, 'Novo chat')
-      RETURNING public_id, title, created_at, updated_at
+      RETURNING public_id, title, pinned, NULL::text AS plan_public_id, NULL::text AS plan_title, created_at, updated_at
     `,
     [resolvedUserId, randomUUID()],
   );
 
   return mapChatConversation(result.rows[0]);
+}
+
+export async function updateChatConversation(userId, publicId, input = {}) {
+  const resolvedUserId = await requireUserId(userId);
+  const hasTitle = typeof input.title === "string";
+  const hasPinned = typeof input.pinned === "boolean";
+
+  if (!hasTitle && !hasPinned) {
+    throw new Error("chat update is required");
+  }
+
+  const title = hasTitle ? buildFallbackChatTitle(input.title) : null;
+
+  if (hasTitle && title === "Novo chat" && !input.title.trim()) {
+    throw new Error("chat title is required");
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE chat_conversations
+      SET
+        title = CASE WHEN $3 THEN $4 ELSE title END,
+        pinned = CASE WHEN $5 THEN $6 ELSE pinned END
+      WHERE user_id = $1 AND public_id = $2
+      RETURNING
+        public_id,
+        title,
+        pinned,
+        (SELECT public_id FROM plans WHERE id = chat_conversations.plan_id) AS plan_public_id,
+        (SELECT title FROM plans WHERE id = chat_conversations.plan_id) AS plan_title,
+        created_at,
+        updated_at
+    `,
+    [resolvedUserId, publicId, hasTitle, title, hasPinned, input.pinned ?? false],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("chat not found");
+  }
+
+  return mapChatConversation(result.rows[0]);
+}
+
+export async function searchChatConversations(userId, query, limit = 12) {
+  const resolvedUserId = await requireUserId(userId);
+  const normalizedQuery = String(query ?? "").replace(/\s+/g, " ").trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const safeLimit = Math.min(Math.max(Number.parseInt(String(limit ?? 12), 10) || 12, 1), 30);
+  const pattern = `%${normalizedQuery}%`;
+  const result = await pool.query(
+    `
+      WITH title_matches AS (
+        SELECT
+          c.public_id,
+          c.title,
+          c.title AS matched_text,
+          c.updated_at AS matched_at,
+          'title' AS match_type,
+          1 AS priority
+        FROM chat_conversations c
+        WHERE c.user_id = $1 AND c.title ILIKE $2
+      ),
+      message_matches AS (
+        SELECT DISTINCT ON (c.id)
+          c.public_id,
+          c.title,
+          cm.content AS matched_text,
+          cm.created_at AS matched_at,
+          'message' AS match_type,
+          2 AS priority
+        FROM chat_conversations c
+        INNER JOIN chat_messages cm ON cm.chat_id = c.id
+        WHERE c.user_id = $1 AND cm.content ILIKE $2
+        ORDER BY c.id, cm.created_at DESC, cm.id DESC
+      )
+      SELECT public_id, title, matched_text, matched_at, match_type
+      FROM (
+        SELECT DISTINCT ON (public_id)
+          public_id,
+          title,
+          matched_text,
+          matched_at,
+          match_type,
+          priority
+        FROM (
+          SELECT * FROM title_matches
+          UNION ALL
+          SELECT * FROM message_matches
+        ) matches
+        ORDER BY public_id, priority ASC, matched_at DESC
+      ) ranked
+      ORDER BY priority ASC, matched_at DESC
+      LIMIT $3
+    `,
+    [resolvedUserId, pattern, safeLimit],
+  );
+
+  return result.rows.map(mapChatSearchResult);
 }
 
 export async function deleteChatConversation(userId, publicId) {
@@ -2881,7 +3718,14 @@ async function updateChatConversationTitle(userId, chatId, title) {
       UPDATE chat_conversations
       SET title = $3, updated_at = NOW()
       WHERE user_id = $1 AND id = $2
-      RETURNING public_id, title, created_at, updated_at
+      RETURNING
+        public_id,
+        title,
+        pinned,
+        (SELECT public_id FROM plans WHERE id = chat_conversations.plan_id) AS plan_public_id,
+        (SELECT title FROM plans WHERE id = chat_conversations.plan_id) AS plan_title,
+        created_at,
+        updated_at
     `,
     [userId, chatId, normalizedTitle],
   );
@@ -2895,7 +3739,14 @@ async function touchChatConversation(userId, chatId) {
       UPDATE chat_conversations
       SET updated_at = NOW()
       WHERE user_id = $1 AND id = $2
-      RETURNING public_id, title, created_at, updated_at
+      RETURNING
+        public_id,
+        title,
+        pinned,
+        (SELECT public_id FROM plans WHERE id = chat_conversations.plan_id) AS plan_public_id,
+        (SELECT title FROM plans WHERE id = chat_conversations.plan_id) AS plan_title,
+        created_at,
+        updated_at
     `,
     [userId, chatId],
   );
@@ -2903,7 +3754,7 @@ async function touchChatConversation(userId, chatId) {
   return mapChatConversation(result.rows[0]);
 }
 
-export async function createChatReply(userId, publicId, message) {
+export async function createChatReply(userId, publicId, inputMessages) {
   const resolvedUserId = await requireUserId(userId);
   const conversation = await getChatConversationByPublicId(resolvedUserId, publicId);
 
@@ -2911,13 +3762,27 @@ export async function createChatReply(userId, publicId, message) {
     throw new Error("chat not found");
   }
 
+  const messages = (Array.isArray(inputMessages) ? inputMessages : [inputMessages])
+    .map((message) => String(message ?? "").trim())
+    .filter(Boolean);
+
+  if (!messages.length) {
+    throw new Error("message is required");
+  }
+
+  const combinedMessage = messages.join("\n\n");
   const previousMessages = await listChatMessages(resolvedUserId, conversation.public_id, 12);
   const isFirstMessage = previousMessages.length === 0;
-  const userMessage = {
-    ...(await insertChatMessage(resolvedUserId, conversation.id, "user", message)),
-    chatId: conversation.public_id,
-  };
-  const historyMessages = [...previousMessages, userMessage];
+  const userMessages = [];
+
+  for (const message of messages) {
+    userMessages.push({
+      ...(await insertChatMessage(resolvedUserId, conversation.id, "user", message)),
+      chatId: conversation.public_id,
+    });
+  }
+
+  const historyMessages = [...previousMessages, ...userMessages];
   const context = await buildChatAdvisorContext(resolvedUserId, historyMessages);
   const recentHistory = context.recentChatMessages.slice(-12).map((item) => ({
     role: item.role,
@@ -2925,7 +3790,7 @@ export async function createChatReply(userId, publicId, message) {
     createdAt: item.createdAt,
   }));
   const assistantReply = await generateChatReply({
-    message,
+    message: combinedMessage,
     generatedAt: new Date().toISOString(),
     context,
     history: recentHistory,
@@ -2949,12 +3814,12 @@ export async function createChatReply(userId, publicId, message) {
   if (isFirstMessage) {
     try {
       const title = await generateChatTitle({
-        message,
+        message: combinedMessage,
         generatedAt: new Date().toISOString(),
       });
       chat = await updateChatConversationTitle(resolvedUserId, conversation.id, title.content);
     } catch {
-      chat = await updateChatConversationTitle(resolvedUserId, conversation.id, buildFallbackChatTitle(message));
+      chat = await updateChatConversationTitle(resolvedUserId, conversation.id, buildFallbackChatTitle(messages[0]));
     }
   } else {
     chat = await touchChatConversation(resolvedUserId, conversation.id);
@@ -2962,7 +3827,8 @@ export async function createChatReply(userId, publicId, message) {
 
   return {
     chat,
-    userMessage,
+    userMessage: userMessages[0],
+    userMessages,
     assistantMessage,
   };
 }

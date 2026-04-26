@@ -14,6 +14,7 @@ import {
   previewTransactionImport,
 } from "@/lib/api";
 import { insightsQueryKey, spendingQueryKey } from "@/hooks/use-insights";
+import { plansQueryKey } from "@/hooks/use-plans";
 import type {
   CategoryItem,
   CreateCategoryInput,
@@ -102,6 +103,7 @@ export function useCreateTransaction(limit?: number) {
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+      queryClient.invalidateQueries({ queryKey: plansQueryKey });
     },
   });
 }
@@ -115,6 +117,7 @@ export function useUpdateTransaction(limit?: number) {
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+      queryClient.invalidateQueries({ queryKey: plansQueryKey });
     },
   });
 }
@@ -128,6 +131,7 @@ export function useDeleteTransaction(limit?: number) {
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey(limit) });
       queryClient.invalidateQueries({ queryKey: transactionsQueryKey() });
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
+      queryClient.invalidateQueries({ queryKey: plansQueryKey });
     },
   });
 }
@@ -159,6 +163,7 @@ export function useCommitTransactionImport() {
       queryClient.invalidateQueries({ queryKey: dashboardQueryKey });
       queryClient.invalidateQueries({ queryKey: spendingQueryKey });
       queryClient.invalidateQueries({ queryKey: insightsQueryKey });
+      queryClient.invalidateQueries({ queryKey: plansQueryKey });
       queryClient.removeQueries({ queryKey: transactionImportPreviewQueryKey });
     },
   });

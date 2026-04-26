@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { toast } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DEFAULT_CHAT_LIMIT, useChatConversationMessages, useSendChatConversationMessage } from "@/hooks/use-chat";
+import { DEFAULT_CHAT_LIMIT, useChatConversationMessages, useSendChatConversationMessages } from "@/hooks/use-chat";
 
 interface AiChatProps {
   chatId?: string;
@@ -76,10 +76,16 @@ function TypingIndicator() {
 
 export default function AiChat({ chatId }: AiChatProps) {
   const [input, setInput] = useState("");
+  const [queuedMessages, setQueuedMessages] = useState<Array<{ id: string; content: string; createdAt: string }>>([]);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const queuedMessagesRef = useRef(queuedMessages);
   const { data: messages = [], isLoading, isError, error } = useChatConversationMessages(chatId, DEFAULT_CHAT_LIMIT);
-  const sendMessage = useSendChatConversationMessage(chatId, DEFAULT_CHAT_LIMIT);
-  const pendingMessage = sendMessage.isPending && typeof sendMessage.variables === "string" ? sendMessage.variables : null;
+  const sendMessages = useSendChatConversationMessages(chatId, DEFAULT_CHAT_LIMIT);
+  const { isPending: isSendingMessages, mutateAsync: sendQueuedMessages } = sendMessages;
+
+  useEffect(() => {
+    queuedMessagesRef.current = queuedMessages;
+  }, [queuedMessages]);
 
   useEffect(() => {
     if (!isError) {
@@ -99,27 +105,60 @@ export default function AiChat({ chatId }: AiChatProps) {
     }
 
     container.scrollTop = container.scrollHeight;
-  }, [messages.length, pendingMessage]);
+  }, [messages.length, queuedMessages.length, isSendingMessages]);
+
+  useEffect(() => {
+    setInput("");
+    setQueuedMessages([]);
+    queuedMessagesRef.current = [];
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId || !queuedMessages.length || isSendingMessages) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      const messagesToSend = queuedMessagesRef.current;
+
+      if (!messagesToSend.length) {
+        return;
+      }
+
+      setQueuedMessages([]);
+      queuedMessagesRef.current = [];
+
+      try {
+        await sendQueuedMessages(messagesToSend.map((message) => message.content));
+      } catch (mutationError) {
+        setInput(messagesToSend.map((message) => message.content).join(" "));
+        toast.error("Nao foi possivel enviar sua mensagem.", {
+          description: getErrorMessage(mutationError, "Tente novamente em instantes."),
+        });
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [chatId, isSendingMessages, queuedMessages.length, sendQueuedMessages]);
 
   const handleSubmit = async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
 
     const message = input.trim();
 
-    if (!message || sendMessage.isPending || !chatId) {
+    if (!message || !chatId) {
       return;
     }
 
     setInput("");
-
-    try {
-      await sendMessage.mutateAsync(message);
-    } catch (mutationError) {
-      setInput(message);
-      toast.error("Nao foi possivel enviar sua mensagem.", {
-        description: getErrorMessage(mutationError, "Tente novamente em instantes."),
-      });
-    }
+    setQueuedMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        id: `queued-${Date.now()}-${currentMessages.length}`,
+        content: message,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
   };
 
   if (isLoading && !messages.length) {
@@ -144,7 +183,7 @@ export default function AiChat({ chatId }: AiChatProps) {
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
-        {!messages.length ? (
+        {!messages.length && !queuedMessages.length && !isSendingMessages ? (
           <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
             {isError ? "Nao foi possivel carregar a conversa agora." : "Comece uma conversa com o assistente."}
           </div>
@@ -178,17 +217,19 @@ export default function AiChat({ chatId }: AiChatProps) {
               </div>
             ))}
 
-            {pendingMessage ? (
-              <>
-                <div className="flex flex-row-reverse gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary">
-                    <User size={13} className="text-muted-foreground" />
-                  </div>
-                  <div className="max-w-full rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground sm:max-w-[85%]">
-                    {renderMessageContent(pendingMessage)}
-                  </div>
+            {queuedMessages.map((message) => (
+              <div key={message.id} className="flex flex-row-reverse gap-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary">
+                  <User size={13} className="text-muted-foreground" />
                 </div>
+                <div className="max-w-full rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground sm:max-w-[85%]">
+                  {renderMessageContent(message.content)}
+                </div>
+              </div>
+            ))}
 
+            {queuedMessages.length || isSendingMessages ? (
+              <>
                 <div className="flex gap-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
                     <Bot size={13} className="text-primary" />
@@ -215,10 +256,10 @@ export default function AiChat({ chatId }: AiChatProps) {
             />
             <button
               type="submit"
-              disabled={sendMessage.isPending || !input.trim() || !chatId}
+              disabled={!input.trim() || !chatId}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
-              {sendMessage.isPending ? (
+              {isSendingMessages ? (
                 <Loader2 size={14} className="animate-spin text-primary-foreground" />
               ) : (
                 <Send size={14} className="text-primary-foreground" />

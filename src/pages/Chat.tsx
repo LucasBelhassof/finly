@@ -45,6 +45,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -61,10 +69,15 @@ import {
   usePlans,
   useRevisePlanDraft,
 } from "@/hooks/use-plans";
+import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
 import { createPlanFormFromDraft, getPlanFormValidationError, normalizePlanForm, PlanFormFields, type PlanFormState } from "@/pages/Plans";
 import type { ChatConversation, PlanDraft } from "@/types/api";
+
+const EMPTY_SELECT_VALUE = "__empty__";
+const MODAL_SELECT_TRIGGER_CLASSNAME = "h-11 rounded-xl border-border/60 bg-secondary/35";
+const SCROLLABLE_MODAL_CONTENT_CLASSNAME = "h-[65vh] max-h-[40rem]";
 
 function getChatPath(chatId: string) {
   return `${appRoutes.chat}/${chatId}`;
@@ -98,6 +111,7 @@ export default function ChatPage() {
   const updateChat = useUpdateChatConversation();
   const { data: plans = [] } = usePlans();
   const { data: categories = [] } = useCategories();
+  const { data: investments = [] } = useInvestments();
   const linkChatToPlan = useLinkChatToPlan();
   const generatePlanDraft = useGeneratePlanDraft();
   const revisePlanDraft = useRevisePlanDraft();
@@ -179,7 +193,10 @@ export default function ChatPage() {
         source: "ai",
         targetAmount: null,
         transactionType: "expense",
+        targetModel: "category",
         categoryIds: [],
+        investmentBoxId: null,
+        investmentBox: null,
         startDate: null,
         endDate: null,
       },
@@ -538,46 +555,48 @@ export default function ChatPage() {
               autoFocus
             />
 
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
-              {!nonEmptySearch ? (
-                <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                  Digite um termo para encontrar chats.
-                </div>
-              ) : null}
-
-              {nonEmptySearch && isSearching ? (
-                <div className="rounded-lg bg-secondary/40 p-3 text-sm text-muted-foreground">Buscando chats...</div>
-              ) : null}
-
-              {nonEmptySearch && isSearchError ? (
-                <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                  Nao foi possivel buscar nos chats.
-                </div>
-              ) : null}
-
-              {nonEmptySearch && !isSearching && !isSearchError && !searchResults.length ? (
-                <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                  Nenhum chat encontrado.
-                </div>
-              ) : null}
-
-              {searchResults.map((result) => (
-                <button
-                  key={`${result.chatId}-${result.matchType}-${result.matchedAt}`}
-                  type="button"
-                  onClick={() => handleSearchResultClick(result.chatId)}
-                  className="w-full rounded-lg border border-border/40 bg-secondary/30 p-3 text-left transition-colors hover:bg-secondary/60"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-sm font-medium text-foreground">{result.title}</p>
-                    <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground">
-                      {result.matchType === "title" ? "Titulo" : "Mensagem"}
-                    </span>
+            <ScrollArea className="h-80 max-h-[50vh]">
+              <div className="space-y-2 pr-4">
+                {!nonEmptySearch ? (
+                  <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                    Digite um termo para encontrar chats.
                   </div>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{result.matchedText}</p>
-                </button>
-              ))}
-            </div>
+                ) : null}
+
+                {nonEmptySearch && isSearching ? (
+                  <div className="rounded-lg bg-secondary/40 p-3 text-sm text-muted-foreground">Buscando chats...</div>
+                ) : null}
+
+                {nonEmptySearch && isSearchError ? (
+                  <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                    Nao foi possivel buscar nos chats.
+                  </div>
+                ) : null}
+
+                {nonEmptySearch && !isSearching && !isSearchError && !searchResults.length ? (
+                  <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                    Nenhum chat encontrado.
+                  </div>
+                ) : null}
+
+                {searchResults.map((result) => (
+                  <button
+                    key={`${result.chatId}-${result.matchType}-${result.matchedAt}`}
+                    type="button"
+                    onClick={() => handleSearchResultClick(result.chatId)}
+                    className="w-full rounded-lg border border-border/40 bg-secondary/30 p-3 text-left transition-colors hover:bg-secondary/60"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="truncate text-sm font-medium text-foreground">{result.title}</p>
+                      <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground">
+                        {result.matchType === "title" ? "Titulo" : "Mensagem"}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{result.matchedText}</p>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
         </DialogContent>
       </Dialog>
@@ -594,18 +613,22 @@ export default function ChatPage() {
           </DialogHeader>
           {planningChat ? (
             <div className="space-y-4">
-              <select
-                value={selectedPlanId}
-                onChange={(event) => setSelectedPlanId(event.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              <Select
+                value={selectedPlanId || EMPTY_SELECT_VALUE}
+                onValueChange={(value) => setSelectedPlanId(value === EMPTY_SELECT_VALUE ? "" : value)}
               >
-                <option value="">Selecione um planejamento</option>
-                {plans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.title}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+                  <SelectValue placeholder="Selecione um planejamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EMPTY_SELECT_VALUE}>Selecione um planejamento</SelectItem>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {!plans.length ? (
                 <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
@@ -636,7 +659,7 @@ export default function ChatPage() {
       </Dialog>
 
       <Dialog open={planningReviewOpen} onOpenChange={(open) => (!open ? resetPlanningReview() : setPlanningReviewOpen(true))}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Revisar planejamento</DialogTitle>
             <DialogDescription>
@@ -652,44 +675,46 @@ export default function ChatPage() {
           ) : null}
 
           {draftForm ? (
-            <div className="space-y-5">
-              <PlanFormFields form={draftForm} categories={categories} onChange={setDraftForm} />
+            <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
+              <div className="space-y-5 pr-4">
+                <PlanFormFields form={draftForm} categories={categories} investments={investments} onChange={setDraftForm} />
 
-              <div className="rounded-lg border border-border/40 bg-secondary/20 p-3">
-                <div className="mb-3 space-y-2">
-                  {revisionMessages.length ? (
-                    revisionMessages.map((message, index) => (
-                      <div
-                        key={`${message.role}-${index}`}
-                        className={`rounded-lg px-3 py-2 text-sm ${
-                          message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-background text-muted-foreground"
-                        } max-w-[85%]`}
-                      >
-                        {message.content}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Peça ajustes antes de confirmar, sem gravar no historico do chat.</p>
-                  )}
-                </div>
-
-                <form onSubmit={handleReviseDraft} className="space-y-2">
-                  <Textarea
-                    value={correction}
-                    onChange={(event) => setCorrection(event.target.value)}
-                    placeholder="Ex.: reduza para 3 etapas e foque em cartao de credito"
-                    rows={2}
-                    disabled={planningInProgress}
-                  />
-                  <div className="flex justify-end">
-                    <Button type="submit" variant="secondary" disabled={!correction.trim() || planningInProgress}>
-                      {planningInProgress ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                      Corrigir rascunho
-                    </Button>
+                <div className="rounded-lg border border-border/40 bg-secondary/20 p-3">
+                  <div className="mb-3 space-y-2">
+                    {revisionMessages.length ? (
+                      revisionMessages.map((message, index) => (
+                        <div
+                          key={`${message.role}-${index}`}
+                          className={`rounded-lg px-3 py-2 text-sm ${
+                            message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-background text-muted-foreground"
+                          } max-w-[85%]`}
+                        >
+                          {message.content}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Peça ajustes antes de confirmar, sem gravar no historico do chat.</p>
+                    )}
                   </div>
-                </form>
+
+                  <form onSubmit={handleReviseDraft} className="space-y-2">
+                    <Textarea
+                      value={correction}
+                      onChange={(event) => setCorrection(event.target.value)}
+                      placeholder="Ex.: reduza para 3 etapas e foque em cartao de credito"
+                      rows={2}
+                      disabled={planningInProgress}
+                    />
+                    <div className="flex justify-end">
+                      <Button type="submit" variant="secondary" disabled={!correction.trim() || planningInProgress}>
+                        {planningInProgress ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                        Corrigir rascunho
+                      </Button>
+                    </div>
+                  </form>
+                </div>
               </div>
-            </div>
+            </ScrollArea>
           ) : null}
 
           <DialogFooter>

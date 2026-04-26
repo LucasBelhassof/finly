@@ -32,6 +32,7 @@ vi.mock("./pages/Housing.tsx", () => ({ default: () => <h1>Habitação</h1> }));
 vi.mock("./pages/Installments.tsx", () => ({ default: () => <h1>Parcelamentos</h1> }));
 vi.mock("./pages/Index.tsx", () => ({ default: () => <h1>Dashboard</h1> }));
 vi.mock("./pages/Insights.tsx", () => ({ default: () => <h1>Insights</h1> }));
+vi.mock("./pages/Investments.tsx", () => ({ default: () => <h1>Caixinhas</h1> }));
 vi.mock("./pages/NotFound.tsx", () => ({ default: () => <h1>Not found</h1> }));
 vi.mock("./pages/Onboarding.tsx", () => ({ default: () => <h1>Primeiros passos</h1> }));
 vi.mock("./pages/Profile.tsx", () => ({ default: () => <h1>Perfil</h1> }));
@@ -58,7 +59,7 @@ describe("App routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /habitacao/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /habita/i })).toBeInTheDocument();
     expect(window.location.pathname).toBe(appRoutes.expenseManagementHousing);
   });
 
@@ -67,7 +68,7 @@ describe("App routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /habitacao/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /habita/i })).toBeInTheDocument();
   });
 
   it("renders the metrics placeholder route", async () => {
@@ -75,7 +76,7 @@ describe("App routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /metricas/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /métricas|metricas/i })).toBeInTheDocument();
   });
 
   it("renders the recurring income route", async () => {
@@ -84,5 +85,22 @@ describe("App routes", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /receitas recorrentes/i })).toBeInTheDocument();
+  });
+
+  it("renders the savings goal route", async () => {
+    window.history.pushState({}, "", appRoutes.savingsGoal);
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /caixinhas/i })).toBeInTheDocument();
+  });
+
+  it("redirects legacy investments route to savings goal", async () => {
+    window.history.pushState({}, "", appRoutes.legacyInvestments);
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /caixinhas/i })).toBeInTheDocument();
+    expect(window.location.pathname).toBe(appRoutes.savingsGoal);
   });
 });

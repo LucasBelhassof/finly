@@ -12,12 +12,14 @@ import {
   createChatConversation,
   createChatReply,
   createHousing,
+  createInvestment,
   createPlan,
   createTransaction,
   deleteBankConnection,
   deleteCategory,
   deleteChatConversation,
   deleteHousing,
+  deleteInvestment,
   deletePlan,
   deleteTransaction,
   evaluatePlanWithAi,
@@ -35,6 +37,7 @@ import {
   listLatestChatMessages,
   listChatMessages,
   listHousing,
+  listInvestments,
   listInsights,
   listPlans,
   listPlanRecommendations,
@@ -51,6 +54,7 @@ import {
   updateBankConnection,
   updateCategory,
   updateHousing,
+  updateInvestment,
   updatePlan,
   updateTransaction,
 } from "./database.js";
@@ -173,6 +177,40 @@ export function createApp() {
     }
 
     await deleteHousing(getAuthenticatedUserId(request), housingId.value);
+    response.status(204).send();
+  });
+
+  app.get("/api/investments", async (request, response) => {
+    const investments = await listInvestments(getAuthenticatedUserId(request));
+    response.json({ investments });
+  });
+
+  app.post("/api/investments", async (request, response) => {
+    const investment = await createInvestment(getAuthenticatedUserId(request), request.body ?? {});
+    response.status(201).json(investment);
+  });
+
+  app.patch("/api/investments/:id", async (request, response) => {
+    const investmentId = parseIntegerRouteParam(request.params.id, "invalid_investment_id");
+
+    if (investmentId.error) {
+      response.status(400).json(investmentId);
+      return;
+    }
+
+    const investment = await updateInvestment(getAuthenticatedUserId(request), investmentId.value, request.body ?? {});
+    response.json(investment);
+  });
+
+  app.delete("/api/investments/:id", async (request, response) => {
+    const investmentId = parseIntegerRouteParam(request.params.id, "invalid_investment_id");
+
+    if (investmentId.error) {
+      response.status(400).json(investmentId);
+      return;
+    }
+
+    await deleteInvestment(getAuthenticatedUserId(request), investmentId.value);
     response.status(204).send();
   });
 

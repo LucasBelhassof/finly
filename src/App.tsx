@@ -30,6 +30,7 @@ const HousingPage = lazy(() => import("./pages/Housing.tsx"));
 const InstallmentsPage = lazy(() => import("./pages/Installments.tsx"));
 const Index = lazy(() => import("./pages/Index.tsx"));
 const InsightsPage = lazy(() => import("./pages/Insights.tsx"));
+const InvestmentsPage = lazy(() => import("./pages/Investments.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const NotificationsPage = lazy(() => import("./pages/Notifications.tsx"));
 const OnboardingPage = lazy(() => import("./pages/Onboarding.tsx"));
@@ -80,6 +81,8 @@ const App = () => (
                 <Route path={appRoutes.plans} element={<Suspense fallback={<PageLoader />}><PlansPage /></Suspense>} />
                 <Route path={appRoutes.planDetail} element={<Suspense fallback={<PageLoader />}><PlanDetailPage /></Suspense>} />
                 <Route path={appRoutes.insights} element={<Suspense fallback={<PageLoader />}><InsightsPage /></Suspense>} />
+                <Route path={appRoutes.savingsGoal} element={<Suspense fallback={<PageLoader />}><InvestmentsPage /></Suspense>} />
+                <Route path={appRoutes.legacyInvestments} element={<Navigate to={appRoutes.savingsGoal} replace />} />
                 <Route path={appRoutes.notifications} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
                 <Route path={`${appRoutes.notifications}/:recipientId`} element={<Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense>} />
                 <Route path={appRoutes.accounts} element={<Suspense fallback={<PageLoader />}><AccountsPage /></Suspense>} />

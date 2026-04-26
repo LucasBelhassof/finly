@@ -256,6 +256,65 @@ function normalizePlanGoalCategoryIds(value) {
   return Array.from(new Set(ids));
 }
 
+function normalizePlanGoalTargetModel(value) {
+  return value === "investment_box" ? "investment_box" : "category";
+}
+
+function normalizeInvestmentBox(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const name = String(value?.name ?? "").replace(/\s+/g, " ").trim();
+  const contributionMode = value?.contributionMode === "income_percentage" || value?.contribution_mode === "income_percentage"
+    ? "income_percentage"
+    : "fixed_amount";
+  const fixedAmountRaw = value?.fixedAmount ?? value?.fixed_amount;
+  const incomePercentageRaw = value?.incomePercentage ?? value?.income_percentage;
+  const currentAmountRaw = value?.currentAmount ?? value?.current_amount;
+  const targetAmountRaw = value?.targetAmount ?? value?.target_amount;
+  const fixedAmount = fixedAmountRaw === undefined || fixedAmountRaw === null || fixedAmountRaw === "" ? null : Number(fixedAmountRaw);
+  const incomePercentage =
+    incomePercentageRaw === undefined || incomePercentageRaw === null || incomePercentageRaw === ""
+      ? null
+      : Number(incomePercentageRaw);
+  const currentAmount = currentAmountRaw === undefined || currentAmountRaw === null || currentAmountRaw === "" ? 0 : Number(currentAmountRaw);
+  const targetAmount = targetAmountRaw === undefined || targetAmountRaw === null || targetAmountRaw === "" ? null : Number(targetAmountRaw);
+
+  if (!name) {
+    return null;
+  }
+
+  if (contributionMode === "fixed_amount" && (!Number.isFinite(fixedAmount) || fixedAmount < 0)) {
+    return null;
+  }
+
+  if (contributionMode === "income_percentage" && (!Number.isFinite(incomePercentage) || incomePercentage < 0 || incomePercentage > 100)) {
+    return null;
+  }
+
+  if (!Number.isFinite(currentAmount) || currentAmount < 0) {
+    return null;
+  }
+
+  if (targetAmount !== null && (!Number.isFinite(targetAmount) || targetAmount < 0)) {
+    return null;
+  }
+
+  return {
+    name,
+    description: String(value?.description ?? "").trim(),
+    contributionMode,
+    fixedAmount: contributionMode === "fixed_amount" ? Number(fixedAmount.toFixed(2)) : null,
+    incomePercentage: contributionMode === "income_percentage" ? Number(incomePercentage.toFixed(2)) : null,
+    currentAmount: Number(currentAmount.toFixed(2)),
+    targetAmount: targetAmount === null ? null : Number(targetAmount.toFixed(2)),
+    status: value?.status === "paused" || value?.status === "archived" ? value.status : "active",
+    color: String(value?.color ?? "").trim() || null,
+    notes: String(value?.notes ?? "").trim(),
+  };
+}
+
 function normalizePlanGoal(value, fallback) {
   if (value?.type !== "transaction_sum") {
     return fallback;
@@ -269,12 +328,27 @@ function normalizePlanGoal(value, fallback) {
     return fallback;
   }
 
+  const targetModel = normalizePlanGoalTargetModel(value?.targetModel ?? value?.target_model);
+  const investmentBoxIdValue = value?.investmentBoxId ?? value?.investment_box_id;
+  const investmentBoxId =
+    investmentBoxIdValue === undefined || investmentBoxIdValue === null || investmentBoxIdValue === ""
+      ? null
+      : Number(investmentBoxIdValue);
+  const investmentBox = normalizeInvestmentBox(value?.investmentBox ?? value?.investment_box);
+
+  if (targetModel === "investment_box" && investmentBoxId === null && !investmentBox) {
+    return fallback;
+  }
+
   return {
     type: "transaction_sum",
     source: "ai",
     targetAmount: Number(targetAmount.toFixed(2)),
     transactionType: value?.transactionType === "income" || value?.transaction_type === "income" ? "income" : "expense",
-    categoryIds: normalizePlanGoalCategoryIds(value?.categoryIds ?? value?.category_ids),
+    targetModel,
+    categoryIds: targetModel === "category" ? normalizePlanGoalCategoryIds(value?.categoryIds ?? value?.category_ids) : [],
+    investmentBoxId: targetModel === "investment_box" && Number.isInteger(investmentBoxId) ? investmentBoxId : null,
+    investmentBox: targetModel === "investment_box" ? investmentBox : null,
     startDate,
     endDate,
   };
@@ -291,7 +365,10 @@ function buildFallbackPlanDraft(chat) {
       source: "ai",
       targetAmount: null,
       transactionType: "expense",
+      targetModel: "category",
       categoryIds: [],
+      investmentBoxId: null,
+      investmentBox: null,
       startDate: null,
       endDate: null,
     },

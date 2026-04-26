@@ -18,6 +18,8 @@ export const appRoutes = {
   plans: "/plans",
   planDetail: "/plans/:planId",
   insights: "/insights",
+  savingsGoal: "/savings-goal",
+  legacyInvestments: "/investments",
   notifications: "/notifications",
   accounts: "/accounts",
   admin: "/admin",

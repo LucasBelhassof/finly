@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, FileSpreadsheet, Plus, Upload, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import ImportPreviewTable, { type ImportPreviewTableRow } from "@/components/transactions/ImportPreviewTable";
 import { Button } from "@/components/ui/button";
@@ -161,6 +161,8 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
 
   const pageCount = Math.max(1, Math.ceil(previewRows.length / PAGE_SIZE));
   const shouldShowFilePassword = importSource === "credit_card_statement" || /\.pdf$/i.test(selectedFile?.name ?? "");
+  const fileAccept =
+    importSource === "credit_card_statement" ? ".csv,.pdf,text/csv,application/pdf" : ".csv,text/csv";
   const currentRows = useMemo(() => {
     const startIndex = (page - 1) * PAGE_SIZE;
     return previewRows.slice(startIndex, startIndex + PAGE_SIZE);
@@ -190,6 +192,12 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount));
   }, [pageCount]);
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setSelectedFile(event.target.files?.[0] ?? null);
+    setFilePassword("");
+    event.target.value = "";
+  };
 
   const handlePreview = async () => {
     if (!selectedFile) {
@@ -403,7 +411,18 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
             </DialogDescription>
           </DialogHeader>
 
-          <div data-testid="import-preview-body" className="scrollbar-app min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
+          <Input
+            ref={inputRef}
+            type="file"
+            accept={fileAccept}
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden="true"
+            onChange={handleFileChange}
+          />
+
+          <ScrollArea data-testid="import-preview-body" className="min-h-0 flex-1">
+            <div className="px-6 py-5">
             <div className="space-y-6">
               {!previews.length ? (
                 <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4">
@@ -466,16 +485,6 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
 
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                       <div className="flex-1">
-                        <input
-                          ref={inputRef}
-                          type="file"
-                          accept={importSource === "credit_card_statement" ? ".csv,.pdf,text/csv,application/pdf" : ".csv,text/csv"}
-                          className="hidden"
-                          onChange={(event) => {
-                            setSelectedFile(event.target.files?.[0] ?? null);
-                            setFilePassword("");
-                          }}
-                        />
                         <button
                           type="button"
                           onClick={() => inputRef.current?.click()}
@@ -541,16 +550,6 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                         <Button variant="outline" onClick={handleResetImport}>
                           Nova importação
                         </Button>
-                        <input
-                          ref={inputRef}
-                          type="file"
-                          accept={importSource === "credit_card_statement" ? ".csv,.pdf,text/csv,application/pdf" : ".csv,text/csv"}
-                          className="hidden"
-                          onChange={(event) => {
-                            setSelectedFile(event.target.files?.[0] ?? null);
-                            setFilePassword("");
-                          }}
-                        />
                         <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
                           <Plus size={16} />
                           {importSource === "credit_card_statement" ? "Adicionar fatura" : "Adicionar arquivo"}
@@ -657,13 +656,13 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                   </div>
 
                   <div className="min-w-0 overflow-hidden rounded-2xl border border-border/50 bg-card">
-                    <ScrollArea className="scrollbar-app w-full">
+                    <ScrollArea className="w-full">
                       <ImportPreviewTable
                         categories={categories}
                         rows={currentRows}
                         onChangeDraft={handleChangeDraft}
                       />
-                      <ScrollBar orientation="horizontal" className="bg-secondary/20" />
+                      <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                   </div>
 
@@ -688,7 +687,8 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                 </>
               ) : null}
             </div>
-          </div>
+            </div>
+          </ScrollArea>
 
           <DialogFooter
             data-testid="import-preview-footer"

@@ -24,8 +24,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { useChatConversationMessages, useChatConversations } from "@/hooks/use-chat";
+import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import {
   useApplyPlanRecommendation,
@@ -54,6 +63,10 @@ import {
   type PlanFormState,
 } from "@/pages/Plans";
 import type { ChatConversation, ChatMessage } from "@/types/api";
+
+const EMPTY_SELECT_VALUE = "__empty__";
+const MODAL_SELECT_TRIGGER_CLASSNAME = "h-11 rounded-xl border-border/60 bg-secondary/35";
+const SCROLLABLE_MODAL_CONTENT_CLASSNAME = "h-[65vh] max-h-[40rem]";
 
 function getMessagePreview(content: string, maxLength = 170) {
   const normalized = content.replace(/\s+/g, " ").trim();
@@ -204,6 +217,7 @@ export default function PlanDetailPage() {
   const { data: plan, isLoading, isError } = usePlan(planId);
   const { data: chats = [] } = useChatConversations();
   const { data: categories = [] } = useCategories();
+  const { data: investments = [] } = useInvestments();
   const updatePlan = useUpdatePlan();
   const evaluatePlan = useEvaluatePlan();
   const applyRecommendation = useApplyPlanRecommendation();
@@ -555,14 +569,18 @@ export default function PlanDetailPage() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar planejamento</DialogTitle>
             <DialogDescription>Atualize o resumo, metas e regra de progresso.</DialogDescription>
           </DialogHeader>
           {planForm ? (
             <form onSubmit={handleSubmitEdit} className="space-y-5">
-              <PlanFormFields form={planForm} categories={categories} onChange={setPlanForm} />
+              <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
+                <div className="pr-4">
+                  <PlanFormFields form={planForm} categories={categories} investments={investments} onChange={setPlanForm} />
+                </div>
+              </ScrollArea>
               <DialogFooter>
                 <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
                   Cancelar
@@ -582,18 +600,19 @@ export default function PlanDetailPage() {
             <DialogTitle>Vincular chat</DialogTitle>
             <DialogDescription>Escolha um chat para anexar ao planejamento.</DialogDescription>
           </DialogHeader>
-          <select
-            value={linkChatId}
-            onChange={(event) => setLinkChatId(event.target.value)}
-            className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-          >
-            <option value="">Selecione um chat</option>
-            {unlinkedChats.map((chat) => (
-              <option key={chat.id} value={chat.id}>
-                {chat.title}
-              </option>
-            ))}
-          </select>
+          <Select value={linkChatId || EMPTY_SELECT_VALUE} onValueChange={(value) => setLinkChatId(value === EMPTY_SELECT_VALUE ? "" : value)}>
+            <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+              <SelectValue placeholder="Selecione um chat" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={EMPTY_SELECT_VALUE}>Selecione um chat</SelectItem>
+              {unlinkedChats.map((chat) => (
+                <SelectItem key={chat.id} value={chat.id}>
+                  {chat.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <DialogFooter>
             <Button variant="secondary" onClick={() => setLinkDialogOpen(false)}>
               Cancelar

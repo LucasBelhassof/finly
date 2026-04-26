@@ -15,6 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { useChatConversations } from "@/hooks/use-chat";
@@ -24,6 +32,7 @@ import {
   usePlans,
   useSuggestPlanLink,
 } from "@/hooks/use-plans";
+import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
 import type {
@@ -34,7 +43,9 @@ import type {
   PlanDraft,
   PlanGoal,
   PlanGoalSource,
+  PlanGoalTargetModel,
   PlanGoalType,
+  InvestmentItem,
   PlanItemStatus,
   PlanPriority,
   PlanTransactionType,
@@ -52,7 +63,10 @@ export interface PlanFormGoal {
   source: PlanGoalSource;
   targetAmount: string;
   transactionType: PlanTransactionType;
+  targetModel: PlanGoalTargetModel;
   categoryIds: string[];
+  investmentBoxId: string;
+  investmentBox: InvestmentItem | null;
   startDate: string;
   endDate: string;
 }
@@ -68,6 +82,11 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+
+const EMPTY_SELECT_VALUE = "__empty__";
+const MODAL_SELECT_TRIGGER_CLASSNAME = "h-11 rounded-xl border-border/60 bg-secondary/35";
+const INLINE_SELECT_TRIGGER_CLASSNAME = "h-10 rounded-md border-border/60 bg-background";
+const SCROLLABLE_MODAL_CONTENT_CLASSNAME = "h-[65vh] max-h-[40rem]";
 
 function formatInputDate(date: Date) {
   const year = date.getFullYear();
@@ -95,7 +114,10 @@ function createEmptyGoal(source: PlanGoalSource = "manual"): PlanFormGoal {
     source,
     targetAmount: "",
     transactionType: "expense",
+    targetModel: "category",
     categoryIds: [],
+    investmentBoxId: "",
+    investmentBox: null,
     startDate: range.startDate,
     endDate: range.endDate,
   };
@@ -136,7 +158,10 @@ function createGoalFormFromGoal(goal: PlanGoal): PlanFormGoal {
     source: goal.source,
     targetAmount: formatAmountInput(goal.targetAmount),
     transactionType: goal.transactionType,
+    targetModel: goal.targetModel,
     categoryIds: goal.categoryIds.map((categoryId) => String(categoryId)),
+    investmentBoxId: goal.investmentBoxId ? String(goal.investmentBoxId) : "",
+    investmentBox: goal.investmentBox,
     startDate: goal.startDate ?? range.startDate,
     endDate: goal.endDate ?? range.endDate,
   };
@@ -182,7 +207,10 @@ export function normalizePlanForm(form: PlanFormState): CreatePlanInput {
           source: form.goal.source,
           targetAmount: Number(parseAmountInput(form.goal.targetAmount).toFixed(2)),
           transactionType: form.goal.transactionType,
-          categoryIds: form.goal.categoryIds,
+          targetModel: form.goal.targetModel,
+          categoryIds: form.goal.targetModel === "category" ? form.goal.categoryIds : [],
+          investmentBoxId: form.goal.targetModel === "investment_box" && form.goal.investmentBoxId ? form.goal.investmentBoxId : null,
+          investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBox : null,
           startDate: form.goal.startDate,
           endDate: form.goal.endDate,
         }
@@ -191,7 +219,10 @@ export function normalizePlanForm(form: PlanFormState): CreatePlanInput {
           source: form.goal.source,
           targetAmount: null,
           transactionType: "expense",
+          targetModel: "category",
           categoryIds: [],
+          investmentBoxId: null,
+          investmentBox: null,
           startDate: null,
           endDate: null,
         };
@@ -233,6 +264,10 @@ export function getPlanFormValidationError(form: PlanFormState) {
     return "A data inicial precisa ser anterior a data final.";
   }
 
+  if (form.goal.targetModel === "investment_box" && !form.goal.investmentBoxId && !form.goal.investmentBox) {
+    return "Selecione ou crie uma caixinha para a meta.";
+  }
+
   return null;
 }
 
@@ -270,6 +305,10 @@ function getTransactionTypeLabel(type: PlanTransactionType) {
 }
 
 function getGoalCategoryLabels(goal: PlanGoal, categories: CategoryItem[]) {
+  if (goal.targetModel === "investment_box") {
+    return goal.investmentBox?.name ?? "Caixinha";
+  }
+
   const categoryIds = new Set(goal.categoryIds.map((categoryId) => String(categoryId)));
 
   if (!categoryIds.size) {
@@ -287,7 +326,7 @@ function getGoalCategoryLabels(goal: PlanGoal, categories: CategoryItem[]) {
   return labels.length > 2 ? `${labels.slice(0, 2).join(", ")} +${labels.length - 2}` : labels.join(", ");
 }
 
-export function getPlanGoalSummary(plan: Plan, categories: CategoryItem[]) {
+export function getPlanGoalSummary(plan: Plan, _categories: CategoryItem[]) {
   if (plan.goal.type === "transaction_sum") {
     return `${plan.progress.formattedCurrentValue ?? formatCurrency(plan.progress.currentValue)} de ${
       plan.progress.formattedTargetValue ?? formatCurrency(plan.goal.targetAmount)
@@ -384,10 +423,12 @@ export function PlanCard({
 export function PlanFormFields({
   form,
   categories,
+  investments,
   onChange,
 }: {
   form: PlanFormState;
   categories: CategoryItem[];
+  investments: InvestmentItem[];
   onChange: (form: PlanFormState) => void;
 }) {
   const availableGoalCategories = categories.filter((category) => category.transactionType === form.goal.transactionType);
@@ -415,7 +456,7 @@ export function PlanFormFields({
     const nextItems = form.items.filter((_item, currentIndex) => currentIndex !== index);
     onChange({
       ...form,
-      items: nextItems.length ? nextItems : [{ title: "", description: "", status: "todo" }],
+      items: nextItems.length ? nextItems : [{ title: "", description: "", status: "todo", priority: "medium" }],
     });
   };
 
@@ -426,6 +467,9 @@ export function PlanFormFields({
 
     updateGoal({ categoryIds });
   };
+
+  const selectedInvestment =
+    investments.find((investment) => String(investment.id) === form.goal.investmentBoxId) ?? form.goal.investmentBox;
 
   return (
     <div className="space-y-4">
@@ -447,14 +491,22 @@ export function PlanFormFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Tipo de progresso</label>
-            <select
+            <Select
               value={form.goal.type}
-              onChange={(event) => updateGoal({ type: event.target.value === "transaction_sum" ? "transaction_sum" : "items" })}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              onValueChange={(value: PlanGoalType) =>
+                updateGoal({
+                  type: value === "transaction_sum" ? "transaction_sum" : "items",
+                })
+              }
             >
-              <option value="items">Itens concluidos</option>
-              <option value="transaction_sum">Meta por transacoes</option>
-            </select>
+              <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+                <SelectValue placeholder="Tipo de progresso" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="items">Itens concluidos</SelectItem>
+                <SelectItem value="transaction_sum">Meta por transacoes</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {form.goal.type === "transaction_sum" ? (
@@ -482,19 +534,25 @@ export function PlanFormFields({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Transacoes</label>
-                <select
+                <Select
                   value={form.goal.transactionType}
-                  onChange={(event) =>
+                  onValueChange={(value: PlanTransactionType) =>
                     updateGoal({
-                      transactionType: event.target.value === "income" ? "income" : "expense",
+                      transactionType: value === "income" ? "income" : "expense",
                       categoryIds: [],
+                      investmentBoxId: "",
+                      investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBox : null,
                     })
                   }
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
                 >
-                  <option value="expense">Despesas</option>
-                  <option value="income">Receitas</option>
-                </select>
+                  <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+                    <SelectValue placeholder="Transacoes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expense">Despesas</SelectItem>
+                    <SelectItem value="income">Receitas</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Inicio</label>
@@ -507,28 +565,105 @@ export function PlanFormFields({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Categorias</label>
-              <div className="grid max-h-40 grid-cols-1 gap-2 overflow-y-auto rounded-md border border-border/40 bg-background p-3 sm:grid-cols-2">
-                {availableGoalCategories.length ? (
-                  availableGoalCategories.map((category) => {
-                    const categoryId = String(category.id);
-                    const checked = form.goal.categoryIds.includes(categoryId);
+              <label className="text-sm font-medium text-foreground">Acompanhar por</label>
+              <Select
+                value={form.goal.targetModel}
+                onValueChange={(value: PlanGoalTargetModel) => {
+                  const nextTargetModel = value === "investment_box" ? "investment_box" : "category";
+                  updateGoal({
+                    targetModel: nextTargetModel,
+                    transactionType: nextTargetModel === "investment_box" ? "income" : form.goal.transactionType,
+                    categoryIds: nextTargetModel === "category" ? form.goal.categoryIds : [],
+                    investmentBoxId: nextTargetModel === "investment_box" ? form.goal.investmentBoxId : "",
+                    investmentBox: nextTargetModel === "investment_box" ? form.goal.investmentBox : null,
+                  });
+                }}
+              >
+                <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+                  <SelectValue placeholder="Acompanhar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="category">Categorias</SelectItem>
+                  <SelectItem value="investment_box">Caixinha</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                    return (
-                      <label key={categoryId} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Checkbox checked={checked} onCheckedChange={(value) => toggleCategory(categoryId, Boolean(value))} />
-                        <span className="truncate">{category.label}</span>
-                      </label>
-                    );
-                  })
+            {form.goal.targetModel === "category" ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Categorias</label>
+                <ScrollArea className="h-40 rounded-md border border-border/40 bg-background">
+                  <div className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2">
+                    {availableGoalCategories.length ? (
+                      availableGoalCategories.map((category) => {
+                        const categoryId = String(category.id);
+                        const checked = form.goal.categoryIds.includes(categoryId);
+
+                        return (
+                          <label key={categoryId} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Checkbox checked={checked} onCheckedChange={(value) => toggleCategory(categoryId, Boolean(value))} />
+                            <span className="truncate">{category.label}</span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Nenhuma categoria disponivel.</span>
+                    )}
+                  </div>
+                </ScrollArea>
+                <p className="text-xs text-muted-foreground">
+                  Se nenhuma categoria for marcada, todas as categorias deste tipo entram no calculo.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Caixinha</label>
+                <Select
+                  value={form.goal.investmentBoxId || EMPTY_SELECT_VALUE}
+                  onValueChange={(value) => {
+                    const nextInvestmentBoxId = value === EMPTY_SELECT_VALUE ? "" : value;
+                    const investment = investments.find((item) => String(item.id) === nextInvestmentBoxId) ?? null;
+                    updateGoal({
+                      investmentBoxId: nextInvestmentBoxId,
+                      investmentBox: investment,
+                      transactionType: "income",
+                    });
+                  }}
+                >
+                  <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
+                    <SelectValue placeholder="Selecione uma caixinha" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EMPTY_SELECT_VALUE}>Selecione uma caixinha</SelectItem>
+                    {investments.map((investment) => (
+                      <SelectItem key={investment.id} value={String(investment.id)}>
+                        {investment.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedInvestment ? (
+                  <div className="rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">{selectedInvestment.name}</p>
+                    <p className="mt-1">
+                      {selectedInvestment.contributionMode === "income_percentage"
+                        ? `${selectedInvestment.incomePercentage ?? 0}% da receita`
+                        : `${formatCurrency(selectedInvestment.fixedAmount)} fixo`}
+                    </p>
+                    <p className="mt-1">Saldo atual: {selectedInvestment.formattedCurrentAmount}</p>
+                    {selectedInvestment.id === "investment" || selectedInvestment.id === "draft-investment-box" ? (
+                      <p className="mt-2 text-xs text-primary">
+                        Esta caixinha sera criada automaticamente ao salvar o planejamento.
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
-                  <span className="text-sm text-muted-foreground">Nenhuma categoria disponivel.</span>
+                  <p className="text-xs text-muted-foreground">
+                    Escolha uma caixinha existente ou mantenha a sugestao criada pela IA no rascunho.
+                  </p>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Se nenhuma categoria for marcada, todas as categorias deste tipo entram no calculo.
-              </p>
-            </div>
+            )}
           </div>
         ) : null}
       </div>
@@ -557,27 +692,37 @@ export function PlanFormFields({
                 onChange={(event) => updateItem(index, { title: event.target.value })}
                 placeholder="Acao planejada"
               />
-              <select
+              <Select
                 value={item.status}
-                onChange={(event) => updateItem(index, { status: event.target.value === "done" ? "done" : "todo" })}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                onValueChange={(value: PlanItemStatus) =>
+                  updateItem(index, { status: value === "done" ? "done" : "todo" })
+                }
               >
-                <option value="todo">A fazer</option>
-                <option value="done">Concluido</option>
-              </select>
-              <select
+                <SelectTrigger className={`w-[140px] ${INLINE_SELECT_TRIGGER_CLASSNAME}`}>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todo">A fazer</SelectItem>
+                  <SelectItem value="done">Concluido</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
                 value={item.priority}
-                onChange={(event) =>
+                onValueChange={(value: PlanPriority) =>
                   updateItem(index, {
-                    priority: event.target.value === "high" || event.target.value === "low" ? event.target.value : "medium",
+                    priority: value === "high" || value === "low" ? value : "medium",
                   })
                 }
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               >
-                <option value="high">Alta</option>
-                <option value="medium">Media</option>
-                <option value="low">Baixa</option>
-              </select>
+                <SelectTrigger className={`w-[150px] ${INLINE_SELECT_TRIGGER_CLASSNAME}`}>
+                  <SelectValue placeholder="Prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="medium">Media</SelectItem>
+                  <SelectItem value="low">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Textarea
               value={item.description}
@@ -602,6 +747,7 @@ export default function PlansPage() {
   const { data: plans = [], isLoading, isError } = usePlans();
   const { data: chats = [] } = useChatConversations();
   const { data: categories = [] } = useCategories();
+  const { data: investments = [] } = useInvestments();
   const navigate = useNavigate();
   const createPlan = useCreatePlan();
   const generateDraft = useGeneratePlanDraft();
@@ -776,13 +922,17 @@ export default function PlansPage() {
           setManualDialogOpen(open);
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Novo planejamento</DialogTitle>
             <DialogDescription>Defina um plano com itens acionaveis e uma meta de progresso.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitPlan} className="space-y-5">
-            <PlanFormFields form={planForm} categories={categories} onChange={setPlanForm} />
+            <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
+              <div className="pr-4">
+                <PlanFormFields form={planForm} categories={categories} investments={investments} onChange={setPlanForm} />
+              </div>
+            </ScrollArea>
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setManualDialogOpen(false)}>
                 Cancelar
@@ -796,35 +946,45 @@ export default function PlansPage() {
       </Dialog>
 
       <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Gerar planejamento com IA</DialogTitle>
             <DialogDescription>Escolha um chat, gere um rascunho e revise antes de salvar.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row">
-              <select
-                value={aiChatId}
-                onChange={(event) => {
-                  setAiChatId(event.target.value);
+              <Select
+                value={aiChatId || EMPTY_SELECT_VALUE}
+                onValueChange={(value) => {
+                  setAiChatId(value === EMPTY_SELECT_VALUE ? "" : value);
                   setAiDraftForm(null);
                 }}
-                className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground"
               >
-                <option value="">Selecione um chat</option>
-                {chats.map((chat) => (
-                  <option key={chat.id} value={chat.id}>
-                    {chat.title}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className={`flex-1 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
+                  <SelectValue placeholder="Selecione um chat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EMPTY_SELECT_VALUE}>Selecione um chat</SelectItem>
+                  {chats.map((chat) => (
+                    <SelectItem key={chat.id} value={chat.id}>
+                      {chat.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button onClick={handleGenerateDraft} disabled={generateDraft.isPending || !aiChatId}>
                 {generateDraft.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 Gerar
               </Button>
             </div>
 
-            {aiDraftForm ? <PlanFormFields form={aiDraftForm} categories={categories} onChange={setAiDraftForm} /> : null}
+            {aiDraftForm ? (
+              <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
+                <div className="pr-4">
+                  <PlanFormFields form={aiDraftForm} categories={categories} investments={investments} onChange={setAiDraftForm} />
+                </div>
+              </ScrollArea>
+            ) : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setAiDialogOpen(false)}>

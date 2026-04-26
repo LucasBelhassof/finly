@@ -852,6 +852,8 @@ export async function getInstallmentsOverview(userId, filters = {}) {
 
 const housingExpenseTypes = new Set(["rent", "home_financing", "electricity", "water", "condo", "vehicle_financing", "other"]);
 const housingFinancingTypes = new Set(["home_financing", "vehicle_financing"]);
+const investmentContributionModes = new Set(["fixed_amount", "income_percentage"]);
+const investmentStatuses = new Set(["active", "paused", "archived"]);
 
 function mapHousingRow(row, transactions = []) {
   const amount = parseNumeric(row.amount);
@@ -1284,6 +1286,318 @@ export async function deleteHousing(userId, housingId) {
 
   if (!result.rowCount) {
     throw new Error("housing expense not found");
+  }
+}
+
+function mapInvestmentRow(row) {
+  const currentAmount = parseNumeric(row.current_amount);
+  const targetAmount = row.target_amount === null || row.target_amount === undefined ? null : parseNumeric(row.target_amount);
+  const fixedAmount = row.fixed_amount === null || row.fixed_amount === undefined ? null : parseNumeric(row.fixed_amount);
+  const incomePercentage =
+    row.income_percentage === null || row.income_percentage === undefined ? null : parseNumeric(row.income_percentage);
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    contributionMode: row.contribution_mode,
+    fixedAmount,
+    incomePercentage,
+    currentAmount,
+    formattedCurrentAmount: formatCurrency(currentAmount),
+    targetAmount,
+    formattedTargetAmount: targetAmount === null ? null : formatCurrency(targetAmount),
+    status: investmentStatuses.has(row.status) ? row.status : "active",
+    color: row.color ?? null,
+    notes: row.notes ?? "",
+    bank:
+      row.bank_connection_id === null || row.bank_connection_id === undefined
+        ? null
+        : {
+            id: row.bank_connection_id,
+            slug: row.bank_slug,
+            name: row.bank_name,
+            accountType: row.bank_account_type,
+            color: row.bank_color,
+          },
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function validateInvestmentInput(input = {}, options = {}) {
+  const name = String(input.name ?? "").replace(/\s+/g, " ").trim();
+  const description = String(input.description ?? "").trim();
+  const contributionMode = String(input.contributionMode ?? input.contribution_mode ?? "").trim();
+  const fixedAmountValue = input.fixedAmount ?? input.fixed_amount;
+  const incomePercentageValue = input.incomePercentage ?? input.income_percentage;
+  const currentAmountValue = input.currentAmount ?? input.current_amount;
+  const targetAmountValue = input.targetAmount ?? input.target_amount;
+  const bankConnectionValue = input.bankConnectionId ?? input.bank_connection_id;
+  const status = String(input.status ?? "active").trim();
+  const color = String(input.color ?? "").trim() || null;
+  const notes = String(input.notes ?? "").trim();
+  const fixedAmount =
+    fixedAmountValue === undefined || fixedAmountValue === null || fixedAmountValue === "" ? null : Number(fixedAmountValue);
+  const incomePercentage =
+    incomePercentageValue === undefined || incomePercentageValue === null || incomePercentageValue === ""
+      ? null
+      : Number(incomePercentageValue);
+  const currentAmount =
+    currentAmountValue === undefined || currentAmountValue === null || currentAmountValue === "" ? 0 : Number(currentAmountValue);
+  const targetAmount =
+    targetAmountValue === undefined || targetAmountValue === null || targetAmountValue === "" ? null : Number(targetAmountValue);
+  const bankConnectionId =
+    bankConnectionValue === undefined || bankConnectionValue === null || bankConnectionValue === "" ? null : Number(bankConnectionValue);
+
+  if (!name) {
+    throw new Error("investment name is required");
+  }
+
+  if (!investmentContributionModes.has(contributionMode)) {
+    throw new Error("valid contributionMode is required");
+  }
+
+  if (contributionMode === "fixed_amount") {
+    if (!Number.isFinite(fixedAmount) || fixedAmount < 0) {
+      throw new Error("fixedAmount must be zero or greater");
+    }
+  }
+
+  if (contributionMode === "income_percentage") {
+    if (!Number.isFinite(incomePercentage) || incomePercentage < 0 || incomePercentage > 100) {
+      throw new Error("incomePercentage must be between 0 and 100");
+    }
+  }
+
+  if (!Number.isFinite(currentAmount) || currentAmount < 0) {
+    throw new Error("currentAmount must be zero or greater");
+  }
+
+  if (targetAmount !== null && (!Number.isFinite(targetAmount) || targetAmount < 0)) {
+    throw new Error("targetAmount must be zero or greater");
+  }
+
+  if (bankConnectionId !== null && !Number.isInteger(bankConnectionId)) {
+    throw new Error("bankConnectionId must be a valid integer");
+  }
+
+  if (!investmentStatuses.has(status)) {
+    throw new Error("valid investment status is required");
+  }
+
+  return {
+    name,
+    description,
+    contributionMode,
+    fixedAmount: contributionMode === "fixed_amount" ? Number(fixedAmount.toFixed(2)) : null,
+    incomePercentage: contributionMode === "income_percentage" ? Number(incomePercentage.toFixed(2)) : null,
+    currentAmount: Number(currentAmount.toFixed(2)),
+    targetAmount: targetAmount === null ? null : Number(targetAmount.toFixed(2)),
+    status,
+    color,
+    notes,
+    bankConnectionId,
+  };
+}
+
+async function getInvestmentRows(userId, investmentId = null, client = pool) {
+  const result = await client.query(
+    `
+      SELECT
+        i.id,
+        i.name,
+        i.description,
+        i.contribution_mode,
+        i.fixed_amount,
+        i.income_percentage,
+        i.current_amount,
+        i.target_amount,
+        i.status,
+        i.color,
+        i.notes,
+        i.created_at,
+        i.updated_at,
+        b.id AS bank_connection_id,
+        b.slug AS bank_slug,
+        b.name AS bank_name,
+        b.account_type AS bank_account_type,
+        b.color AS bank_color
+      FROM investments i
+      LEFT JOIN bank_connections b ON b.id = i.bank_connection_id
+      WHERE i.user_id = $1
+        AND ($2::INTEGER IS NULL OR i.id = $2)
+      ORDER BY i.updated_at DESC, i.id DESC
+    `,
+    [userId, investmentId],
+  );
+
+  return result.rows.map(mapInvestmentRow);
+}
+
+async function getInvestmentRowById(userId, investmentId, client = pool) {
+  const result = await client.query(
+    `
+      SELECT id, user_id, current_amount
+      FROM investments
+      WHERE user_id = $1
+        AND id = $2
+      LIMIT 1
+    `,
+    [userId, investmentId],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function listInvestments(userId) {
+  const resolvedUserId = await requireUserId(userId);
+  return getInvestmentRows(resolvedUserId);
+}
+
+export async function createInvestment(userId, input = {}) {
+  const resolvedUserId = await requireUserId(userId);
+  const normalized = validateInvestmentInput(input);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    if (normalized.bankConnectionId !== null) {
+      const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
+
+      if (!bankConnection) {
+        throw new Error("bank connection not found");
+      }
+    }
+
+    const result = await client.query(
+      `
+        INSERT INTO investments (
+          user_id,
+          bank_connection_id,
+          name,
+          description,
+          contribution_mode,
+          fixed_amount,
+          income_percentage,
+          current_amount,
+          target_amount,
+          status,
+          color,
+          notes
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING id
+      `,
+      [
+        resolvedUserId,
+        normalized.bankConnectionId,
+        normalized.name,
+        normalized.description,
+        normalized.contributionMode,
+        normalized.fixedAmount,
+        normalized.incomePercentage,
+        normalized.currentAmount,
+        normalized.targetAmount,
+        normalized.status,
+        normalized.color,
+        normalized.notes,
+      ],
+    );
+
+    const [investment] = await getInvestmentRows(resolvedUserId, result.rows[0].id, client);
+    await client.query("COMMIT");
+    return investment;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateInvestment(userId, investmentId, input = {}) {
+  const resolvedUserId = await requireUserId(userId);
+  const normalized = validateInvestmentInput(input);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const existing = await getInvestmentRowById(resolvedUserId, investmentId, client);
+
+    if (!existing) {
+      throw new Error("investment not found");
+    }
+
+    if (normalized.bankConnectionId !== null) {
+      const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
+
+      if (!bankConnection) {
+        throw new Error("bank connection not found");
+      }
+    }
+
+    await client.query(
+      `
+        UPDATE investments
+        SET bank_connection_id = $3,
+            name = $4,
+            description = $5,
+            contribution_mode = $6,
+            fixed_amount = $7,
+            income_percentage = $8,
+            current_amount = $9,
+            target_amount = $10,
+            status = $11,
+            color = $12,
+            notes = $13,
+            updated_at = NOW()
+        WHERE user_id = $1
+          AND id = $2
+      `,
+      [
+        resolvedUserId,
+        investmentId,
+        normalized.bankConnectionId,
+        normalized.name,
+        normalized.description,
+        normalized.contributionMode,
+        normalized.fixedAmount,
+        normalized.incomePercentage,
+        normalized.currentAmount,
+        normalized.targetAmount,
+        normalized.status,
+        normalized.color,
+        normalized.notes,
+      ],
+    );
+
+    const [investment] = await getInvestmentRows(resolvedUserId, investmentId, client);
+    await client.query("COMMIT");
+    return investment;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteInvestment(userId, investmentId) {
+  const resolvedUserId = await requireUserId(userId);
+  const result = await pool.query(
+    `
+      DELETE FROM investments
+      WHERE user_id = $1
+        AND id = $2
+    `,
+    [resolvedUserId, investmentId],
+  );
+
+  if (!result.rowCount) {
+    throw new Error("investment not found");
   }
 }
 
@@ -2629,6 +2943,10 @@ function normalizePlanTransactionType(value) {
   return value === "income" ? "income" : "expense";
 }
 
+function normalizePlanGoalTargetModel(value) {
+  return value === "investment_box" ? "investment_box" : "category";
+}
+
 function normalizePlanGoalDate(value) {
   const normalized = normalizeDateValue(value);
 
@@ -2667,7 +2985,10 @@ function buildDefaultPlanGoal(source = "manual") {
     source: normalizePlanGoalSource(source),
     targetAmount: null,
     transactionType: "expense",
+    targetModel: "category",
     categoryIds: [],
+    investmentBoxId: null,
+    investmentBox: null,
     startDate: null,
     endDate: null,
   };
@@ -2697,12 +3018,34 @@ function normalizePlanGoal(goal = {}, options = {}) {
     throw new Error("goal start date must be before end date");
   }
 
+  const targetModel = normalizePlanGoalTargetModel(goal?.targetModel ?? goal?.target_model);
+  const investmentBoxIdValue = goal?.investmentBoxId ?? goal?.investment_box_id;
+  const investmentBoxId =
+    investmentBoxIdValue === undefined || investmentBoxIdValue === null || investmentBoxIdValue === ""
+      ? null
+      : Number(investmentBoxIdValue);
+  const rawInvestmentBox = goal?.investmentBox ?? goal?.investment_box;
+  const investmentBox = rawInvestmentBox && typeof rawInvestmentBox === "object" ? validateInvestmentInput(rawInvestmentBox) : null;
+
+  if (targetModel === "investment_box") {
+    if (investmentBoxId !== null && !Number.isInteger(investmentBoxId)) {
+      throw new Error("goal investmentBoxId must be a valid integer");
+    }
+
+    if (investmentBoxId === null && !investmentBox) {
+      throw new Error("goal investment box is required");
+    }
+  }
+
   return {
     type,
     source,
     targetAmount: Number(targetAmount.toFixed(2)),
     transactionType: normalizePlanTransactionType(goal?.transactionType ?? goal?.transaction_type),
-    categoryIds: normalizePlanGoalCategoryIds(goal?.categoryIds ?? goal?.category_ids),
+    targetModel,
+    categoryIds: targetModel === "category" ? normalizePlanGoalCategoryIds(goal?.categoryIds ?? goal?.category_ids) : [],
+    investmentBoxId: targetModel === "investment_box" ? investmentBoxId : null,
+    investmentBox: targetModel === "investment_box" ? investmentBox : null,
     startDate,
     endDate,
   };
@@ -2747,7 +3090,51 @@ function mapPlanGoal(row) {
     source: normalizePlanGoalSource(row.goal_source, row.source),
     targetAmount: row.goal_target_amount === null || row.goal_target_amount === undefined ? null : parseNumeric(row.goal_target_amount),
     transactionType: normalizePlanTransactionType(row.goal_transaction_type),
+    targetModel: normalizePlanGoalTargetModel(row.goal_target_model),
     categoryIds: parsePlanGoalCategoryIds(row.goal_category_ids),
+    investmentBoxId: row.goal_investment_id ?? null,
+    investmentBox:
+      row.goal_investment_id === null || row.goal_investment_id === undefined
+        ? null
+        : {
+            id: row.goal_investment_id,
+            name: row.goal_investment_name,
+            description: row.goal_investment_description ?? "",
+            contributionMode: row.goal_investment_contribution_mode,
+            fixedAmount:
+              row.goal_investment_fixed_amount === null || row.goal_investment_fixed_amount === undefined
+                ? null
+                : parseNumeric(row.goal_investment_fixed_amount),
+            incomePercentage:
+              row.goal_investment_income_percentage === null || row.goal_investment_income_percentage === undefined
+                ? null
+                : parseNumeric(row.goal_investment_income_percentage),
+            currentAmount: parseNumeric(row.goal_investment_current_amount),
+            formattedCurrentAmount: formatCurrency(row.goal_investment_current_amount),
+            targetAmount:
+              row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
+                ? null
+                : parseNumeric(row.goal_investment_target_amount),
+            formattedTargetAmount:
+              row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
+                ? null
+                : formatCurrency(row.goal_investment_target_amount),
+            status: row.goal_investment_status,
+            color: row.goal_investment_color ?? null,
+            notes: row.goal_investment_notes ?? "",
+            bank:
+              row.goal_investment_bank_connection_id === null || row.goal_investment_bank_connection_id === undefined
+                ? null
+                : {
+                    id: row.goal_investment_bank_connection_id,
+                    slug: row.goal_investment_bank_slug,
+                    name: row.goal_investment_bank_name,
+                    accountType: row.goal_investment_bank_account_type,
+                    color: row.goal_investment_bank_color,
+                  },
+            createdAt: row.goal_investment_created_at,
+            updatedAt: row.goal_investment_updated_at,
+          },
     startDate: normalizePlanGoalDate(row.goal_start_date),
     endDate: normalizePlanGoalDate(row.goal_end_date),
   };
@@ -2870,6 +3257,25 @@ function buildPlanTransactionProgress(plan, currentValue) {
 }
 
 async function getPlanTransactionGoalCurrentValue(userId, goal) {
+  if (goal.targetModel === "investment_box") {
+    if (!goal.investmentBoxId) {
+      return 0;
+    }
+
+    const result = await pool.query(
+      `
+        SELECT current_amount
+        FROM investments
+        WHERE user_id = $1
+          AND id = $2
+        LIMIT 1
+      `,
+      [userId, goal.investmentBoxId],
+    );
+
+    return parseNumeric(result.rows[0]?.current_amount);
+  }
+
   const params = [userId, goal.startDate, goal.endDate];
   const conditions = [
     "t.user_id = $1",
@@ -2896,7 +3302,7 @@ async function getPlanTransactionGoalCurrentValue(userId, goal) {
 }
 
 function transactionMatchesPlanGoal(transaction, goal) {
-  if (!transaction || goal.type !== "transaction_sum") {
+  if (!transaction || goal.type !== "transaction_sum" || goal.targetModel !== "category") {
     return false;
   }
 
@@ -2938,7 +3344,9 @@ async function listAffectedPlanRowsForTransactions(userId, transactions) {
         goal_source,
         goal_target_amount,
         goal_transaction_type,
+        goal_target_model,
         goal_category_ids,
+        goal_investment_id,
         goal_start_date,
         goal_end_date,
         created_at,
@@ -2946,6 +3354,7 @@ async function listAffectedPlanRowsForTransactions(userId, transactions) {
       FROM plans
       WHERE user_id = $1
         AND goal_type = 'transaction_sum'
+        AND goal_target_model = 'category'
     `,
     [userId],
   );
@@ -3091,22 +3500,43 @@ async function getPlanRowByPublicId(userId, publicId) {
   const result = await pool.query(
     `
       SELECT
-        id,
-        public_id,
-        title,
-        description,
-        source,
-        goal_type,
-        goal_source,
-        goal_target_amount,
-        goal_transaction_type,
-        goal_category_ids,
-        goal_start_date,
-        goal_end_date,
-        created_at,
-        updated_at
-      FROM plans
-      WHERE user_id = $1 AND public_id = $2
+        p.id,
+        p.public_id,
+        p.title,
+        p.description,
+        p.source,
+        p.goal_type,
+        p.goal_source,
+        p.goal_target_amount,
+        p.goal_transaction_type,
+        p.goal_target_model,
+        p.goal_category_ids,
+        p.goal_investment_id,
+        gi.name AS goal_investment_name,
+        gi.description AS goal_investment_description,
+        gi.contribution_mode AS goal_investment_contribution_mode,
+        gi.fixed_amount AS goal_investment_fixed_amount,
+        gi.income_percentage AS goal_investment_income_percentage,
+        gi.current_amount AS goal_investment_current_amount,
+        gi.target_amount AS goal_investment_target_amount,
+        gi.status AS goal_investment_status,
+        gi.color AS goal_investment_color,
+        gi.notes AS goal_investment_notes,
+        gi.created_at AS goal_investment_created_at,
+        gi.updated_at AS goal_investment_updated_at,
+        gb.id AS goal_investment_bank_connection_id,
+        gb.slug AS goal_investment_bank_slug,
+        gb.name AS goal_investment_bank_name,
+        gb.account_type AS goal_investment_bank_account_type,
+        gb.color AS goal_investment_bank_color,
+        p.goal_start_date,
+        p.goal_end_date,
+        p.created_at,
+        p.updated_at
+      FROM plans p
+      LEFT JOIN investments gi ON gi.id = p.goal_investment_id
+      LEFT JOIN bank_connections gb ON gb.id = gi.bank_connection_id
+      WHERE p.user_id = $1 AND p.public_id = $2
     `,
     [userId, publicId],
   );
@@ -3164,28 +3594,118 @@ export async function listPlans(userId) {
   const result = await pool.query(
     `
       SELECT
-        id,
-        public_id,
-        title,
-        description,
-        source,
-        goal_type,
-        goal_source,
-        goal_target_amount,
-        goal_transaction_type,
-        goal_category_ids,
-        goal_start_date,
-        goal_end_date,
-        created_at,
-        updated_at
-      FROM plans
-      WHERE user_id = $1
-      ORDER BY updated_at DESC, id DESC
+        p.id,
+        p.public_id,
+        p.title,
+        p.description,
+        p.source,
+        p.goal_type,
+        p.goal_source,
+        p.goal_target_amount,
+        p.goal_transaction_type,
+        p.goal_target_model,
+        p.goal_category_ids,
+        p.goal_investment_id,
+        gi.name AS goal_investment_name,
+        gi.description AS goal_investment_description,
+        gi.contribution_mode AS goal_investment_contribution_mode,
+        gi.fixed_amount AS goal_investment_fixed_amount,
+        gi.income_percentage AS goal_investment_income_percentage,
+        gi.current_amount AS goal_investment_current_amount,
+        gi.target_amount AS goal_investment_target_amount,
+        gi.status AS goal_investment_status,
+        gi.color AS goal_investment_color,
+        gi.notes AS goal_investment_notes,
+        gi.created_at AS goal_investment_created_at,
+        gi.updated_at AS goal_investment_updated_at,
+        gb.id AS goal_investment_bank_connection_id,
+        gb.slug AS goal_investment_bank_slug,
+        gb.name AS goal_investment_bank_name,
+        gb.account_type AS goal_investment_bank_account_type,
+        gb.color AS goal_investment_bank_color,
+        p.goal_start_date,
+        p.goal_end_date,
+        p.created_at,
+        p.updated_at
+      FROM plans p
+      LEFT JOIN investments gi ON gi.id = p.goal_investment_id
+      LEFT JOIN bank_connections gb ON gb.id = gi.bank_connection_id
+      WHERE p.user_id = $1
+      ORDER BY p.updated_at DESC, p.id DESC
     `,
     [resolvedUserId],
   );
 
   return hydratePlans(result.rows, resolvedUserId);
+}
+
+async function createPlanGoalInvestment(client, userId, investmentInput) {
+  if (investmentInput.bankConnectionId !== null) {
+    const bankConnection = await getBankConnectionById(userId, investmentInput.bankConnectionId, client);
+
+    if (!bankConnection) {
+      throw new Error("bank connection not found");
+    }
+  }
+
+  const result = await client.query(
+    `
+      INSERT INTO investments (
+        user_id,
+        bank_connection_id,
+        name,
+        description,
+        contribution_mode,
+        fixed_amount,
+        income_percentage,
+        current_amount,
+        target_amount,
+        status,
+        color,
+        notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id
+    `,
+    [
+      userId,
+      investmentInput.bankConnectionId,
+      investmentInput.name,
+      investmentInput.description,
+      investmentInput.contributionMode,
+      investmentInput.fixedAmount,
+      investmentInput.incomePercentage,
+      investmentInput.currentAmount,
+      investmentInput.targetAmount,
+      investmentInput.status,
+      investmentInput.color,
+      investmentInput.notes,
+    ],
+  );
+
+  return result.rows[0].id;
+}
+
+async function resolvePlanGoalInvestmentId(client, userId, goal) {
+  if (goal.type !== "transaction_sum" || goal.targetModel !== "investment_box") {
+    return null;
+  }
+
+  if (goal.investmentBoxId !== null) {
+    const existingInvestment = await getInvestmentRowById(userId, goal.investmentBoxId, client);
+
+    if (!existingInvestment) {
+      throw new Error("investment not found");
+    }
+
+    return goal.investmentBoxId;
+  }
+
+  if (goal.investmentBox) {
+    return createPlanGoalInvestment(client, userId, goal.investmentBox);
+  }
+
+  throw new Error("goal investment box is required");
 }
 
 export async function createPlan(userId, input = {}) {
@@ -3196,6 +3716,7 @@ export async function createPlan(userId, input = {}) {
 
   try {
     await client.query("BEGIN");
+    const goalInvestmentId = await resolvePlanGoalInvestmentId(client, resolvedUserId, normalizedInput.goal);
     const result = await client.query(
       `
         INSERT INTO plans (
@@ -3208,11 +3729,13 @@ export async function createPlan(userId, input = {}) {
           goal_source,
           goal_target_amount,
           goal_transaction_type,
+          goal_target_model,
           goal_category_ids,
+          goal_investment_id,
           goal_start_date,
           goal_end_date
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::int[], $11::date, $12::date)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::int[], $12, $13::date, $14::date)
         RETURNING public_id, id
       `,
       [
@@ -3225,7 +3748,9 @@ export async function createPlan(userId, input = {}) {
         normalizedInput.goal.source,
         normalizedInput.goal.targetAmount,
         normalizedInput.goal.transactionType,
+        normalizedInput.goal.targetModel,
         normalizedInput.goal.categoryIds,
+        goalInvestmentId,
         normalizedInput.goal.startDate,
         normalizedInput.goal.endDate,
       ],
@@ -3270,6 +3795,7 @@ export async function updatePlan(userId, publicId, input = {}) {
 
   try {
     await client.query("BEGIN");
+    const goalInvestmentId = await resolvePlanGoalInvestmentId(client, resolvedUserId, goal);
     await client.query(
       `
         UPDATE plans
@@ -3280,9 +3806,11 @@ export async function updatePlan(userId, publicId, input = {}) {
           goal_source = $6,
           goal_target_amount = $7,
           goal_transaction_type = $8,
-          goal_category_ids = $9::int[],
-          goal_start_date = $10::date,
-          goal_end_date = $11::date,
+          goal_target_model = $9,
+          goal_category_ids = $10::int[],
+          goal_investment_id = $11,
+          goal_start_date = $12::date,
+          goal_end_date = $13::date,
           updated_at = NOW()
         WHERE user_id = $1 AND id = $2
       `,
@@ -3295,7 +3823,9 @@ export async function updatePlan(userId, publicId, input = {}) {
         goal.source,
         goal.targetAmount,
         goal.transactionType,
+        goal.targetModel,
         goal.categoryIds,
+        goalInvestmentId,
         goal.startDate,
         goal.endDate,
       ],
@@ -3389,10 +3919,11 @@ async function buildPlanAiChatPayload(userId, chatPublicId) {
     throw new Error("chat not found");
   }
 
-  const [messages, context, categories] = await Promise.all([
+  const [messages, context, categories, investments] = await Promise.all([
     listChatMessages(resolvedUserId, chatPublicId, 30),
     buildChatAdvisorContext(resolvedUserId, []),
     listCategories(),
+    listInvestments(resolvedUserId),
   ]);
 
   return {
@@ -3413,6 +3944,16 @@ async function buildPlanAiChatPayload(userId, chatPublicId) {
         label: category.label,
         transactionType: category.transactionType,
         groupLabel: category.groupLabel,
+      })),
+      investmentBoxes: investments.map((investment) => ({
+        id: investment.id,
+        name: investment.name,
+        contributionMode: investment.contributionMode,
+        fixedAmount: investment.fixedAmount,
+        incomePercentage: investment.incomePercentage,
+        currentAmount: investment.currentAmount,
+        targetAmount: investment.targetAmount,
+        status: investment.status,
       })),
     },
   };

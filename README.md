@@ -59,6 +59,14 @@ npm run server:dev
 npm run dev
 ```
 
+## Qualidade e CI
+
+- `npm run lint`: valida o código com ESLint
+- `npm run test`: executa a suíte Vitest do frontend e backend
+- `npm run build`: gera o build do frontend e compila o backend
+
+O repositório agora inclui um workflow em `.github/workflows/ci.yml` que roda esses três gates em `pull_request`, `push` para `main` e execução manual. A primeira etapa de automação foca em **segurança de deploy via CI**; deploy automático pode ser adicionado depois, quando houver provedor e segredos definidos no repositório.
+
 ## Endpoints principais
 
 - `GET /api/health`

@@ -214,6 +214,32 @@ export interface ApiHousingResponse {
   housing?: ApiHousingItem[];
 }
 
+export type InvestmentContributionMode = "fixed_amount" | "income_percentage";
+export type InvestmentStatus = "active" | "paused" | "archived";
+
+export interface ApiInvestmentItem {
+  id?: number | string;
+  name?: string;
+  description?: string;
+  contributionMode?: string;
+  fixedAmount?: number | null;
+  incomePercentage?: number | null;
+  currentAmount?: number;
+  formattedCurrentAmount?: string;
+  targetAmount?: number | null;
+  formattedTargetAmount?: string | null;
+  status?: string;
+  color?: string | null;
+  notes?: string;
+  bank?: ApiTransactionAccount | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ApiInvestmentsResponse {
+  investments?: ApiInvestmentItem[];
+}
+
 export interface ApiInstallmentOverviewFilters {
   cardId?: number | string;
   categoryId?: number | string;
@@ -318,7 +344,10 @@ export interface ApiPlanGoal {
   source?: string;
   targetAmount?: number | null;
   transactionType?: string;
+  targetModel?: string;
   categoryIds?: Array<number | string>;
+  investmentBoxId?: number | string | null;
+  investmentBox?: ApiInvestmentItem | null;
   startDate?: string | null;
   endDate?: string | null;
 }
@@ -839,6 +868,43 @@ export interface UpdateHousingInput extends CreateHousingInput {
   id: number | string;
 }
 
+export interface InvestmentItem {
+  id: number | string;
+  name: string;
+  description: string;
+  contributionMode: InvestmentContributionMode;
+  fixedAmount: number | null;
+  incomePercentage: number | null;
+  currentAmount: number;
+  formattedCurrentAmount: string;
+  targetAmount: number | null;
+  formattedTargetAmount: string | null;
+  status: InvestmentStatus;
+  color: string | null;
+  notes: string;
+  bank: TransactionAccount | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvestmentInput {
+  name: string;
+  description?: string;
+  contributionMode: InvestmentContributionMode;
+  fixedAmount?: number | null;
+  incomePercentage?: number | null;
+  currentAmount?: number;
+  targetAmount?: number | null;
+  status?: InvestmentStatus;
+  color?: string | null;
+  notes?: string;
+  bankConnectionId?: number | string | null;
+}
+
+export interface UpdateInvestmentInput extends CreateInvestmentInput {
+  id: number | string;
+}
+
 export interface TransactionAccount {
   id: number | string;
   slug: string;
@@ -884,6 +950,7 @@ export type PlanItemStatus = "todo" | "done";
 export type PlanGoalType = "items" | "transaction_sum";
 export type PlanGoalSource = "manual" | "ai";
 export type PlanTransactionType = "income" | "expense";
+export type PlanGoalTargetModel = "category" | "investment_box";
 export type PlanPriority = "low" | "medium" | "high";
 export type PlanAiAssessmentStatus = "on_track" | "attention" | "at_risk" | "completed";
 export type PlanRecommendationStatus = "pending" | "applied" | "dismissed";
@@ -902,7 +969,10 @@ export interface PlanGoal {
   source: PlanGoalSource;
   targetAmount: number | null;
   transactionType: PlanTransactionType;
+  targetModel: PlanGoalTargetModel;
   categoryIds: Array<number | string>;
+  investmentBoxId: number | string | null;
+  investmentBox: InvestmentItem | null;
   startDate: string | null;
   endDate: string | null;
 }

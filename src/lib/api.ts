@@ -34,6 +34,8 @@ import type {
   ApiHealthResponse,
   ApiHousingItem,
   ApiHousingResponse,
+  ApiInvestmentItem,
+  ApiInvestmentsResponse,
   ApiImportCommitResponse,
   ApiImportAiSuggestionsResponse,
   ApiImportAiSuggestionItem,
@@ -70,6 +72,7 @@ import type {
   CreateBankConnectionInput,
   CreateCategoryInput,
   CreateHousingInput,
+  CreateInvestmentInput,
   CreatePlanInput,
   CreateSelfNotificationInput,
   CreateTransactionInput,
@@ -88,6 +91,7 @@ import type {
   InsightItem,
   InstallmentsOverview,
   InstallmentsOverviewFilters,
+  InvestmentItem,
   SpendingItem,
   SummaryCard,
   TransactionAccount,
@@ -106,6 +110,7 @@ import type {
   RevisePlanDraftInput,
   UpdateCategoryInput,
   UpdateHousingInput,
+  UpdateInvestmentInput,
   UpdatePlanInput,
   UpdateTransactionInput,
   UpdateBankConnectionInput,
@@ -772,6 +777,10 @@ function normalizePlanTransactionType(transactionType?: string) {
   return transactionType === "income" ? "income" : "expense";
 }
 
+function normalizePlanGoalTargetModel(targetModel?: string) {
+  return targetModel === "investment_box" ? "investment_box" : "category";
+}
+
 function clampPercentage(value: unknown) {
   const numberValue = safeNumber(value);
   return Math.max(0, Math.min(100, Math.round(numberValue)));
@@ -779,15 +788,51 @@ function clampPercentage(value: unknown) {
 
 function mapPlanGoal(goal: ApiPlanGoal = {}): PlanGoal {
   const type = normalizePlanGoalType(goal.type);
+  const investmentBox = goal.investmentBox ? mapInvestmentItem(goal.investmentBox) : null;
 
   return {
     type,
     source: normalizePlanGoalSource(goal.source),
     targetAmount: type === "transaction_sum" ? safeNumber(goal.targetAmount) : null,
     transactionType: normalizePlanTransactionType(goal.transactionType),
+    targetModel: type === "transaction_sum" ? normalizePlanGoalTargetModel(goal.targetModel) : "category",
     categoryIds: (goal.categoryIds ?? []).filter((categoryId) => categoryId !== undefined && categoryId !== null && categoryId !== ""),
+    investmentBoxId: goal.investmentBoxId === undefined || goal.investmentBoxId === null || goal.investmentBoxId === "" ? null : goal.investmentBoxId,
+    investmentBox,
     startDate: safeString(goal.startDate, "") || null,
     endDate: safeString(goal.endDate, "") || null,
+  };
+}
+
+export function mapInvestmentItem(item: ApiInvestmentItem): InvestmentItem {
+  const bank = item.bank ?? null;
+
+  return {
+    id: item.id ?? "investment",
+    name: safeString(item.name, "Caixinha"),
+    description: safeString(item.description, ""),
+    contributionMode: item.contributionMode === "income_percentage" ? "income_percentage" : "fixed_amount",
+    fixedAmount: item.fixedAmount === null || item.fixedAmount === undefined ? null : safeNumber(item.fixedAmount),
+    incomePercentage:
+      item.incomePercentage === null || item.incomePercentage === undefined ? null : safeNumber(item.incomePercentage),
+    currentAmount: safeNumber(item.currentAmount),
+    formattedCurrentAmount: safeString(item.formattedCurrentAmount, formatCurrency(item.currentAmount ?? 0)),
+    targetAmount: item.targetAmount === null || item.targetAmount === undefined ? null : safeNumber(item.targetAmount),
+    formattedTargetAmount: safeString(item.formattedTargetAmount, "") || null,
+    status: item.status === "paused" || item.status === "archived" ? item.status : "active",
+    color: safeString(item.color, "") || null,
+    notes: safeString(item.notes, ""),
+    bank: bank
+      ? {
+          id: bank.id ?? "bank",
+          slug: safeString(bank.slug, "bank"),
+          name: safeString(bank.name, "Conta"),
+          accountType: bank.accountType === "credit_card" || bank.accountType === "cash" ? bank.accountType : "bank_account",
+          color: safeString(bank.color, "bg-secondary"),
+        }
+      : null,
+    createdAt: safeString(item.createdAt, new Date(0).toISOString()),
+    updatedAt: safeString(item.updatedAt, new Date(0).toISOString()),
   };
 }
 
@@ -845,8 +890,11 @@ export function mapPlanItem(item: ApiPlanItem): PlanItem {
 }
 
 export function mapPlanRecommendation(recommendation: Record<string, unknown>): PlanRecommendation {
+  const recommendationId =
+    typeof recommendation.id === "string" || typeof recommendation.id === "number" ? recommendation.id : "";
+
   return {
-    id: recommendation.id ?? "",
+    id: recommendationId,
     status:
       recommendation.status === "applied" || recommendation.status === "dismissed" ? recommendation.status : "pending",
     title: safeString(recommendation.title, "Sugestao de replanejamento"),
@@ -922,6 +970,10 @@ export function mapBanksResponse(response: ApiBanksResponse) {
 
 export function mapHousingResponse(response: ApiHousingResponse) {
   return (response.housing ?? []).map(mapHousingItem);
+}
+
+export function mapInvestmentsResponse(response: ApiInvestmentsResponse) {
+  return (response.investments ?? []).map(mapInvestmentItem);
 }
 
 export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOverviewResponse): InstallmentsOverview {
@@ -1493,6 +1545,11 @@ export async function getHousing() {
   return mapHousingResponse(response);
 }
 
+export async function getInvestments() {
+  const response = await request<ApiInvestmentsResponse>("/api/investments");
+  return mapInvestmentsResponse(response);
+}
+
 function buildHousingBody(input: CreateHousingInput) {
   return {
     description: input.description,
@@ -1508,6 +1565,22 @@ function buildHousingBody(input: CreateHousingInput) {
   };
 }
 
+function buildInvestmentBody(input: CreateInvestmentInput) {
+  return {
+    name: input.name,
+    description: input.description,
+    contributionMode: input.contributionMode,
+    fixedAmount: input.fixedAmount,
+    incomePercentage: input.incomePercentage,
+    currentAmount: input.currentAmount,
+    targetAmount: input.targetAmount,
+    status: input.status,
+    color: input.color,
+    notes: input.notes,
+    bankConnectionId: input.bankConnectionId,
+  };
+}
+
 export async function postHousing(input: CreateHousingInput) {
   const response = await request<ApiHousingItem>("/api/housing", {
     method: "POST",
@@ -1515,6 +1588,15 @@ export async function postHousing(input: CreateHousingInput) {
   });
 
   return mapHousingItem(response);
+}
+
+export async function postInvestment(input: CreateInvestmentInput) {
+  const response = await request<ApiInvestmentItem>("/api/investments", {
+    method: "POST",
+    body: JSON.stringify(buildInvestmentBody(input)),
+  });
+
+  return mapInvestmentItem(response);
 }
 
 export async function patchHousing(input: UpdateHousingInput) {
@@ -1526,8 +1608,23 @@ export async function patchHousing(input: UpdateHousingInput) {
   return mapHousingItem(response);
 }
 
+export async function patchInvestment(input: UpdateInvestmentInput) {
+  const response = await request<ApiInvestmentItem>(`/api/investments/${input.id}`, {
+    method: "PATCH",
+    body: JSON.stringify(buildInvestmentBody(input)),
+  });
+
+  return mapInvestmentItem(response);
+}
+
 export async function deleteHousing(id: number | string) {
   await request<null>(`/api/housing/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function deleteInvestment(id: number | string) {
+  await request<null>(`/api/investments/${id}`, {
     method: "DELETE",
   });
 }

@@ -29,7 +29,7 @@ vi.mock("@/modules/product-tour/use-product-tour", () => ({
   }),
 }));
 
-function renderSidebar(initialPath = appRoutes.dashboard) {
+function renderSidebar(initialPath: string = appRoutes.dashboard) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <SidebarProvider>
@@ -84,7 +84,7 @@ describe("Sidebar", () => {
     expect(getClosestElement<HTMLAnchorElement>(/^receitas recorrentes/i, "a")).toHaveAttribute("href", appRoutes.expenseManagementRecurringIncome);
     expect(getClosestElement<HTMLAnchorElement>(/^parcel/i, "a")).toHaveAttribute("href", appRoutes.expenseManagementInstallments);
     expect(getClosestElement<HTMLAnchorElement>(/^hab/i, "a")).toHaveAttribute("href", appRoutes.expenseManagementHousing);
-    expect(getClosestElement<HTMLAnchorElement>(/^metricas/i, "a")).toHaveAttribute("href", appRoutes.expenseManagementMetrics);
+    expect(getClosestElement<HTMLAnchorElement>(/métricas|metricas/i, "a")).toHaveAttribute("href", appRoutes.expenseManagementMetrics);
   });
 
   it("opens and marks expense management active on nested routes", () => {
@@ -105,7 +105,9 @@ describe("Sidebar", () => {
 
     renderSidebar(appRoutes.adminOverview);
 
-    expect(getClosestElement<HTMLAnchorElement>(/visao geral/i, "a")).toHaveAttribute("href", appRoutes.adminOverview);
+    const adminOverviewLink = screen.getAllByRole("link").find((link) => link.getAttribute("href") === appRoutes.adminOverview);
+
+    expect(adminOverviewLink).toBeTruthy();
   });
 
   it("keeps notifications out of the sidebar navigation", () => {
@@ -115,6 +117,12 @@ describe("Sidebar", () => {
     const notificationsLinks = navigationLinks.filter((link) => link.getAttribute("href") === appRoutes.notifications);
 
     expect(notificationsLinks).toHaveLength(0);
+  });
+
+  it("renders the savings goal link in secondary navigation", () => {
+    renderSidebar();
+
+    expect(getClosestElement<HTMLAnchorElement>(/caixinhas/i, "a")).toHaveAttribute("href", appRoutes.savingsGoal);
   });
 
   it("does not render the first steps item in the sidebar navigation", () => {

@@ -20,6 +20,7 @@ import {
   upsertBankConnectionForPluggy,
   upsertConnection,
 } from "./repository.js";
+import { normalizeInstitution } from "./institution-mapping.js";
 import type {
   PluggyAccount,
   PluggyApiKey,
@@ -151,7 +152,11 @@ export async function connectItem(
       apiKey,
       `/items/${pluggyItemId}`,
     );
-    institutionName = item.connector.name ?? null;
+    const rawName = item.connector.name ?? null;
+    const mapped = rawName ? normalizeInstitution(rawName) : null;
+    // Only store a friendly name if we could map it; otherwise store null so
+    // syncSingleItem can try per-account detection on the first sync.
+    institutionName = mapped?.friendlyName ?? null;
     institutionImageUrl = item.connector.imageUrl ?? null;
   } catch {
     // Non-critical: proceed with null metadata, will be backfilled on next sync
@@ -232,16 +237,37 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
   try {
     const apiKey = await getApiKey();
 
-    // Backfill institution metadata if missing (e.g. existing connections before this migration)
-    if (!connection.institutionName) {
+    // Normalize institution name on every sync:
+    // - If stored name maps to a friendly name → update and use it
+    // - If stored name is unrecognized (no mapping) → clear it so account-level fallback can run
+    // - If no name is stored → fetch from Pluggy API and attempt to map
+    if (connection.institutionName) {
+      const mapped = normalizeInstitution(connection.institutionName);
+      if (mapped) {
+        if (mapped.friendlyName !== connection.institutionName) {
+          await updateConnectionInstitution(userId, connection.pluggyItemId, mapped.friendlyName, connection.institutionImageUrl);
+          connection = { ...connection, institutionName: mapped.friendlyName };
+        }
+        // else: already normalized, nothing to do
+      } else {
+        // Stored name is unrecognized (e.g. "MeuPluggy" OFP aggregator).
+        // Clear it so the per-account fallback below can detect the real institution.
+        connection = { ...connection, institutionName: null };
+      }
+    } else {
       try {
         const item = await pluggyGet<{ id: string; connector: { name: string; imageUrl: string | null } }>(
           apiKey,
           `/items/${connection.pluggyItemId}`,
         );
         if (item.connector.name) {
-          await updateConnectionInstitution(userId, connection.pluggyItemId, item.connector.name, item.connector.imageUrl ?? null);
-          connection = { ...connection, institutionName: item.connector.name, institutionImageUrl: item.connector.imageUrl ?? null };
+          const rawName = item.connector.name;
+          const mapped = normalizeInstitution(rawName);
+          if (mapped) {
+            await updateConnectionInstitution(userId, connection.pluggyItemId, mapped.friendlyName, item.connector.imageUrl ?? null);
+            connection = { ...connection, institutionName: mapped.friendlyName, institutionImageUrl: item.connector.imageUrl ?? null };
+          }
+          // If unmappable connector name, leave institutionName null for per-account detection
         }
       } catch {
         // Non-critical backfill failure
@@ -255,8 +281,33 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
 
     const categorizationContext = await loadPluggyCategorizationContext(userId);
 
-    const institutionName = connection.institutionName;
     const institutionImageUrl = connection.institutionImageUrl;
+
+    // Primary: map connector-level institution name
+    let institutionMapping = connection.institutionName ? normalizeInstitution(connection.institutionName) : null;
+
+    // Fallback: if connector name is an OFP aggregator (e.g. "MeuPluggy") and not a bank-level
+    // connector, try to detect the institution from the first account's marketing/display name.
+    if (!institutionMapping && accounts.results.length > 0) {
+      for (const acct of accounts.results) {
+        const candidate = acct.marketingName ?? acct.name;
+        if (candidate) {
+          const acctMapping = normalizeInstitution(candidate);
+          if (acctMapping) {
+            institutionMapping = acctMapping;
+            await updateConnectionInstitution(userId, connection.pluggyItemId, acctMapping.friendlyName, institutionImageUrl);
+            connection = { ...connection, institutionName: acctMapping.friendlyName };
+            break;
+          }
+        }
+      }
+    }
+
+    // Only propagate a verified (mapped) institution name to bank_connections.
+    // Passing null means COALESCE keeps whatever good name was stored previously.
+    const verifiedInstitutionName = institutionMapping?.friendlyName ?? null;
+    const bankColor = institutionMapping?.color ?? "#3b82f6";
+    const cardColor = institutionMapping?.color ?? "#a855f7";
 
     // Pass 1: upsert BANK accounts first so credit cards can reference them as parent
     let parentBankConnectionId: number | null = null;
@@ -269,10 +320,10 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
         account.marketingName ?? account.name,
         "bank_account",
         account.balance,
-        "bg-blue-500",
+        bankColor,
         null,
         null,
-        institutionName,
+        verifiedInstitutionName,
         institutionImageUrl,
       );
       if (parentBankConnectionId === null) parentBankConnectionId = id;
@@ -282,7 +333,7 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
     // bank account so cards are always linked to a parent in the UI.
     const creditAccounts = accounts.results.filter((a) => a.type === "CREDIT");
     if (parentBankConnectionId === null && creditAccounts.length > 0) {
-      const virtualName = institutionName ?? "Banco";
+      const virtualName = verifiedInstitutionName ?? connection.institutionName ?? "Conta bancária";
       parentBankConnectionId = await upsertBankConnectionForPluggy(
         userId,
         connection.id,
@@ -290,10 +341,10 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
         virtualName,
         "bank_account",
         0,
-        "bg-blue-500",
+        bankColor,
         null,
         null,
-        institutionName,
+        verifiedInstitutionName,
         institutionImageUrl,
       );
     }
@@ -307,10 +358,10 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
         account.marketingName ?? account.name,
         "credit_card",
         account.balance,
-        "bg-purple-500",
+        cardColor,
         account.creditData?.creditLimit ?? null,
         parentBankConnectionId,
-        institutionName,
+        verifiedInstitutionName,
         institutionImageUrl,
       );
     }
@@ -326,10 +377,10 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
         account.marketingName ?? account.name,
         accountType,
         account.balance,
-        accountType === "credit_card" ? "bg-purple-500" : "bg-blue-500",
+        accountType === "credit_card" ? cardColor : bankColor,
         accountType === "credit_card" ? (account.creditData?.creditLimit ?? null) : null,
         accountType === "credit_card" ? parentBankConnectionId : null,
-        institutionName,
+        verifiedInstitutionName,
         institutionImageUrl,
       );
 

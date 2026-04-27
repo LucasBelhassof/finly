@@ -118,7 +118,11 @@ export async function upsertBankConnectionForPluggy(
          credit_limit              = EXCLUDED.credit_limit,
          parent_bank_connection_id = EXCLUDED.parent_bank_connection_id,
          institution_name          = COALESCE(EXCLUDED.institution_name, bank_connections.institution_name),
-         institution_image_url     = COALESCE(EXCLUDED.institution_image_url, bank_connections.institution_image_url)
+         institution_image_url     = COALESCE(EXCLUDED.institution_image_url, bank_connections.institution_image_url),
+         color                     = CASE
+           WHEN bank_connections.color LIKE 'bg-%' THEN EXCLUDED.color
+           ELSE bank_connections.color
+         END
      RETURNING id`,
     [userId, pluggyConnectionId, pluggyAccountId, slug, name, accountType, currentBalance, color, creditLimit, parentBankConnectionId, institutionName, institutionImageUrl],
   );

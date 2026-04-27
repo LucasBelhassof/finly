@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBanks, useCreateBankConnection, useDeleteBankConnection, useUpdateBankConnection } from "@/hooks/use-banks";
 import {
   usePluggyConnect,
@@ -41,7 +42,8 @@ import {
   usePluggySync,
   usePluggyWidget,
 } from "@/hooks/use-pluggy";
-import { ACCOUNT_COLOR_PRESETS, getSuggestedAccountColor } from "@/lib/account-colors";
+import { ACCOUNT_COLOR_PRESETS, getInstitutionInitials, getSuggestedAccountColor } from "@/lib/account-colors";
+import { resolveCategoryColorValue } from "@/lib/category-colors";
 import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import type { BankItem, CreateBankConnectionInput, UpdateBankConnectionInput } from "@/types/api";
@@ -266,13 +268,10 @@ function PluggyConnectSection({ isPremium }: { isPremium: boolean }) {
           {/* List of connected institutions */}
           {(status?.connections ?? []).map((conn) => (
             <div key={conn.pluggyItemId} className="flex items-center gap-2 rounded-lg bg-income/5 p-2.5">
-              {conn.institutionImageUrl ? (
-                <img
-                  src={conn.institutionImageUrl}
-                  alt={conn.institutionName ?? "Banco"}
-                  className="h-6 w-6 rounded-full object-contain"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
+              {conn.institutionName ? (
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-income/20 text-[9px] font-bold text-income">
+                  {getInstitutionInitials(conn.institutionName)}
+                </span>
               ) : (
                 <CheckCircle size={14} className="shrink-0 text-income" />
               )}
@@ -299,22 +298,24 @@ function PluggyConnectSection({ isPremium }: { isPremium: boolean }) {
             <Button
               variant="outline"
               size="sm"
-              className="h-8 flex-1 text-xs"
-              onClick={() => void handleSync()}
-              disabled={isBusy}
-            >
-              <RefreshCw size={12} className={syncMutation.isPending ? "animate-spin" : ""} />
-              {syncMutation.isPending ? "Sincronizando..." : "Sincronizar"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               className="h-8 text-xs"
               onClick={() => void handleConnect()}
               disabled={isBusy}
               title="Conectar outro banco"
             >
               <Wifi size={12} />
+              Outra Conexão
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => void handleSync()}
+              disabled={isBusy}
+              title={syncMutation.isPending ? "Sincronizando..." : "Sincronizar"}
+              aria-label={syncMutation.isPending ? "Sincronizando..." : "Sincronizar"}
+            >
+              <RefreshCw size={12} className={syncMutation.isPending ? "animate-spin" : ""} />
             </Button>
             <Button
               variant="ghost"
@@ -324,7 +325,6 @@ function PluggyConnectSection({ isPremium }: { isPremium: boolean }) {
               disabled={isBusy}
             >
               <Unlink size={12} />
-              Desconectar
             </Button>
           </div>
         </div>
@@ -361,25 +361,45 @@ function CreditLimitBar({
   // currentBalance for a credit card represents the amount owed (positive = debt)
   const used = Math.max(0, currentBalance);
   const pct = Math.min(100, (used / creditLimit) * 100);
+  const available = Math.max(0, creditLimit - used);
+  const availablePct = Math.max(0, 100 - pct);
 
   const barColor =
     pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-income";
 
   const formattedUsed = used.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const formattedLimit = formattedCreditLimit ?? creditLimit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formattedAvailable = available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
-    <div className="mt-2 space-y-1">
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{formattedUsed} de {formattedLimit}</span>
-        <span>{pct.toFixed(0)}%</span>
+    <div className="mt-2 space-y-1.5">
+      <div className="w-56 max-w-full space-y-1">
+        <div className="text-xs text-muted-foreground">
+          <span>{formattedUsed} de {formattedLimit}</span>
+        </div>
+        <div className="text-[11px] font-medium text-muted-foreground">
+          <span>{pct.toFixed(0)}% usado</span>
+        </div>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/40">
-        <div
-          className={cn("h-full rounded-full transition-all", barColor)}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <TooltipProvider delayDuration={120}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="w-56 max-w-full cursor-default">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-border/40">
+                <div
+                  className={cn("h-full rounded-full transition-all", barColor)}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="space-y-1 text-xs">
+            <p>{pct.toFixed(0)}% do limite usado</p>
+            <p>{availablePct.toFixed(0)}% disponivel</p>
+            <p className="text-muted-foreground">{formattedAvailable} livre</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
@@ -426,12 +446,53 @@ export default function AccountsPage() {
   const cashAccounts = useMemo(() => banks.filter((bank) => bank.accountType === "cash"), [banks]);
   const hasBankAccounts = bankAccounts.length > 0;
   const linkedBankAccountIds = useMemo(() => new Set(bankAccounts.map((a) => String(a.id))), [bankAccounts]);
+  const getCardUsagePercentage = (card: BankItem) => {
+    if (!card.creditLimit || card.creditLimit <= 0) {
+      return 0;
+    }
+
+    return Math.min(100, (Math.max(0, card.currentBalance) / card.creditLimit) * 100);
+  };
   const groupedBankAccounts = useMemo(
     () =>
-      bankAccounts.map((account) => ({
-        account,
-        cards: creditCards.filter((card) => String(card.parentBankConnectionId) === String(account.id)),
-      })),
+      bankAccounts
+        .map((account) => {
+          const cards = creditCards
+            .filter((card) => String(card.parentBankConnectionId) === String(account.id))
+            .sort((left, right) => {
+              const usageDiff = getCardUsagePercentage(right) - getCardUsagePercentage(left);
+
+              if (usageDiff !== 0) {
+                return usageDiff;
+              }
+
+              const transactionDiff = right.transactionCount - left.transactionCount;
+
+              if (transactionDiff !== 0) {
+                return transactionDiff;
+              }
+
+              return left.name.localeCompare(right.name, "pt-BR");
+            });
+
+          return {
+            account,
+            cards,
+            usageScore: cards.reduce((highest, card) => Math.max(highest, getCardUsagePercentage(card)), 0),
+            transactionCount: account.transactionCount + cards.reduce((total, card) => total + card.transactionCount, 0),
+          };
+        })
+        .sort((left, right) => {
+          if (right.usageScore !== left.usageScore) {
+            return right.usageScore - left.usageScore;
+          }
+
+          if (right.transactionCount !== left.transactionCount) {
+            return right.transactionCount - left.transactionCount;
+          }
+
+          return left.account.name.localeCompare(right.account.name, "pt-BR");
+        }),
     [bankAccounts, creditCards],
   );
   // Orphan credit cards: linked to a parent that is no longer in the list (shouldn't happen with new sync logic, kept as safety net)
@@ -439,7 +500,21 @@ export default function AccountsPage() {
     () =>
       creditCards.filter(
         (card) => !card.parentBankConnectionId || !linkedBankAccountIds.has(String(card.parentBankConnectionId)),
-      ),
+      ).sort((left, right) => {
+        const usageDiff = getCardUsagePercentage(right) - getCardUsagePercentage(left);
+
+        if (usageDiff !== 0) {
+          return usageDiff;
+        }
+
+        const transactionDiff = right.transactionCount - left.transactionCount;
+
+        if (transactionDiff !== 0) {
+          return transactionDiff;
+        }
+
+        return left.name.localeCompare(right.name, "pt-BR");
+      }),
     [creditCards, linkedBankAccountIds],
   );
   const isEditing = Boolean(form.id);
@@ -755,28 +830,28 @@ export default function AccountsPage() {
                 <div key={account.id} className="rounded-2xl border border-border/40 bg-secondary/20 p-4">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-start gap-3">
-                      <div className={cn("mt-1 flex h-10 w-10 items-center justify-center rounded-xl text-foreground", account.color)}>
-                        {account.institutionImageUrl ? (
-                          <img
-                            src={account.institutionImageUrl}
-                            alt={account.institutionName ?? account.name}
-                            className="h-7 w-7 rounded-lg object-contain"
-                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                          />
+                      <div
+                        className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white"
+                        style={{ backgroundColor: resolveCategoryColorValue(account.color) }}
+                      >
+                        {account.institutionName ? (
+                          <span className="text-sm font-bold leading-none text-white">
+                            {getInstitutionInitials(account.institutionName)}
+                          </span>
                         ) : (
                           <AccountTypeIcon accountType="bank_account" />
                         )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-lg font-semibold text-foreground">{account.name}</p>
+                          <p className="text-lg font-semibold text-foreground">
+                            {account.institutionName ?? account.name}
+                          </p>
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">Conta</span>
-                          {account.institutionName ? (
-                            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                              {account.institutionName}
-                            </span>
-                          ) : null}
                         </div>
+                        {account.institutionName && account.institutionName !== account.name ? (
+                          <p className="mt-0.5 text-sm text-muted-foreground">{account.name}</p>
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 self-end sm:self-auto">
@@ -791,8 +866,17 @@ export default function AccountsPage() {
                       {cards.map((card) => (
                         <div key={card.id} className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex items-start gap-3">
-                            <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-foreground", card.color)}>
-                              <AccountTypeIcon accountType="credit_card" />
+                            <div
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
+                              style={{ backgroundColor: resolveCategoryColorValue(card.color) }}
+                            >
+                              {account.institutionName ? (
+                                <span className="text-[10px] font-bold leading-none text-white">
+                                  {getInstitutionInitials(account.institutionName)}
+                                </span>
+                              ) : (
+                                <AccountTypeIcon accountType="credit_card" />
+                              )}
                             </div>
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
@@ -836,7 +920,10 @@ export default function AccountsPage() {
                     {orphanCreditCards.map((card) => (
                       <div key={card.id} className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-3">
-                          <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-foreground", card.color)}>
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
+                            style={{ backgroundColor: resolveCategoryColorValue(card.color) }}
+                          >
                             <AccountTypeIcon accountType="credit_card" />
                           </div>
                           <div className="min-w-0">
@@ -873,7 +960,10 @@ export default function AccountsPage() {
                     {cashAccounts.map((cash) => (
                       <div key={cash.id} className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card/50 p-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-start gap-3">
-                          <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-foreground", cash.color)}>
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white"
+                            style={{ backgroundColor: resolveCategoryColorValue(cash.color) }}
+                          >
                             <AccountTypeIcon accountType="cash" />
                           </div>
                           <div className="min-w-0">

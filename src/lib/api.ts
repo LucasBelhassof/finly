@@ -676,6 +676,9 @@ export function mapBank(bank: ApiBank): BankItem {
     formattedBalance: safeString(bank.formattedBalance, formatCurrency(currentBalance)),
     creditLimit,
     formattedCreditLimit: creditLimit === null ? null : safeString(bank.formattedCreditLimit, formatCurrency(creditLimit)),
+    transactionCount: safeNumber(bank.transactionCount),
+    institutionName: bank.institutionName ?? null,
+    institutionImageUrl: bank.institutionImageUrl ?? null,
   };
 }
 

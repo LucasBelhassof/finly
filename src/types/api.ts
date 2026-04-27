@@ -112,6 +112,9 @@ export interface ApiBank {
   formattedBalance?: string;
   creditLimit?: number | null;
   formattedCreditLimit?: string | null;
+  transactionCount?: number;
+  institutionName?: string | null;
+  institutionImageUrl?: string | null;
 }
 
 export interface ApiChatMessage {
@@ -885,6 +888,7 @@ export interface BankItem {
   formattedBalance: string;
   creditLimit: number | null;
   formattedCreditLimit: string | null;
+  transactionCount: number;
   institutionName: string | null;
   institutionImageUrl: string | null;
 }

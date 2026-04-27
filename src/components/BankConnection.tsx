@@ -2,6 +2,8 @@ import { Building2, CreditCard, Landmark, Plus, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { getInstitutionInitials } from "@/lib/account-colors";
+import { resolveCategoryColorValue } from "@/lib/category-colors";
 import { appRoutes } from "@/lib/routes";
 import type { BankItem } from "@/types/api";
 
@@ -95,12 +97,21 @@ export default function BankConnection({ banks = [], isLoading, isError }: BankC
           {banks.map((bank) => (
             <div key={bank.id} className="flex flex-col gap-3 rounded-lg bg-secondary/40 p-2.5 sm:flex-row sm:items-center">
               <div className="flex items-start gap-3 sm:flex-1 sm:items-center">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${bank.color}`}>
-                  <AccountTypeIcon accountType={bank.accountType} />
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white"
+                  style={{ backgroundColor: resolveCategoryColorValue(bank.color) }}
+                >
+                  {bank.institutionName ? (
+                    <span className="text-[10px] font-bold leading-none text-white">
+                      {getInstitutionInitials(bank.institutionName)}
+                    </span>
+                  ) : (
+                    <AccountTypeIcon accountType={bank.accountType} />
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-medium text-foreground">{bank.name}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{bank.institutionName ?? bank.name}</p>
                   <AccountTypeLabel accountType={bank.accountType} />
                   </div>
                   <p className="text-xs text-muted-foreground">{bank.formattedBalance}</p>

@@ -13,6 +13,8 @@ const LEGACY_COLOR_TOKENS = {
   "text-muted-foreground": { css: "hsl(var(--muted-foreground))", hex: "#64748b" },
   "bg-orange-500": { css: "#f97316", hex: "#f97316" },
   "text-orange-500": { css: "#f97316", hex: "#f97316" },
+  "bg-blue-500": { css: "#3b82f6", hex: "#3b82f6" },
+  "text-blue-500": { css: "#3b82f6", hex: "#3b82f6" },
   "bg-purple-500": { css: "#a855f7", hex: "#a855f7" },
   "text-purple-500": { css: "#a855f7", hex: "#a855f7" },
   "bg-red-500": { css: "#ef4444", hex: "#ef4444" },

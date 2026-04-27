@@ -106,7 +106,7 @@ function parseDateOnly(value) {
   return new Date(`${normalizeDateValue(value)}T12:00:00Z`);
 }
 
-function formatRelativeDate(value, referenceValue) {
+export function formatRelativeDate(value, referenceValue) {
   const date = parseDateOnly(value);
   const reference = parseDateOnly(referenceValue);
   const diffInDays = Math.round((reference.getTime() - date.getTime()) / 86400000);
@@ -193,8 +193,7 @@ function mapTransactionRow(row, referenceDate) {
   };
 }
 
-function mapTransactionRows(rows) {
-  const referenceDate = normalizeDateValue(rows[0]?.occurred_on);
+export function mapTransactionRows(rows, referenceDate = normalizeDateValue(new Date())) {
   return rows.map((row) => mapTransactionRow(row, referenceDate));
 }
 
@@ -461,6 +460,14 @@ export async function listBanks(userId) {
   const resolvedUserId = await requireUserId(userId);
   const result = await pool.query(
     `
+      WITH transaction_totals AS (
+        SELECT
+          bank_connection_id,
+          COUNT(*)::INT AS transaction_count
+        FROM transactions
+        WHERE user_id = $1
+        GROUP BY bank_connection_id
+      )
         SELECT
           b.id,
           b.slug,
@@ -476,9 +483,11 @@ export async function listBanks(userId) {
           b.statement_close_day,
           b.statement_due_day,
           b.institution_name,
-          b.institution_image_url
+          b.institution_image_url,
+          COALESCE(tt.transaction_count, 0) AS transaction_count
       FROM bank_connections b
       LEFT JOIN bank_connections parent ON parent.id = b.parent_bank_connection_id
+      LEFT JOIN transaction_totals tt ON tt.bank_connection_id = b.id
       WHERE b.user_id = $1
       ORDER BY
         COALESCE(b.parent_bank_connection_id, b.id) ASC,
@@ -500,6 +509,7 @@ export async function listBanks(userId) {
     formattedBalance: formatCurrency(row.current_balance),
     creditLimit: row.credit_limit === null ? null : parseNumeric(row.credit_limit),
     formattedCreditLimit: row.credit_limit === null ? null : formatCurrency(row.credit_limit),
+    transactionCount: Number(row.transaction_count ?? 0),
     parentBankConnectionId: row.parent_bank_connection_id,
     parentAccountName: row.parent_account_name,
     statementCloseDay: row.statement_close_day,

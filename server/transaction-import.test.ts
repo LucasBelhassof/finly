@@ -6,6 +6,8 @@ import {
   buildInstallmentTransactionSeedKey,
   buildImportSeedKey,
   buildImportedTransactionEntries,
+  buildHistoricalCategorizationMatches,
+  buildRecurringRuleMatches,
   createPdfParseOptions,
   createPdfPasswordError,
   createImportPreview,
@@ -21,6 +23,7 @@ import {
   parseCreditCardPdfStatement,
   parseMultipartCsvUpload,
   resolveAllowedCategoryMap,
+  resolveImportedTransactionCategory,
   parseAmountInput,
   parseOccurredOnInput,
   stripInstallmentMarker,
@@ -372,6 +375,81 @@ describe("transaction import helpers", () => {
     expect(preview.items[0].type).toBe("income");
     expect(preview.items[0].suggestedCategoryId).toBe(3);
     expect(preview.items[0].suggestionSource).toBe("recurring_rule");
+  });
+
+  it("reuses the shared categorization resolver with recurring, history and fallback", () => {
+    const historicalMatches = buildHistoricalCategorizationMatches([
+      {
+        description: "Transferencia recebida pelo Pix - LEVI AUGUSTO PEREIRA DOS SANTOS",
+        amount: 400,
+        category_id: 2,
+        occurred_on: "2026-03-06",
+      },
+    ]);
+    const recurringRuleMatches = buildRecurringRuleMatches([
+      {
+        match_key: "levi augusto pereira dos santos",
+        type: "income",
+        category_id: 3,
+        times_confirmed: 3,
+      },
+    ]);
+
+    const recurringResult = resolveImportedTransactionCategory({
+      categories,
+      description: "Transferencia recebida pelo Pix - LEVI AUGUSTO PEREIRA DOS SANTOS",
+      historicalMatches,
+      recurringRuleMatches,
+      type: "income",
+    });
+    const fallbackResult = resolveImportedTransactionCategory({
+      categories,
+      defaultExpenseCategoryId: 4,
+      defaultIncomeCategoryId: 3,
+      description: "Lancamento desconhecido",
+      historicalMatches: new Map(),
+      recurringRuleMatches: new Map(),
+      type: "expense",
+    });
+
+    expect(recurringResult.category?.id).toBe(3);
+    expect(recurringResult.suggestionSource).toBe("recurring_rule");
+    expect(fallbackResult.category?.id).toBe(4);
+    expect(fallbackResult.suggestionSource).toBeNull();
+  });
+
+  it("marks card payment received as excluded in the shared resolver", () => {
+    const result = resolveImportedTransactionCategory({
+      categories,
+      defaultExpenseCategoryId: 4,
+      defaultIncomeCategoryId: 3,
+      description: "Pagamento recebido",
+      historicalMatches: new Map(),
+      importSource: "credit_card_statement",
+      recurringRuleMatches: new Map(),
+      type: "income",
+    });
+
+    expect(result.exclude).toBe(true);
+    expect(result.excludeReason).toBe("credit_card_payment_received");
+    expect(result.category).toBeNull();
+  });
+
+  it("marks invoice payment expense as excluded to avoid duplicated card spending", () => {
+    const result = resolveImportedTransactionCategory({
+      categories,
+      defaultExpenseCategoryId: 4,
+      defaultIncomeCategoryId: 3,
+      description: "Pagamento da fatura do cartao",
+      historicalMatches: new Map(),
+      importSource: "bank_statement",
+      recurringRuleMatches: new Map(),
+      type: "expense",
+    });
+
+    expect(result.exclude).toBe(true);
+    expect(result.excludeReason).toBe("invoice_payment_expense");
+    expect(result.category).toBeNull();
   });
 
   it("revalidates commit lines with signed amount derived from type", () => {

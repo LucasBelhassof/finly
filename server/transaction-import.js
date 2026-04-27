@@ -995,6 +995,21 @@ function isCreditCardPaymentReceived(normalizedDescriptionValue) {
   return normalizedDescriptionValue.includes("pagamento recebido");
 }
 
+function isInvoicePaymentExpense(normalizedDescriptionValue) {
+  if (!normalizedDescriptionValue) {
+    return false;
+  }
+
+  const hasInvoiceTerm = normalizedDescriptionValue.includes("fatura");
+  const hasPaymentTerm =
+    normalizedDescriptionValue.includes("pagamento") ||
+    normalizedDescriptionValue.includes("pgto") ||
+    normalizedDescriptionValue.includes("pgt");
+  const hasCardTerm = normalizedDescriptionValue.includes("cartao");
+
+  return (hasInvoiceTerm && hasPaymentTerm) || (hasCardTerm && hasPaymentTerm);
+}
+
 export function parseAmountInput(rawValue) {
   const original = String(rawValue ?? "").trim();
 
@@ -1182,6 +1197,132 @@ function chooseHistoricalMatch(matchKey, categories, historicalMatches, recurrin
   return null;
 }
 
+function findCategoryById(categories, categoryId) {
+  if (!Number.isInteger(Number(categoryId))) {
+    return null;
+  }
+
+  return categories.find((item) => Number(item.id) === Number(categoryId)) ?? null;
+}
+
+export function buildHistoricalCategorizationMatches(rows) {
+  const grouped = new Map();
+
+  for (const row of rows ?? []) {
+    const matchKey = extractCategorizationMatchKey(row.description);
+
+    if (!matchKey) {
+      continue;
+    }
+
+    const type = row.transaction_type === "income" || row.transaction_type === "expense"
+      ? row.transaction_type
+      : Number(row.amount) >= 0
+        ? "income"
+        : "expense";
+    const comboKey = `${type}:${row.category_id}`;
+    const entry = grouped.get(matchKey) ?? new Map();
+    const current = entry.get(comboKey) ?? { type, categoryId: row.category_id, count: 0, latestOccurredOn: "" };
+    current.count += 1;
+    current.latestOccurredOn = String(row.occurred_on ?? "");
+    entry.set(comboKey, current);
+    grouped.set(matchKey, entry);
+  }
+
+  const resolved = new Map();
+
+  for (const [matchKey, options] of grouped.entries()) {
+    const ranked = Array.from(options.values()).sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return String(right.latestOccurredOn).localeCompare(String(left.latestOccurredOn));
+    });
+
+    if (ranked.length === 1 || ranked[0].count > ranked[1].count) {
+      resolved.set(matchKey, ranked[0]);
+    }
+  }
+
+  return resolved;
+}
+
+function getDefaultExpenseCategory(categories) {
+  return categories.find(
+    (item) => item.transactionType === "expense" && String(item.slug ?? "") === DEFAULT_EXPENSE_CATEGORY_SLUG,
+  ) ?? null;
+}
+
+export function buildRecurringRuleMatches(rows) {
+  const resolved = new Map();
+
+  for (const row of rows ?? []) {
+    if (!row.match_key || Number(row.times_confirmed) < RECURRING_RULE_MIN_CONFIRMATIONS) {
+      continue;
+    }
+
+    resolved.set(String(row.match_key), {
+      type: row.type,
+      categoryId: row.category_id,
+      timesConfirmed: Number(row.times_confirmed),
+    });
+  }
+
+  return resolved;
+}
+
+export function resolveImportedTransactionCategory({
+  categories,
+  defaultExpenseCategoryId = null,
+  defaultIncomeCategoryId = null,
+  description,
+  historicalMatches,
+  importSource = "bank_statement",
+  recurringRuleMatches,
+  type,
+}) {
+  const normalizedDescription = normalizeDescription(description);
+  const matchKey = extractCategorizationMatchKey(description);
+  const suggestion = suggestCategory(normalizedDescription, categories);
+  const historicalSuggestion =
+    !suggestion.category && matchKey
+      ? chooseHistoricalMatch(matchKey, categories, historicalMatches, recurringRuleMatches)
+      : null;
+
+  const resolvedType = historicalSuggestion?.typeOverride ?? suggestion.typeOverride ?? type;
+  const excludeReason =
+    importSource === "credit_card_statement" &&
+    resolvedType === "income" &&
+    isCreditCardPaymentReceived(normalizedDescription)
+      ? "credit_card_payment_received"
+      : resolvedType === "expense" && isInvoicePaymentExpense(normalizedDescription)
+        ? "invoice_payment_expense"
+        : null;
+  const exclude = excludeReason !== null;
+
+  let category = historicalSuggestion?.category ?? suggestion.category ?? null;
+
+  if (!exclude && !category && resolvedType === "expense") {
+    category = findCategoryById(categories, defaultExpenseCategoryId) ?? getDefaultExpenseCategory(categories);
+  }
+
+  if (!exclude && !category && resolvedType === "income") {
+    category = findCategoryById(categories, defaultIncomeCategoryId);
+  }
+
+  return {
+    category,
+    exclude,
+    excludeReason,
+    matchKey,
+    matchedRuleId: suggestion.matchedRuleId,
+    normalizedDescription,
+    suggestionSource: historicalSuggestion?.source ?? (suggestion.category ? "rule" : null),
+    type: resolvedType,
+  };
+}
+
 function buildRowSource(headerRow, rowValues) {
   const source = {};
 
@@ -1216,7 +1357,6 @@ function buildPreviewItem({
   const sourceRow = buildRowSource(headerRow, rowValues);
   const rawDescription = String(rowValues[headerIndexes.description] ?? "").trim();
   const normalizedDescriptionValue = normalizeDescription(rawDescription);
-  const categorizationMatchKey = extractCategorizationMatchKey(rawDescription);
   let type = "expense";
   let absoluteAmount = null;
   let occurredOn = "";
@@ -1280,19 +1420,24 @@ function buildPreviewItem({
     errors.push(error.message);
   }
 
-  const suggestion = suggestCategory(normalizedDescriptionValue, categories);
-  const historicalSuggestion =
-    !suggestion.category && categorizationMatchKey
-      ? chooseHistoricalMatch(categorizationMatchKey, categories, historicalMatches, recurringRuleMatches)
-      : null;
+  const categorization = resolveImportedTransactionCategory({
+    categories,
+    description: rawDescription,
+    historicalMatches,
+    importSource: importLayout,
+    recurringRuleMatches,
+    type,
+  });
 
-  if (suggestion.typeOverride || historicalSuggestion?.typeOverride) {
-    type = historicalSuggestion?.typeOverride ?? suggestion.typeOverride;
-  }
+  type = categorization.type;
+  defaultExclude = categorization.exclude;
 
-  if (importLayout === "credit_card_statement" && isCreditCardPaymentReceived(normalizedDescriptionValue)) {
-    defaultExclude = true;
-    warnings.push("Pagamento recebido de fatura sera ignorado por padrao.");
+  if (defaultExclude) {
+    warnings.push(
+      categorization.excludeReason === "invoice_payment_expense"
+        ? "Pagamento de fatura sera ignorado por padrao para evitar duplicidade."
+        : "Pagamento recebido de fatura sera ignorado por padrao.",
+    );
   }
 
   if (importLayout === "credit_card_statement" && type === "expense") {
@@ -1352,8 +1497,8 @@ function buildPreviewItem({
     seenFingerprints.add(fingerprint);
   }
 
-  const finalSuggestedCategory = historicalSuggestion?.category ?? suggestion.category ?? null;
-  const finalSuggestionSource = historicalSuggestion?.source ?? (suggestion.category ? "rule" : null);
+  const finalSuggestedCategory = categorization.category;
+  const finalSuggestionSource = categorization.suggestionSource;
   const finalRequiresCategorySelection = !defaultExclude && type === "income" && !finalSuggestedCategory;
 
   if (finalRequiresCategorySelection) {
@@ -1386,7 +1531,7 @@ function buildPreviewItem({
     importSource: importLayout,
     bankConnectionId: null,
     bankConnectionName: "",
-    matchedRuleId: suggestion.matchedRuleId,
+    matchedRuleId: categorization.matchedRuleId,
     aiSuggestedType: null,
     aiSuggestedCategoryId: null,
     aiSuggestedCategoryLabel: null,
@@ -1403,73 +1548,6 @@ function buildPreviewItem({
     errors,
     sourceRow,
   };
-}
-
-function buildHistoricalCategorizationMatches(rows) {
-  const grouped = new Map();
-
-  for (const row of rows ?? []) {
-    const matchKey = extractCategorizationMatchKey(row.description);
-
-    if (!matchKey) {
-      continue;
-    }
-
-    const type = row.transaction_type === "income" || row.transaction_type === "expense"
-      ? row.transaction_type
-      : Number(row.amount) >= 0
-        ? "income"
-        : "expense";
-    const comboKey = `${type}:${row.category_id}`;
-    const entry = grouped.get(matchKey) ?? new Map();
-    const current = entry.get(comboKey) ?? { type, categoryId: row.category_id, count: 0, latestOccurredOn: "" };
-    current.count += 1;
-    current.latestOccurredOn = String(row.occurred_on ?? "");
-    entry.set(comboKey, current);
-    grouped.set(matchKey, entry);
-  }
-
-  const resolved = new Map();
-
-  for (const [matchKey, options] of grouped.entries()) {
-    const ranked = Array.from(options.values()).sort((left, right) => {
-      if (right.count !== left.count) {
-        return right.count - left.count;
-      }
-
-      return String(right.latestOccurredOn).localeCompare(String(left.latestOccurredOn));
-    });
-
-    if (ranked.length === 1 || ranked[0].count > ranked[1].count) {
-      resolved.set(matchKey, ranked[0]);
-    }
-  }
-
-  return resolved;
-}
-
-function getDefaultExpenseCategory(categories) {
-  return categories.find(
-    (item) => item.transactionType === "expense" && String(item.slug ?? "") === DEFAULT_EXPENSE_CATEGORY_SLUG,
-  ) ?? null;
-}
-
-function buildRecurringRuleMatches(rows) {
-  const resolved = new Map();
-
-  for (const row of rows ?? []) {
-    if (!row.match_key || Number(row.times_confirmed) < RECURRING_RULE_MIN_CONFIRMATIONS) {
-      continue;
-    }
-
-    resolved.set(String(row.match_key), {
-      type: row.type,
-      categoryId: row.category_id,
-      timesConfirmed: Number(row.times_confirmed),
-    });
-  }
-
-  return resolved;
 }
 
 function buildPreviewItems({

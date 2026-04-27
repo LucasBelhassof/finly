@@ -2,6 +2,17 @@ import { db } from "../../shared/db.js";
 import { env } from "../../shared/env.js";
 import { BadRequestError } from "../../shared/errors.js";
 import {
+  listCategories,
+  listHistoricalCategorizationRows,
+  listRecurringCategorizationRules,
+  upsertTransactionCategorizationRule,
+} from "../../database.js";
+import {
+  buildHistoricalCategorizationMatches,
+  buildRecurringRuleMatches,
+  resolveImportedTransactionCategory,
+} from "../../transaction-import.js";
+import {
   deleteConnection,
   findConnectionsByUserId,
   setConnectionSynced,
@@ -56,22 +67,45 @@ async function pluggyGet<T>(apiKey: string, path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-// ── Default category helpers ───────────────────────────────────────────────
+type TransactionCategory = Awaited<ReturnType<typeof listCategories>>[number];
 
-async function getDefaultExpenseCategoryId(): Promise<number> {
-  const result = await db.query<{ id: number }>(
-    `SELECT id FROM categories WHERE slug = 'outros-despesas' AND transaction_type = 'expense' LIMIT 1`,
-  );
-  if (!result.rows[0]) throw new Error("Default expense category not found");
-  return result.rows[0].id;
+interface PluggyCategorizationContext {
+  categories: TransactionCategory[];
+  defaultExpenseCategoryId: number;
+  defaultIncomeCategoryId: number;
+  historicalMatches: ReturnType<typeof buildHistoricalCategorizationMatches>;
+  recurringRuleMatches: ReturnType<typeof buildRecurringRuleMatches>;
 }
 
-async function getDefaultIncomeCategoryId(): Promise<number> {
-  const result = await db.query<{ id: number }>(
-    `SELECT id FROM categories WHERE slug = 'salario' AND transaction_type = 'income' LIMIT 1`,
+async function loadPluggyCategorizationContext(userId: number): Promise<PluggyCategorizationContext> {
+  const [categories, historicalRows, recurringRules] = await Promise.all([
+    listCategories(),
+    listHistoricalCategorizationRows(userId),
+    listRecurringCategorizationRules(userId),
+  ]);
+
+  const defaultExpenseCategory = categories.find(
+    (category) => category.transactionType === "expense" && category.slug === "outros-despesas",
   );
-  if (!result.rows[0]) throw new Error("Default income category not found");
-  return result.rows[0].id;
+  const defaultIncomeCategory = categories.find(
+    (category) => category.transactionType === "income" && category.slug === "salario",
+  );
+
+  if (!defaultExpenseCategory) {
+    throw new Error("Default expense category not found");
+  }
+
+  if (!defaultIncomeCategory) {
+    throw new Error("Default income category not found");
+  }
+
+  return {
+    categories,
+    defaultExpenseCategoryId: Number(defaultExpenseCategory.id),
+    defaultIncomeCategoryId: Number(defaultIncomeCategory.id),
+    historicalMatches: buildHistoricalCategorizationMatches(historicalRows),
+    recurringRuleMatches: buildRecurringRuleMatches(recurringRules),
+  };
 }
 
 // ── Public service functions ───────────────────────────────────────────────
@@ -219,10 +253,7 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
       `/accounts?itemId=${connection.pluggyItemId}`,
     );
 
-    const [defaultExpenseCategoryId, defaultIncomeCategoryId] = await Promise.all([
-      getDefaultExpenseCategoryId(),
-      getDefaultIncomeCategoryId(),
-    ]);
+    const categorizationContext = await loadPluggyCategorizationContext(userId);
 
     const institutionName = connection.institutionName;
     const institutionImageUrl = connection.institutionImageUrl;
@@ -319,8 +350,7 @@ async function syncSingleItem(userId: number, connection: PluggyConnection): Pro
             bankConnectionId,
             tx,
             accountType,
-            defaultExpenseCategoryId,
-            defaultIncomeCategoryId,
+            categorizationContext,
           );
           if (result) imported++;
           else skipped++;
@@ -357,28 +387,36 @@ async function importTransaction(
   bankConnectionId: number,
   tx: PluggyTransaction,
   accountType: string,
-  defaultExpenseCategoryId: number,
-  defaultIncomeCategoryId: number,
+  categorizationContext: PluggyCategorizationContext,
 ): Promise<boolean> {
-  // Pluggy amounts are always positive; sign is in the `type` field
   const isCredit = tx.type === "CREDIT";
+  const inferredType = accountType === "credit_card"
+    ? (isCredit ? "income" : "expense")
+    : (isCredit ? "income" : "expense");
+  const importSource = accountType === "credit_card" ? "credit_card_statement" : "bank_statement";
+  const categorization = resolveImportedTransactionCategory({
+    categories: categorizationContext.categories,
+    defaultExpenseCategoryId: categorizationContext.defaultExpenseCategoryId,
+    defaultIncomeCategoryId: categorizationContext.defaultIncomeCategoryId,
+    description: tx.description,
+    historicalMatches: categorizationContext.historicalMatches,
+    importSource,
+    recurringRuleMatches: categorizationContext.recurringRuleMatches,
+    type: inferredType,
+  });
 
-  // Credit cards: credits reduce the bill (negative), debits increase it (positive expenses)
-  // Bank accounts: credits are income (positive), debits are expenses (negative)
-  let amount: number;
-  let categoryId: number;
-
-  if (accountType === "credit_card") {
-    // On credit cards all transactions are expenses unless it's a payment/refund
-    amount = isCredit ? tx.amount : -Math.abs(tx.amount);
-    categoryId = defaultExpenseCategoryId;
-  } else {
-    amount = isCredit ? Math.abs(tx.amount) : -Math.abs(tx.amount);
-    categoryId = isCredit ? defaultIncomeCategoryId : defaultExpenseCategoryId;
+  if (categorization.exclude) {
+    return false;
   }
 
+  const categoryId = Number(categorization.category?.id ?? null);
+  if (!Number.isInteger(categoryId)) {
+    throw new Error(`Pluggy transaction category could not be resolved for ${tx.id}`);
+  }
+
+  const amount = categorization.type === "income" ? Math.abs(tx.amount) : -Math.abs(tx.amount);
   const seedKey = `pluggy:${tx.id}`;
-  const occurredOn = tx.date.slice(0, 10); // ISO date YYYY-MM-DD
+  const occurredOn = tx.date.slice(0, 10);
 
   const result = await db.query<{ id: number }>(
     `INSERT INTO transactions
@@ -389,5 +427,18 @@ async function importTransaction(
     [userId, bankConnectionId, categoryId, tx.description, amount, occurredOn, seedKey],
   );
 
-  return (result.rowCount ?? 0) > 0;
+  if ((result.rowCount ?? 0) === 0) {
+    return false;
+  }
+
+  if (categorization.matchKey) {
+    await upsertTransactionCategorizationRule({
+      userId,
+      matchKey: categorization.matchKey,
+      type: categorization.type,
+      categoryId,
+    });
+  }
+
+  return true;
 }

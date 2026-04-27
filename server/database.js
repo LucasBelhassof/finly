@@ -2032,7 +2032,7 @@ async function listTransactionFingerprintRows(userId) {
   return result.rows;
 }
 
-async function listHistoricalCategorizationRows(userId) {
+export async function listHistoricalCategorizationRows(userId) {
   const result = await pool.query(
     `
       SELECT t.description, t.amount, t.category_id, t.occurred_on, c.transaction_type
@@ -2047,7 +2047,7 @@ async function listHistoricalCategorizationRows(userId) {
   return result.rows;
 }
 
-async function listRecurringCategorizationRules(userId) {
+export async function listRecurringCategorizationRules(userId) {
   const result = await pool.query(
     `
       SELECT match_key, type, category_id, times_confirmed, source
@@ -2060,7 +2060,7 @@ async function listRecurringCategorizationRules(userId) {
   return result.rows;
 }
 
-async function upsertTransactionCategorizationRule({ categoryId, matchKey, type, userId }, client = pool) {
+export async function upsertTransactionCategorizationRule({ categoryId, matchKey, type, userId }, client = pool) {
   if (!matchKey || !type || !Number.isInteger(Number(categoryId))) {
     return;
   }

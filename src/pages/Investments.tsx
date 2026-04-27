@@ -192,6 +192,8 @@ function buildManualPlanGoal(form: InvestmentFormState, investmentId: number | s
     categoryIds: [],
     investmentBoxId: investmentId,
     investmentBox: null,
+    investmentBoxIds: [investmentId],
+    investmentBoxes: [],
     startDate: form.manualGoalStartDate,
     endDate: form.manualGoalEndDate,
   };
@@ -219,14 +221,22 @@ export default function InvestmentsPage() {
     const map = new Map<string, Array<{ id: string; title: string }>>();
 
     for (const plan of manualPlans) {
-      if (plan.goal.targetModel !== "investment_box" || !plan.goal.investmentBoxId) {
+      if (plan.goal.targetModel !== "investment_box" || (!plan.goal.investmentBoxId && !plan.goal.investmentBoxIds.length)) {
         continue;
       }
 
-      const investmentId = String(plan.goal.investmentBoxId);
-      const current = map.get(investmentId) ?? [];
-      current.push({ id: plan.id, title: plan.title });
-      map.set(investmentId, current);
+      const investmentIds = plan.goal.investmentBoxIds.length ? plan.goal.investmentBoxIds : [plan.goal.investmentBoxId];
+
+      for (const investmentId of investmentIds) {
+        if (!investmentId) {
+          continue;
+        }
+
+        const key = String(investmentId);
+        const current = map.get(key) ?? [];
+        current.push({ id: plan.id, title: plan.title });
+        map.set(key, current);
+      }
     }
 
     return map;

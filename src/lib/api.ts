@@ -806,7 +806,20 @@ function clampPercentage(value: unknown) {
 
 function mapPlanGoal(goal: ApiPlanGoal = {}): PlanGoal {
   const type = normalizePlanGoalType(goal.type);
-  const investmentBox = goal.investmentBox ? mapInvestmentItem(goal.investmentBox) : null;
+  const investmentBoxes = [
+    ...(goal.investmentBoxes ?? []),
+    ...(goal.investmentBox ? [goal.investmentBox] : []),
+  ].map(mapInvestmentItem);
+  const investmentBoxIds = Array.from(
+    new Set([
+      ...(goal.investmentBoxIds ?? []),
+      ...(goal.investmentBoxId === undefined || goal.investmentBoxId === null || goal.investmentBoxId === ""
+        ? []
+        : [goal.investmentBoxId]),
+      ...investmentBoxes.map((investment) => investment.id),
+    ].map(String)),
+  );
+  const investmentBox = investmentBoxes[0] ?? null;
 
   return {
     type,
@@ -815,8 +828,10 @@ function mapPlanGoal(goal: ApiPlanGoal = {}): PlanGoal {
     transactionType: normalizePlanTransactionType(goal.transactionType),
     targetModel: type === "transaction_sum" ? normalizePlanGoalTargetModel(goal.targetModel) : "category",
     categoryIds: (goal.categoryIds ?? []).filter((categoryId) => categoryId !== undefined && categoryId !== null && categoryId !== ""),
-    investmentBoxId: goal.investmentBoxId === undefined || goal.investmentBoxId === null || goal.investmentBoxId === "" ? null : goal.investmentBoxId,
+    investmentBoxId: investmentBoxIds[0] ?? null,
     investmentBox,
+    investmentBoxIds,
+    investmentBoxes,
     startDate: safeString(goal.startDate, "") || null,
     endDate: safeString(goal.endDate, "") || null,
   };
@@ -1146,6 +1161,14 @@ export function mapPlanDraftResponse(response: ApiPlanDraftResponse): PlanDraft 
     description: safeString(response.draft?.description, ""),
     goal,
     items,
+    clarifications: (response.draft?.clarifications ?? [])
+      .map((clarification) => ({
+        id: safeString(clarification.id, safeString(clarification.field, "clarification")),
+        field: safeString(clarification.field, ""),
+        question: safeString(clarification.question, ""),
+        required: clarification.required !== false,
+      }))
+      .filter((clarification) => clarification.id && clarification.question),
   };
 }
 

@@ -303,6 +303,8 @@ export default function ChatPage() {
         categoryIds: [],
         investmentBoxId: null,
         investmentBox: null,
+        investmentBoxIds: [],
+        investmentBoxes: [],
         startDate: null,
         endDate: null,
       },
@@ -479,6 +481,16 @@ export default function ChatPage() {
           transactionType: "income",
           investmentBoxId: String(investment.id),
           investmentBox: investment,
+          investmentBoxIds: Array.from(new Set([...currentForm.goal.investmentBoxIds, String(investment.id)])),
+          investmentBoxes: [
+            ...currentForm.goal.investmentBoxes.filter(
+              (currentInvestment) =>
+                String(currentInvestment.id) !== "investment" &&
+                String(currentInvestment.id) !== "draft-investment-box" &&
+                String(currentInvestment.id) !== String(investment.id),
+            ),
+            investment,
+          ],
         },
       };
     });

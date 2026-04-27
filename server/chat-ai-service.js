@@ -256,6 +256,19 @@ function normalizePlanGoalCategoryIds(value) {
   return Array.from(new Set(ids));
 }
 
+function normalizePlanGoalInvestmentIds(value, fallbackValue = null) {
+  const rawIds = [
+    ...(Array.isArray(value) ? value : []),
+    ...(fallbackValue === undefined || fallbackValue === null || fallbackValue === "" ? [] : [fallbackValue]),
+  ];
+
+  const ids = rawIds
+    .map((investmentId) => Number(investmentId))
+    .filter((investmentId) => Number.isInteger(investmentId) && investmentId > 0);
+
+  return Array.from(new Set(ids));
+}
+
 function normalizePlanGoalTargetModel(value) {
   return value === "investment_box" ? "investment_box" : "category";
 }
@@ -323,32 +336,34 @@ function normalizePlanGoal(value, fallback) {
   const targetAmount = Number(value?.targetAmount ?? value?.target_amount);
   const startDate = normalizePlanGoalDate(value?.startDate ?? value?.start_date);
   const endDate = normalizePlanGoalDate(value?.endDate ?? value?.end_date);
-
-  if (!Number.isFinite(targetAmount) || targetAmount <= 0 || !startDate || !endDate || startDate > endDate) {
-    return fallback;
-  }
-
   const targetModel = normalizePlanGoalTargetModel(value?.targetModel ?? value?.target_model);
-  const investmentBoxIdValue = value?.investmentBoxId ?? value?.investment_box_id;
-  const investmentBoxId =
-    investmentBoxIdValue === undefined || investmentBoxIdValue === null || investmentBoxIdValue === ""
-      ? null
-      : Number(investmentBoxIdValue);
-  const investmentBox = normalizeInvestmentBox(value?.investmentBox ?? value?.investment_box);
 
-  if (targetModel === "investment_box" && investmentBoxId === null && !investmentBox) {
+  if (startDate && endDate && startDate > endDate) {
     return fallback;
   }
+
+  const investmentBoxIdValue = value?.investmentBoxId ?? value?.investment_box_id;
+  const investmentBoxIds = normalizePlanGoalInvestmentIds(value?.investmentBoxIds ?? value?.investment_box_ids, investmentBoxIdValue);
+  const investmentBoxes = [
+    ...(Array.isArray(value?.investmentBoxes) ? value.investmentBoxes : []),
+    ...(Array.isArray(value?.investment_boxes) ? value.investment_boxes : []),
+    value?.investmentBox ?? value?.investment_box,
+  ]
+    .filter(Boolean)
+    .map(normalizeInvestmentBox)
+    .filter(Boolean);
 
   return {
     type: "transaction_sum",
     source: "ai",
-    targetAmount: Number(targetAmount.toFixed(2)),
+    targetAmount: Number.isFinite(targetAmount) && targetAmount > 0 ? Number(targetAmount.toFixed(2)) : null,
     transactionType: value?.transactionType === "income" || value?.transaction_type === "income" ? "income" : "expense",
     targetModel,
     categoryIds: targetModel === "category" ? normalizePlanGoalCategoryIds(value?.categoryIds ?? value?.category_ids) : [],
-    investmentBoxId: targetModel === "investment_box" && Number.isInteger(investmentBoxId) ? investmentBoxId : null,
-    investmentBox: targetModel === "investment_box" ? investmentBox : null,
+    investmentBoxId: targetModel === "investment_box" ? investmentBoxIds[0] ?? null : null,
+    investmentBox: targetModel === "investment_box" ? investmentBoxes[0] ?? null : null,
+    investmentBoxIds: targetModel === "investment_box" ? investmentBoxIds : [],
+    investmentBoxes: targetModel === "investment_box" ? investmentBoxes : [],
     startDate,
     endDate,
   };
@@ -369,6 +384,8 @@ function buildFallbackPlanDraft(chat) {
       categoryIds: [],
       investmentBoxId: null,
       investmentBox: null,
+      investmentBoxIds: [],
+      investmentBoxes: [],
       startDate: null,
       endDate: null,
     },
@@ -392,7 +409,71 @@ function buildFallbackPlanDraft(chat) {
         sortOrder: 2,
       },
     ],
+    clarifications: [],
   };
+}
+
+function normalizePlanDraftClarifications(value = []) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((clarification, index) => ({
+      id: String(clarification?.id ?? clarification?.field ?? `clarification-${index}`).replace(/\s+/g, "-").slice(0, 80),
+      field: String(clarification?.field ?? "").trim().slice(0, 80),
+      question: String(clarification?.question ?? "").trim().slice(0, 240),
+      required: clarification?.required !== false,
+    }))
+    .filter((clarification) => clarification.id && clarification.question);
+}
+
+function buildRequiredPlanDraftClarifications(draft) {
+  if (draft.goal.type !== "transaction_sum") {
+    return [];
+  }
+
+  const clarifications = [];
+
+  if (!draft.goal.targetAmount || draft.goal.targetAmount <= 0) {
+    clarifications.push({
+      id: "target-amount",
+      field: "goal.targetAmount",
+      question: "Qual e o valor alvo deste planejamento?",
+      required: true,
+    });
+  }
+
+  if (draft.goal.targetModel === "category") {
+    if (!draft.goal.startDate) {
+      clarifications.push({
+        id: "start-date",
+        field: "goal.startDate",
+        question: "Qual e a data de inicio para acompanhar estas transacoes?",
+        required: true,
+      });
+    }
+
+    if (!draft.goal.endDate) {
+      clarifications.push({
+        id: "end-date",
+        field: "goal.endDate",
+        question: "Qual e a data final para acompanhar esta meta de transacoes?",
+        required: true,
+      });
+    }
+  }
+
+  if (draft.goal.targetModel === "investment_box" && !draft.goal.investmentBoxIds.length && !draft.goal.investmentBoxes.length) {
+    clarifications.push({
+      id: "investment-box-reference",
+      field: "goal.investmentBoxIds",
+      question: "Voce quer usar uma caixinha existente ou criar uma nova caixinha para este planejamento?",
+      required: true,
+    });
+  }
+
+  return clarifications;
 }
 
 function normalizePlanDraft(value, fallback) {
@@ -400,12 +481,17 @@ function normalizePlanDraft(value, fallback) {
   const items = Array.isArray(value?.items)
     ? value.items.map(normalizePlanItem).filter(Boolean).slice(0, 10)
     : [];
+  const goal = normalizePlanGoal(value?.goal, fallback.goal);
 
   return {
     title,
     description: String(value?.description ?? fallback.description).trim() || fallback.description,
-    goal: normalizePlanGoal(value?.goal, fallback.goal),
+    goal,
     items: items.length ? items : fallback.items,
+    clarifications: [
+      ...normalizePlanDraftClarifications(value?.clarifications),
+      ...buildRequiredPlanDraftClarifications({ goal }),
+    ].filter((clarification, index, list) => list.findIndex((item) => item.id === clarification.id) === index),
   };
 }
 

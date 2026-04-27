@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronLeft, Link2, Loader2, MessageSquareText, Sparkles, Trash2, Unlink } from "lucide-react";
+import { Check, CheckCircle2, ChevronLeft, Link2, Loader2, MessageSquareText, Pencil, Sparkles, Trash2, Unlink, X } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import { Textarea } from "@/components/ui/textarea";
 import { useChatConversationMessages, useChatConversations } from "@/hooks/use-chat";
 import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
@@ -62,7 +64,7 @@ import {
   normalizePlanForm,
   type PlanFormState,
 } from "@/pages/Plans";
-import type { ChatConversation, ChatMessage } from "@/types/api";
+import type { ChatConversation, ChatMessage, PlanItem, PlanPriority } from "@/types/api";
 
 const EMPTY_SELECT_VALUE = "__empty__";
 const MODAL_SELECT_TRIGGER_CLASSNAME = "h-11 rounded-xl border-border/60 bg-secondary/35";
@@ -230,6 +232,8 @@ export default function PlanDetailPage() {
   const [linkChatId, setLinkChatId] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [unlinkingChat, setUnlinkingChat] = useState<ChatConversation | null>(null);
+  const [editingItemId, setEditingItemId] = useState<number | string | null>(null);
+  const [editingItemForm, setEditingItemForm] = useState<{ title: string; description: string; priority: PlanPriority } | null>(null);
   const [activeChatId, setActiveChatId] = useState("");
   const activeChat = plan?.chats.find((chat) => chat.id === activeChatId) ?? plan?.chats[0] ?? null;
   const { data: activeMessages = [], isLoading: isLoadingMessages } = useChatConversationMessages(activeChat?.id, 100);
@@ -378,6 +382,98 @@ export default function PlanDetailPage() {
     }
   };
 
+  const handleUpdatePlanItems = async (nextItems: PlanItem[]) => {
+    if (!plan) {
+      return;
+    }
+
+    const nextForm = createPlanFormFromPlan(plan);
+    nextForm.items = nextItems.map((item) => ({
+      title: item.title,
+      description: item.description,
+      status: item.status,
+      priority: item.priority,
+    }));
+
+    await updatePlan.mutateAsync({ planId: plan.id, ...normalizePlanForm(nextForm) });
+  };
+
+  const handleStartEditingItem = (item: PlanItem) => {
+    setEditingItemId(item.id);
+    setEditingItemForm({
+      title: item.title,
+      description: item.description,
+      priority: item.priority,
+    });
+  };
+
+  const handleCancelEditingItem = () => {
+    setEditingItemId(null);
+    setEditingItemForm(null);
+  };
+
+  const handleSaveItem = async (itemId: number | string) => {
+    if (!plan || !editingItemForm) {
+      return;
+    }
+
+    if (!editingItemForm.title.trim()) {
+      toast.error("Informe um titulo para a meta.");
+      return;
+    }
+
+    try {
+      await handleUpdatePlanItems(
+        plan.items.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                title: editingItemForm.title.trim(),
+                description: editingItemForm.description.trim(),
+                priority: editingItemForm.priority,
+              }
+            : item,
+        ),
+      );
+      toast.success("Meta atualizada.");
+      handleCancelEditingItem();
+    } catch (error) {
+      toast.error("Nao foi possivel atualizar a meta.", {
+        description: getErrorMessage(error, "Tente novamente em instantes."),
+      });
+    }
+  };
+
+  const handleMarkItemAsDone = async (itemId: number | string) => {
+    if (!plan) {
+      return;
+    }
+
+    const item = plan.items.find((currentItem) => currentItem.id === itemId);
+
+    if (!item || item.status === "done") {
+      return;
+    }
+
+    try {
+      await handleUpdatePlanItems(
+        plan.items.map((currentItem) =>
+          currentItem.id === itemId
+            ? {
+                ...currentItem,
+                status: "done",
+              }
+            : currentItem,
+        ),
+      );
+      toast.success("Meta marcada como concluida.");
+    } catch (error) {
+      toast.error("Nao foi possivel concluir a meta.", {
+        description: getErrorMessage(error, "Tente novamente em instantes."),
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <AppShell title="Planejamento" description="Carregando detalhes do planejamento">
@@ -499,17 +595,119 @@ export default function PlanDetailPage() {
               <div className="space-y-3">
                 {plan.items.map((item) => (
                   <div key={item.id} className="rounded-lg border border-border/40 bg-secondary/20 p-3">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2
-                        size={18}
-                        className={item.status === "done" ? "mt-0.5 text-income" : "mt-0.5 text-muted-foreground"}
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{item.title}</p>
-                        <Badge variant="outline" className="mt-1">
-                          Prioridade {getPriorityLabel(item.priority)}
-                        </Badge>
-                        {item.description ? <p className="mt-1 text-sm text-muted-foreground">{item.description}</p> : null}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 items-start gap-3">
+                        <CheckCircle2
+                          size={18}
+                          className={item.status === "done" ? "mt-0.5 text-income" : "mt-0.5 text-muted-foreground"}
+                        />
+                        <div className="min-w-0 flex-1">
+                          {editingItemId === item.id && editingItemForm ? (
+                            <div className="w-full space-y-2">
+                              <div className="flex w-full items-start gap-2">
+                                <Input
+                                  value={editingItemForm.title}
+                                  onChange={(event) =>
+                                    setEditingItemForm((current) => (current ? { ...current, title: event.target.value } : current))
+                                  }
+                                  placeholder="Titulo da meta"
+                                  className="min-w-0 flex-1"
+                                />
+                                <Select
+                                  value={editingItemForm.priority}
+                                  onValueChange={(value: PlanPriority) =>
+                                    setEditingItemForm((current) =>
+                                      current
+                                        ? {
+                                            ...current,
+                                            priority: value === "high" || value === "low" ? value : "medium",
+                                          }
+                                        : current,
+                                    )
+                                  }
+                                >
+                                  <SelectTrigger className={`w-[170px] shrink-0 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
+                                    <SelectValue placeholder="Prioridade" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="high">Alta</SelectItem>
+                                    <SelectItem value="medium">Media</SelectItem>
+                                    <SelectItem value="low">Baixa</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Textarea
+                                value={editingItemForm.description}
+                                onChange={(event) =>
+                                  setEditingItemForm((current) => (current ? { ...current, description: event.target.value } : current))
+                                }
+                                placeholder="Detalhes opcionais"
+                                rows={4}
+                                className="min-h-28 w-full"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm font-medium text-foreground">{item.title}</p>
+                              <Badge variant="outline" className="mt-1">
+                                Prioridade {getPriorityLabel(item.priority)}
+                              </Badge>
+                              {item.description ? <p className="mt-1 text-sm text-muted-foreground">{item.description}</p> : null}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 flex-row flex-wrap items-center gap-2">
+                        {editingItemId === item.id ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => handleSaveItem(item.id)}
+                              disabled={updatePlan.isPending}
+                            >
+                              {updatePlan.isPending ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                              Salvar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={handleCancelEditingItem}
+                              disabled={updatePlan.isPending}
+                            >
+                              <X size={15} />
+                              Cancelar
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              variant={item.status === "done" ? "secondary" : "default"}
+                              onClick={() => handleMarkItemAsDone(item.id)}
+                              disabled={item.status === "done" || updatePlan.isPending}
+                            >
+                              <CheckCircle2 size={15} />
+                              {item.status === "done" ? "Concluida" : "Marcar como concluida"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => handleStartEditingItem(item)}
+                              disabled={updatePlan.isPending || editingItemId === item.id}
+                            >
+                              <Pencil size={15} />
+                              Editar meta
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

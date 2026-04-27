@@ -355,6 +355,8 @@ export interface ApiPlanGoal {
   categoryIds?: Array<number | string>;
   investmentBoxId?: number | string | null;
   investmentBox?: ApiInvestmentItem | null;
+  investmentBoxIds?: Array<number | string>;
+  investmentBoxes?: ApiInvestmentItem[];
   startDate?: string | null;
   endDate?: string | null;
 }
@@ -418,7 +420,15 @@ export interface ApiPlanDraftResponse {
     description?: string;
     goal?: ApiPlanGoal;
     items?: ApiPlanItem[];
+    clarifications?: ApiPlanDraftClarification[];
   };
+}
+
+export interface ApiPlanDraftClarification {
+  id?: string;
+  field?: string;
+  question?: string;
+  required?: boolean;
 }
 
 export interface ApiPlanDraftSession {
@@ -1004,6 +1014,8 @@ export interface PlanGoal {
   categoryIds: Array<number | string>;
   investmentBoxId: number | string | null;
   investmentBox: InvestmentItem | null;
+  investmentBoxIds: Array<number | string>;
+  investmentBoxes: InvestmentItem[];
   startDate: string | null;
   endDate: string | null;
 }
@@ -1058,6 +1070,14 @@ export interface PlanDraft {
   description: string;
   goal: PlanGoal;
   items: PlanItem[];
+  clarifications: PlanDraftClarification[];
+}
+
+export interface PlanDraftClarification {
+  id: string;
+  field: string;
+  question: string;
+  required: boolean;
 }
 
 export interface PlanDraftSession {

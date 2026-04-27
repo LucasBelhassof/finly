@@ -41,6 +41,7 @@ import type {
   Plan,
   PlanAiAssessmentStatus,
   PlanDraft,
+  PlanDraftClarification,
   PlanGoal,
   PlanGoalSource,
   PlanGoalTargetModel,
@@ -67,6 +68,8 @@ export interface PlanFormGoal {
   categoryIds: string[];
   investmentBoxId: string;
   investmentBox: InvestmentItem | null;
+  investmentBoxIds: string[];
+  investmentBoxes: InvestmentItem[];
   startDate: string;
   endDate: string;
 }
@@ -76,6 +79,7 @@ export interface PlanFormState {
   description: string;
   goal: PlanFormGoal;
   items: PlanFormItem[];
+  clarifications: PlanDraftClarification[];
 }
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -118,6 +122,8 @@ function createEmptyGoal(source: PlanGoalSource = "manual"): PlanFormGoal {
     categoryIds: [],
     investmentBoxId: "",
     investmentBox: null,
+    investmentBoxIds: [],
+    investmentBoxes: [],
     startDate: range.startDate,
     endDate: range.endDate,
   };
@@ -129,6 +135,7 @@ function createEmptyPlanForm(): PlanFormState {
     description: "",
     goal: createEmptyGoal("manual"),
     items: [{ title: "", description: "", status: "todo", priority: "medium" }],
+    clarifications: [],
   };
 }
 
@@ -152,6 +159,13 @@ function parseAmountInput(value: string) {
 
 function createGoalFormFromGoal(goal: PlanGoal): PlanFormGoal {
   const range = getCurrentMonthRange();
+  const investmentBoxIds = Array.from(
+    new Set([
+      ...goal.investmentBoxIds.map(String),
+      ...(goal.investmentBoxId ? [String(goal.investmentBoxId)] : []),
+    ]),
+  );
+  const investmentBoxes = goal.investmentBoxes.length ? goal.investmentBoxes : goal.investmentBox ? [goal.investmentBox] : [];
 
   return {
     type: goal.type,
@@ -160,10 +174,12 @@ function createGoalFormFromGoal(goal: PlanGoal): PlanFormGoal {
     transactionType: goal.transactionType,
     targetModel: goal.targetModel,
     categoryIds: goal.categoryIds.map((categoryId) => String(categoryId)),
-    investmentBoxId: goal.investmentBoxId ? String(goal.investmentBoxId) : "",
-    investmentBox: goal.investmentBox,
-    startDate: goal.startDate ?? range.startDate,
-    endDate: goal.endDate ?? range.endDate,
+    investmentBoxId: investmentBoxIds[0] ?? "",
+    investmentBox: investmentBoxes[0] ?? null,
+    investmentBoxIds,
+    investmentBoxes,
+    startDate: goal.type === "transaction_sum" ? goal.startDate ?? "" : goal.startDate ?? range.startDate,
+    endDate: goal.type === "transaction_sum" ? goal.endDate ?? "" : goal.endDate ?? range.endDate,
   };
 }
 
@@ -180,6 +196,7 @@ export function createPlanFormFromPlan(plan: Plan): PlanFormState {
           priority: item.priority,
         }))
       : [{ title: "", description: "", status: "todo", priority: "medium" }],
+    clarifications: [],
   };
 }
 
@@ -196,6 +213,7 @@ export function createPlanFormFromDraft(draft: PlanDraft): PlanFormState {
           priority: item.priority,
         }))
       : [{ title: "", description: "", status: "todo", priority: "medium" }],
+    clarifications: draft.clarifications,
   };
 }
 
@@ -209,10 +227,12 @@ export function normalizePlanForm(form: PlanFormState): CreatePlanInput {
           transactionType: form.goal.transactionType,
           targetModel: form.goal.targetModel,
           categoryIds: form.goal.targetModel === "category" ? form.goal.categoryIds : [],
-          investmentBoxId: form.goal.targetModel === "investment_box" && form.goal.investmentBoxId ? form.goal.investmentBoxId : null,
-          investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBox : null,
-          startDate: form.goal.startDate,
-          endDate: form.goal.endDate,
+          investmentBoxId: form.goal.targetModel === "investment_box" && form.goal.investmentBoxIds[0] ? form.goal.investmentBoxIds[0] : null,
+          investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxes[0] ?? null : null,
+          investmentBoxIds: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxIds : [],
+          investmentBoxes: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxes : [],
+          startDate: form.goal.startDate || null,
+          endDate: form.goal.endDate || null,
         }
       : {
           type: "items",
@@ -223,6 +243,8 @@ export function normalizePlanForm(form: PlanFormState): CreatePlanInput {
           categoryIds: [],
           investmentBoxId: null,
           investmentBox: null,
+          investmentBoxIds: [],
+          investmentBoxes: [],
           startDate: null,
           endDate: null,
         };
@@ -256,16 +278,20 @@ export function getPlanFormValidationError(form: PlanFormState) {
     return "Informe o valor alvo da meta financeira.";
   }
 
-  if (!form.goal.startDate || !form.goal.endDate) {
+  if (form.clarifications.some((clarification) => clarification.required)) {
+    return "Responda as perguntas pendentes da IA antes de confirmar o planejamento.";
+  }
+
+  if (form.goal.targetModel === "category" && (!form.goal.startDate || !form.goal.endDate)) {
     return "Informe o periodo da meta financeira.";
   }
 
-  if (form.goal.startDate > form.goal.endDate) {
+  if (form.goal.startDate && form.goal.endDate && form.goal.startDate > form.goal.endDate) {
     return "A data inicial precisa ser anterior a data final.";
   }
 
-  if (form.goal.targetModel === "investment_box" && !form.goal.investmentBoxId && !form.goal.investmentBox) {
-    return "Selecione ou crie uma caixinha para a meta.";
+  if (form.goal.targetModel === "investment_box" && !form.goal.investmentBoxIds.length && !form.goal.investmentBoxes.length) {
+    return "Selecione ou crie pelo menos uma caixinha para a meta.";
   }
 
   return null;
@@ -306,7 +332,17 @@ function getTransactionTypeLabel(type: PlanTransactionType) {
 
 function getGoalCategoryLabels(goal: PlanGoal, categories: CategoryItem[]) {
   if (goal.targetModel === "investment_box") {
-    return goal.investmentBox?.name ?? "Caixinha";
+    const names = goal.investmentBoxes.map((investment) => investment.name).filter(Boolean);
+
+    if (!names.length && goal.investmentBox?.name) {
+      return goal.investmentBox.name;
+    }
+
+    if (!names.length) {
+      return "Caixinha";
+    }
+
+    return names.length > 2 ? `${names.slice(0, 2).join(", ")} +${names.length - 2}` : names.join(", ");
   }
 
   const categoryIds = new Set(goal.categoryIds.map((categoryId) => String(categoryId)));
@@ -470,8 +506,30 @@ export function PlanFormFields({
     updateGoal({ categoryIds });
   };
 
-  const selectedInvestment =
-    investments.find((investment) => String(investment.id) === form.goal.investmentBoxId) ?? form.goal.investmentBox;
+  const toggleInvestment = (investment: InvestmentItem, checked: boolean) => {
+    const investmentId = String(investment.id);
+    const investmentBoxIds = checked
+      ? Array.from(new Set([...form.goal.investmentBoxIds, investmentId]))
+      : form.goal.investmentBoxIds.filter((currentId) => currentId !== investmentId);
+    const currentDraftBoxes = form.goal.investmentBoxes.filter(
+      (currentInvestment) => String(currentInvestment.id) === "investment" || String(currentInvestment.id) === "draft-investment-box",
+    );
+    const selectedExistingBoxes = investments.filter((item) => investmentBoxIds.includes(String(item.id)));
+
+    updateGoal({
+      investmentBoxIds,
+      investmentBoxId: investmentBoxIds[0] ?? "",
+      investmentBoxes: [...selectedExistingBoxes, ...currentDraftBoxes],
+      investmentBox: selectedExistingBoxes[0] ?? currentDraftBoxes[0] ?? null,
+    });
+  };
+
+  const selectedInvestments = [
+    ...investments.filter((investment) => form.goal.investmentBoxIds.includes(String(investment.id))),
+    ...form.goal.investmentBoxes.filter(
+      (investment) => String(investment.id) === "investment" || String(investment.id) === "draft-investment-box",
+    ),
+  ];
 
   return (
     <div className="space-y-4">
@@ -488,6 +546,17 @@ export function PlanFormFields({
           rows={3}
         />
       </div>
+
+      {form.clarifications.length ? (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+          <p className="font-medium">Perguntas pendentes da IA</p>
+          <div className="mt-2 space-y-1">
+            {form.clarifications.map((clarification) => (
+              <p key={clarification.id}>{clarification.question}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="rounded-lg border border-border/40 bg-secondary/20 p-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -543,7 +612,9 @@ export function PlanFormFields({
                       transactionType: value === "income" ? "income" : "expense",
                       categoryIds: [],
                       investmentBoxId: "",
-                      investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBox : null,
+                      investmentBoxIds: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxIds : [],
+                      investmentBoxes: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxes : [],
+                      investmentBox: form.goal.targetModel === "investment_box" ? form.goal.investmentBoxes[0] ?? null : null,
                     })
                   }
                 >
@@ -576,8 +647,10 @@ export function PlanFormFields({
                     targetModel: nextTargetModel,
                     transactionType: nextTargetModel === "investment_box" ? "income" : form.goal.transactionType,
                     categoryIds: nextTargetModel === "category" ? form.goal.categoryIds : [],
-                    investmentBoxId: nextTargetModel === "investment_box" ? form.goal.investmentBoxId : "",
-                    investmentBox: nextTargetModel === "investment_box" ? form.goal.investmentBox : null,
+                    investmentBoxId: nextTargetModel === "investment_box" ? form.goal.investmentBoxIds[0] ?? "" : "",
+                    investmentBox: nextTargetModel === "investment_box" ? form.goal.investmentBoxes[0] ?? null : null,
+                    investmentBoxIds: nextTargetModel === "investment_box" ? form.goal.investmentBoxIds : [],
+                    investmentBoxes: nextTargetModel === "investment_box" ? form.goal.investmentBoxes : [],
                   });
                 }}
               >
@@ -619,57 +692,57 @@ export function PlanFormFields({
               </div>
             ) : (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Caixinha</label>
-                <Select
-                  value={form.goal.investmentBoxId || EMPTY_SELECT_VALUE}
-                  onValueChange={(value) => {
-                    const nextInvestmentBoxId = value === EMPTY_SELECT_VALUE ? "" : value;
-                    const investment = investments.find((item) => String(item.id) === nextInvestmentBoxId) ?? null;
-                    updateGoal({
-                      investmentBoxId: nextInvestmentBoxId,
-                      investmentBox: investment,
-                      transactionType: "income",
-                    });
-                  }}
-                >
-                  <SelectTrigger className={MODAL_SELECT_TRIGGER_CLASSNAME}>
-                    <SelectValue placeholder="Selecione uma caixinha" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={EMPTY_SELECT_VALUE}>Selecione uma caixinha</SelectItem>
-                    {investments.map((investment) => (
-                      <SelectItem key={investment.id} value={String(investment.id)}>
-                        {investment.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium text-foreground">Caixinhas de referencia</label>
+                <ScrollArea className="h-40 rounded-md border border-border/40 bg-background">
+                  <div className="space-y-2 p-3">
+                    {investments.length ? (
+                      investments.map((investment) => {
+                        const investmentId = String(investment.id);
+                        const checked = form.goal.investmentBoxIds.includes(investmentId);
+
+                        return (
+                          <label key={investmentId} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Checkbox checked={checked} onCheckedChange={(value) => toggleInvestment(investment, Boolean(value))} />
+                            <span className="min-w-0 flex-1 truncate">{investment.name}</span>
+                            <span className="shrink-0 text-xs">{investment.formattedCurrentAmount}</span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Nenhuma caixinha disponivel.</span>
+                    )}
+                  </div>
+                </ScrollArea>
                 {onCreateInvestment ? (
                   <Button type="button" variant="outline" size="sm" className="w-fit" onClick={onCreateInvestment}>
                     <Plus size={14} />
                     Criar caixinha
                   </Button>
                 ) : null}
-                {selectedInvestment ? (
-                  <div className="rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground">{selectedInvestment.name}</p>
-                    <p className="mt-1">
-                      {selectedInvestment.contributionMode === "income_percentage"
-                        ? `${selectedInvestment.incomePercentage ?? 0}% da receita`
-                        : `${formatCurrency(selectedInvestment.fixedAmount)} fixo`}
-                    </p>
-                    <p className="mt-1">Saldo atual: {selectedInvestment.formattedCurrentAmount}</p>
-                    {selectedInvestment.id === "investment" || selectedInvestment.id === "draft-investment-box" ? (
-                      <p className="mt-2 text-xs text-primary">
-                        Esta caixinha sera criada automaticamente ao salvar o planejamento.
-                      </p>
-                    ) : null}
+                {selectedInvestments.length ? (
+                  <div className="space-y-2">
+                    {selectedInvestments.map((investment) => (
+                      <div key={investment.id} className="rounded-md border border-border/40 bg-background p-3 text-sm text-muted-foreground">
+                        <p className="font-medium text-foreground">{investment.name}</p>
+                        <p className="mt-1">
+                          {investment.contributionMode === "income_percentage"
+                            ? `${investment.incomePercentage ?? 0}% da receita`
+                            : `${formatCurrency(investment.fixedAmount)} fixo`}
+                        </p>
+                        <p className="mt-1">Saldo atual: {investment.formattedCurrentAmount}</p>
+                        {investment.id === "investment" || investment.id === "draft-investment-box" ? (
+                          <p className="mt-2 text-xs text-primary">
+                            Esta caixinha sera criada automaticamente ao salvar o planejamento.
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     {onCreateInvestment
-                      ? "Escolha uma caixinha existente, crie uma nova ou mantenha a sugestao criada pela IA no rascunho."
-                      : "Escolha uma caixinha existente ou mantenha a sugestao criada pela IA no rascunho."}
+                      ? "Escolha uma ou mais caixinhas existentes, crie uma nova ou mantenha a sugestao criada pela IA no rascunho."
+                      : "Escolha uma ou mais caixinhas existentes ou mantenha a sugestao criada pela IA no rascunho."}
                   </p>
                 )}
               </div>

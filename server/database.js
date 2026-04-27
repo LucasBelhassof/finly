@@ -2989,9 +2989,36 @@ function buildDefaultPlanGoal(source = "manual") {
     categoryIds: [],
     investmentBoxId: null,
     investmentBox: null,
+    investmentBoxIds: [],
+    investmentBoxes: [],
     startDate: null,
     endDate: null,
   };
+}
+
+function normalizePlanGoalInvestmentIds(goal = {}) {
+  const rawIds = [
+    ...(Array.isArray(goal?.investmentBoxIds) ? goal.investmentBoxIds : []),
+    ...(Array.isArray(goal?.investment_box_ids) ? goal.investment_box_ids : []),
+    goal?.investmentBoxId ?? goal?.investment_box_id,
+  ];
+
+  const ids = rawIds
+    .filter((value) => value !== undefined && value !== null && value !== "")
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  return Array.from(new Set(ids));
+}
+
+function normalizePlanGoalInvestmentBoxes(goal = {}) {
+  const rawBoxes = [
+    ...(Array.isArray(goal?.investmentBoxes) ? goal.investmentBoxes : []),
+    ...(Array.isArray(goal?.investment_boxes) ? goal.investment_boxes : []),
+    goal?.investmentBox ?? goal?.investment_box,
+  ].filter((value) => value && typeof value === "object");
+
+  return rawBoxes.map((value) => validateInvestmentInput(value)).filter(Boolean);
 }
 
 function normalizePlanGoal(goal = {}, options = {}) {
@@ -3005,34 +3032,25 @@ function normalizePlanGoal(goal = {}, options = {}) {
   const targetAmount = parsePlanGoalAmount(goal?.targetAmount ?? goal?.target_amount);
   const startDate = normalizePlanGoalDate(goal?.startDate ?? goal?.start_date);
   const endDate = normalizePlanGoalDate(goal?.endDate ?? goal?.end_date);
+  const targetModel = normalizePlanGoalTargetModel(goal?.targetModel ?? goal?.target_model);
 
   if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
     throw new Error("goal target amount is required");
   }
 
-  if (!startDate || !endDate) {
+  if (targetModel === "category" && (!startDate || !endDate)) {
     throw new Error("goal period is required");
   }
 
-  if (startDate > endDate) {
+  if (startDate && endDate && startDate > endDate) {
     throw new Error("goal start date must be before end date");
   }
 
-  const targetModel = normalizePlanGoalTargetModel(goal?.targetModel ?? goal?.target_model);
-  const investmentBoxIdValue = goal?.investmentBoxId ?? goal?.investment_box_id;
-  const investmentBoxId =
-    investmentBoxIdValue === undefined || investmentBoxIdValue === null || investmentBoxIdValue === ""
-      ? null
-      : Number(investmentBoxIdValue);
-  const rawInvestmentBox = goal?.investmentBox ?? goal?.investment_box;
-  const investmentBox = rawInvestmentBox && typeof rawInvestmentBox === "object" ? validateInvestmentInput(rawInvestmentBox) : null;
+  const investmentBoxIds = normalizePlanGoalInvestmentIds(goal);
+  const investmentBoxes = normalizePlanGoalInvestmentBoxes(goal);
 
   if (targetModel === "investment_box") {
-    if (investmentBoxId !== null && !Number.isInteger(investmentBoxId)) {
-      throw new Error("goal investmentBoxId must be a valid integer");
-    }
-
-    if (investmentBoxId === null && !investmentBox) {
+    if (!investmentBoxIds.length && !investmentBoxes.length) {
       throw new Error("goal investment box is required");
     }
   }
@@ -3044,8 +3062,10 @@ function normalizePlanGoal(goal = {}, options = {}) {
     transactionType: normalizePlanTransactionType(goal?.transactionType ?? goal?.transaction_type),
     targetModel,
     categoryIds: targetModel === "category" ? normalizePlanGoalCategoryIds(goal?.categoryIds ?? goal?.category_ids) : [],
-    investmentBoxId: targetModel === "investment_box" ? investmentBoxId : null,
-    investmentBox: targetModel === "investment_box" ? investmentBox : null,
+    investmentBoxId: targetModel === "investment_box" ? investmentBoxIds[0] ?? null : null,
+    investmentBox: targetModel === "investment_box" ? investmentBoxes[0] ?? null : null,
+    investmentBoxIds: targetModel === "investment_box" ? investmentBoxIds : [],
+    investmentBoxes: targetModel === "investment_box" ? investmentBoxes : [],
     startDate,
     endDate,
   };
@@ -3085,6 +3105,48 @@ function normalizePlanInput(input = {}, options = {}) {
 }
 
 function mapPlanGoal(row) {
+  const investmentBox =
+    row.goal_investment_id === null || row.goal_investment_id === undefined
+      ? null
+      : {
+          id: row.goal_investment_id,
+          name: row.goal_investment_name,
+          description: row.goal_investment_description ?? "",
+          contributionMode: row.goal_investment_contribution_mode,
+          fixedAmount:
+            row.goal_investment_fixed_amount === null || row.goal_investment_fixed_amount === undefined
+              ? null
+              : parseNumeric(row.goal_investment_fixed_amount),
+          incomePercentage:
+            row.goal_investment_income_percentage === null || row.goal_investment_income_percentage === undefined
+              ? null
+              : parseNumeric(row.goal_investment_income_percentage),
+          currentAmount: parseNumeric(row.goal_investment_current_amount),
+          formattedCurrentAmount: formatCurrency(row.goal_investment_current_amount),
+          targetAmount:
+            row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
+              ? null
+              : parseNumeric(row.goal_investment_target_amount),
+          formattedTargetAmount:
+            row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
+              ? null
+              : formatCurrency(row.goal_investment_target_amount),
+          status: row.goal_investment_status,
+          color: row.goal_investment_color ?? null,
+          notes: row.goal_investment_notes ?? "",
+          bank:
+            row.goal_investment_bank_connection_id === null || row.goal_investment_bank_connection_id === undefined
+              ? null
+              : {
+                  id: row.goal_investment_bank_connection_id,
+                  slug: row.goal_investment_bank_slug,
+                  name: row.goal_investment_bank_name,
+                  accountType: row.goal_investment_bank_account_type,
+                  color: row.goal_investment_bank_color,
+                },
+          createdAt: row.goal_investment_created_at,
+          updatedAt: row.goal_investment_updated_at,
+        };
   const goal = {
     type: normalizePlanGoalType(row.goal_type),
     source: normalizePlanGoalSource(row.goal_source, row.source),
@@ -3093,48 +3155,9 @@ function mapPlanGoal(row) {
     targetModel: normalizePlanGoalTargetModel(row.goal_target_model),
     categoryIds: parsePlanGoalCategoryIds(row.goal_category_ids),
     investmentBoxId: row.goal_investment_id ?? null,
-    investmentBox:
-      row.goal_investment_id === null || row.goal_investment_id === undefined
-        ? null
-        : {
-            id: row.goal_investment_id,
-            name: row.goal_investment_name,
-            description: row.goal_investment_description ?? "",
-            contributionMode: row.goal_investment_contribution_mode,
-            fixedAmount:
-              row.goal_investment_fixed_amount === null || row.goal_investment_fixed_amount === undefined
-                ? null
-                : parseNumeric(row.goal_investment_fixed_amount),
-            incomePercentage:
-              row.goal_investment_income_percentage === null || row.goal_investment_income_percentage === undefined
-                ? null
-                : parseNumeric(row.goal_investment_income_percentage),
-            currentAmount: parseNumeric(row.goal_investment_current_amount),
-            formattedCurrentAmount: formatCurrency(row.goal_investment_current_amount),
-            targetAmount:
-              row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
-                ? null
-                : parseNumeric(row.goal_investment_target_amount),
-            formattedTargetAmount:
-              row.goal_investment_target_amount === null || row.goal_investment_target_amount === undefined
-                ? null
-                : formatCurrency(row.goal_investment_target_amount),
-            status: row.goal_investment_status,
-            color: row.goal_investment_color ?? null,
-            notes: row.goal_investment_notes ?? "",
-            bank:
-              row.goal_investment_bank_connection_id === null || row.goal_investment_bank_connection_id === undefined
-                ? null
-                : {
-                    id: row.goal_investment_bank_connection_id,
-                    slug: row.goal_investment_bank_slug,
-                    name: row.goal_investment_bank_name,
-                    accountType: row.goal_investment_bank_account_type,
-                    color: row.goal_investment_bank_color,
-                  },
-            createdAt: row.goal_investment_created_at,
-            updatedAt: row.goal_investment_updated_at,
-          },
+    investmentBox,
+    investmentBoxIds: row.goal_investment_id ? [row.goal_investment_id] : [],
+    investmentBoxes: investmentBox ? [investmentBox] : [],
     startDate: normalizePlanGoalDate(row.goal_start_date),
     endDate: normalizePlanGoalDate(row.goal_end_date),
   };
@@ -3205,6 +3228,48 @@ function mapPlanRecommendation(row) {
   };
 }
 
+function mapPlanInvestment(row) {
+  return {
+    id: row.investment_id,
+    name: row.investment_name,
+    description: row.investment_description ?? "",
+    contributionMode: row.investment_contribution_mode,
+    fixedAmount:
+      row.investment_fixed_amount === null || row.investment_fixed_amount === undefined
+        ? null
+        : parseNumeric(row.investment_fixed_amount),
+    incomePercentage:
+      row.investment_income_percentage === null || row.investment_income_percentage === undefined
+        ? null
+        : parseNumeric(row.investment_income_percentage),
+    currentAmount: parseNumeric(row.investment_current_amount),
+    formattedCurrentAmount: formatCurrency(row.investment_current_amount),
+    targetAmount:
+      row.investment_target_amount === null || row.investment_target_amount === undefined
+        ? null
+        : parseNumeric(row.investment_target_amount),
+    formattedTargetAmount:
+      row.investment_target_amount === null || row.investment_target_amount === undefined
+        ? null
+        : formatCurrency(row.investment_target_amount),
+    status: row.investment_status,
+    color: row.investment_color ?? null,
+    notes: row.investment_notes ?? "",
+    bank:
+      row.investment_bank_connection_id === null || row.investment_bank_connection_id === undefined
+        ? null
+        : {
+            id: row.investment_bank_connection_id,
+            slug: row.investment_bank_slug,
+            name: row.investment_bank_name,
+            accountType: row.investment_bank_account_type,
+            color: row.investment_bank_color,
+          },
+    createdAt: row.investment_created_at,
+    updatedAt: row.investment_updated_at,
+  };
+}
+
 function mapPlanChat(row) {
   return {
     id: row.public_id,
@@ -3258,19 +3323,23 @@ function buildPlanTransactionProgress(plan, currentValue) {
 
 async function getPlanTransactionGoalCurrentValue(userId, goal) {
   if (goal.targetModel === "investment_box") {
-    if (!goal.investmentBoxId) {
+    const investmentIds = (goal.investmentBoxIds?.length ? goal.investmentBoxIds : [goal.investmentBoxId])
+      .filter((value) => value !== null && value !== undefined && value !== "")
+      .map(Number)
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    if (!investmentIds.length) {
       return 0;
     }
 
     const result = await pool.query(
       `
-        SELECT current_amount
+        SELECT COALESCE(SUM(current_amount), 0)::NUMERIC(12, 2) AS current_amount
         FROM investments
         WHERE user_id = $1
-          AND id = $2
-        LIMIT 1
+          AND id = ANY($2::int[])
       `,
-      [userId, goal.investmentBoxId],
+      [userId, investmentIds],
     );
 
     return parseNumeric(result.rows[0]?.current_amount);
@@ -3410,7 +3479,7 @@ async function hydratePlans(planRows, userId = null) {
   const plans = planRows.map(mapPlanRow);
   const plansByInternalId = new Map(planRows.map((row, index) => [row.id, plans[index]]));
   const planIds = planRows.map((row) => row.id);
-  const [itemsResult, chatsResult, assessmentsResult, recommendationsResult] = await Promise.all([
+  const [itemsResult, chatsResult, investmentsResult, assessmentsResult, recommendationsResult] = await Promise.all([
     pool.query(
       `
         SELECT id, plan_id, title, description, status, priority, sort_order
@@ -3435,6 +3504,36 @@ async function hydratePlans(planRows, userId = null) {
         INNER JOIN plans p ON p.id = c.plan_id
         WHERE c.plan_id = ANY($1::int[])
         ORDER BY c.updated_at DESC, c.id DESC
+      `,
+      [planIds],
+    ),
+    pool.query(
+      `
+        SELECT
+          pir.plan_id,
+          i.id AS investment_id,
+          i.name AS investment_name,
+          i.description AS investment_description,
+          i.contribution_mode AS investment_contribution_mode,
+          i.fixed_amount AS investment_fixed_amount,
+          i.income_percentage AS investment_income_percentage,
+          i.current_amount AS investment_current_amount,
+          i.target_amount AS investment_target_amount,
+          i.status AS investment_status,
+          i.color AS investment_color,
+          i.notes AS investment_notes,
+          i.created_at AS investment_created_at,
+          i.updated_at AS investment_updated_at,
+          b.id AS investment_bank_connection_id,
+          b.slug AS investment_bank_slug,
+          b.name AS investment_bank_name,
+          b.account_type AS investment_bank_account_type,
+          b.color AS investment_bank_color
+        FROM plan_investment_refs pir
+        INNER JOIN investments i ON i.id = pir.investment_id
+        LEFT JOIN bank_connections b ON b.id = i.bank_connection_id
+        WHERE pir.plan_id = ANY($1::int[])
+        ORDER BY i.status ASC, i.updated_at DESC, i.id DESC
       `,
       [planIds],
     ),
@@ -3480,6 +3579,20 @@ async function hydratePlans(planRows, userId = null) {
 
   chatsResult.rows.forEach((row) => {
     plansByInternalId.get(row.plan_id)?.chats.push(mapPlanChat(row));
+  });
+
+  investmentsResult.rows.forEach((row) => {
+    const plan = plansByInternalId.get(row.plan_id);
+
+    if (!plan || plan.goal.targetModel !== "investment_box") {
+      return;
+    }
+
+    const investment = mapPlanInvestment(row);
+    plan.goal.investmentBoxes.push(investment);
+    plan.goal.investmentBoxIds.push(investment.id);
+    plan.goal.investmentBoxId = plan.goal.investmentBoxId ?? investment.id;
+    plan.goal.investmentBox = plan.goal.investmentBox ?? investment;
   });
 
   assessmentsResult.rows.forEach((row) => {
@@ -3589,6 +3702,29 @@ async function attachChatsToPlan(client, userId, planId, chatIds) {
   }
 }
 
+async function replacePlanInvestmentRefs(client, planId, investmentIds) {
+  await client.query("DELETE FROM plan_investment_refs WHERE plan_id = $1", [planId]);
+
+  const normalizedIds = Array.from(
+    new Set(
+      (investmentIds ?? [])
+        .map(Number)
+        .filter((value) => Number.isInteger(value) && value > 0),
+    ),
+  );
+
+  for (const investmentId of normalizedIds) {
+    await client.query(
+      `
+        INSERT INTO plan_investment_refs (plan_id, investment_id)
+        VALUES ($1, $2)
+        ON CONFLICT (plan_id, investment_id) DO NOTHING
+      `,
+      [planId, investmentId],
+    );
+  }
+}
+
 export async function listPlans(userId) {
   const resolvedUserId = await requireUserId(userId);
   const result = await pool.query(
@@ -3686,26 +3822,28 @@ async function createPlanGoalInvestment(client, userId, investmentInput) {
   return result.rows[0].id;
 }
 
-async function resolvePlanGoalInvestmentId(client, userId, goal) {
+async function resolvePlanGoalInvestmentIds(client, userId, goal) {
   if (goal.type !== "transaction_sum" || goal.targetModel !== "investment_box") {
-    return null;
+    return [];
   }
 
-  if (goal.investmentBoxId !== null) {
-    const existingInvestment = await getInvestmentRowById(userId, goal.investmentBoxId, client);
+  const investmentIds = [];
+
+  for (const investmentId of goal.investmentBoxIds ?? []) {
+    const existingInvestment = await getInvestmentRowById(userId, investmentId, client);
 
     if (!existingInvestment) {
       throw new Error("investment not found");
     }
 
-    return goal.investmentBoxId;
+    investmentIds.push(investmentId);
   }
 
-  if (goal.investmentBox) {
-    return createPlanGoalInvestment(client, userId, goal.investmentBox);
+  for (const investmentBox of goal.investmentBoxes ?? []) {
+    investmentIds.push(await createPlanGoalInvestment(client, userId, investmentBox));
   }
 
-  throw new Error("goal investment box is required");
+  return Array.from(new Set(investmentIds));
 }
 
 export async function createPlan(userId, input = {}) {
@@ -3716,7 +3854,8 @@ export async function createPlan(userId, input = {}) {
 
   try {
     await client.query("BEGIN");
-    const goalInvestmentId = await resolvePlanGoalInvestmentId(client, resolvedUserId, normalizedInput.goal);
+    const goalInvestmentIds = await resolvePlanGoalInvestmentIds(client, resolvedUserId, normalizedInput.goal);
+    const goalInvestmentId = goalInvestmentIds[0] ?? null;
     const result = await client.query(
       `
         INSERT INTO plans (
@@ -3758,6 +3897,7 @@ export async function createPlan(userId, input = {}) {
     const row = result.rows[0];
     planPublicId = row.public_id;
     await replacePlanItems(client, row.id, normalizedInput.items);
+    await replacePlanInvestmentRefs(client, row.id, goalInvestmentIds);
     await attachChatsToPlan(client, resolvedUserId, row.id, normalizedInput.chatIds);
     await client.query("COMMIT");
   } catch (error) {
@@ -3795,7 +3935,8 @@ export async function updatePlan(userId, publicId, input = {}) {
 
   try {
     await client.query("BEGIN");
-    const goalInvestmentId = await resolvePlanGoalInvestmentId(client, resolvedUserId, goal);
+    const goalInvestmentIds = await resolvePlanGoalInvestmentIds(client, resolvedUserId, goal);
+    const goalInvestmentId = goalInvestmentIds[0] ?? null;
     await client.query(
       `
         UPDATE plans
@@ -3833,6 +3974,10 @@ export async function updatePlan(userId, publicId, input = {}) {
 
     if (items) {
       await replacePlanItems(client, planRow.id, items);
+    }
+
+    if (hasGoal) {
+      await replacePlanInvestmentRefs(client, planRow.id, goalInvestmentIds);
     }
 
     await client.query("COMMIT");
@@ -3945,16 +4090,18 @@ async function buildPlanAiChatPayload(userId, chatPublicId) {
         transactionType: category.transactionType,
         groupLabel: category.groupLabel,
       })),
-      investmentBoxes: investments.map((investment) => ({
-        id: investment.id,
-        name: investment.name,
-        contributionMode: investment.contributionMode,
-        fixedAmount: investment.fixedAmount,
-        incomePercentage: investment.incomePercentage,
-        currentAmount: investment.currentAmount,
-        targetAmount: investment.targetAmount,
-        status: investment.status,
-      })),
+      investmentBoxes: investments
+        .filter((investment) => investment.status === "active")
+        .map((investment) => ({
+          id: investment.id,
+          name: investment.name,
+          contributionMode: investment.contributionMode,
+          fixedAmount: investment.fixedAmount,
+          incomePercentage: investment.incomePercentage,
+          currentAmount: investment.currentAmount,
+          targetAmount: investment.targetAmount,
+          status: investment.status,
+        })),
     },
   };
 }
@@ -4229,6 +4376,10 @@ export async function confirmPlanAiDraft(userId, draftPublicId) {
 
   if (!currentDraft || currentDraft.status !== "pending") {
     throw new Error("pending plan draft not found");
+  }
+
+  if ((currentDraft.draft?.clarifications ?? []).some((clarification) => clarification?.required !== false)) {
+    throw new Error("plan draft has required clarifications");
   }
 
   const plan = await createPlan(resolvedUserId, {

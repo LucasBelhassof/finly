@@ -228,6 +228,7 @@ describe("api mappers", () => {
         totalTokens: 155,
         requestCount: 1,
         estimatedCostUsd: 0.0001,
+        planDraftAction: null,
         createdAt: "2026-04-06T10:00:00.000Z",
       });
     expect(reply.userMessage.role).toBe("user");
@@ -252,9 +253,21 @@ describe("api mappers", () => {
               targetAmount: null,
               transactionType: "expense",
               categoryIds: [],
+              investmentBoxId: null,
+              investmentBox: null,
+              investmentBoxIds: [],
+              investmentBoxes: [],
               startDate: null,
               endDate: null,
             },
+            clarifications: [
+              {
+                id: "end-date",
+                field: "goal.endDate",
+                question: "Qual e a data final?",
+                required: true,
+              },
+            ],
             items: [
               {
                 title: "Revisar fatura",
@@ -282,10 +295,15 @@ describe("api mappers", () => {
           targetAmount: null,
           transactionType: "expense",
           categoryIds: [],
+          investmentBoxId: null,
+          investmentBox: null,
+          investmentBoxIds: [],
+          investmentBoxes: [],
           startDate: null,
           endDate: null,
         },
         items: [],
+        clarifications: [],
       },
     });
 
@@ -302,6 +320,14 @@ describe("api mappers", () => {
     });
     expect(draft.title).toBe("Plano revisado");
     expect(draft.items[0].priority).toBe("high");
+    expect(draft.clarifications).toEqual([
+      {
+        id: "end-date",
+        field: "goal.endDate",
+        question: "Qual e a data final?",
+        required: true,
+      },
+    ]);
   });
 
   it("maps import preview and commit payloads", () => {

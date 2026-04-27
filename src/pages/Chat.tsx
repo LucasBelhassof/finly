@@ -18,7 +18,6 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import AppShell from "@/components/AppShell";
 import AiChat from "@/components/AiChat";
 import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
-import { formatDecimalInput, parseDecimalInput, type InvestmentCoreFormState } from "@/components/investments/investment-form-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,7 +78,15 @@ import {
 import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
-import { createPlanFormFromDraft, getPlanFormValidationError, normalizePlanForm, PlanFormFields, type PlanFormState } from "@/pages/Plans";
+import {
+  applyCreatedInvestmentToPlanForm,
+  buildInvestmentInitialValues,
+  createPlanFormFromDraft,
+  getPlanFormValidationError,
+  normalizePlanForm,
+  PlanFormFields,
+  type PlanFormState,
+} from "@/pages/Plans";
 import type { ChatConversation, InvestmentItem, PlanDraft } from "@/types/api";
 
 const EMPTY_SELECT_VALUE = "__empty__";
@@ -107,54 +114,6 @@ function formatChatDate(value: string) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
-}
-
-function getInclusiveMonthSpan(startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-    return 1;
-  }
-
-  return Math.max((end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1, 1);
-}
-
-function buildInvestmentInitialValues(form: PlanFormState | null): Partial<InvestmentCoreFormState> | undefined {
-  if (!form) {
-    return undefined;
-  }
-
-  const suggestedInvestment = form.goal.investmentBox;
-  const parsedTargetAmount = parseDecimalInput(form.goal.targetAmount);
-  const hasPlanningTargetAmount = Number.isFinite(parsedTargetAmount) && parsedTargetAmount > 0;
-  const targetAmount = hasPlanningTargetAmount
-    ? formatDecimalInput(Number(parsedTargetAmount.toFixed(2)))
-    : suggestedInvestment?.targetAmount !== null && suggestedInvestment?.targetAmount !== undefined
-      ? formatDecimalInput(suggestedInvestment.targetAmount)
-      : "";
-  const suggestedFixedAmount = hasPlanningTargetAmount
-    ? formatDecimalInput(Number((parsedTargetAmount / getInclusiveMonthSpan(form.goal.startDate, form.goal.endDate)).toFixed(2)))
-    : suggestedInvestment?.fixedAmount && suggestedInvestment.fixedAmount > 0
-      ? formatDecimalInput(suggestedInvestment.fixedAmount)
-      : "";
-  const contributionMode = hasPlanningTargetAmount ? "fixed_amount" : suggestedInvestment?.contributionMode ?? "fixed_amount";
-
-  return {
-    name: suggestedInvestment?.name?.trim() || form.title.trim(),
-    description: suggestedInvestment?.description?.trim() || form.description.trim(),
-    contributionMode,
-    fixedAmount: contributionMode === "fixed_amount" ? suggestedFixedAmount : "",
-    incomePercentage:
-      contributionMode === "income_percentage" && suggestedInvestment?.incomePercentage !== null
-        ? formatDecimalInput(suggestedInvestment.incomePercentage)
-        : "",
-    currentAmount:
-      suggestedInvestment?.currentAmount !== null && suggestedInvestment?.currentAmount !== undefined
-        ? formatDecimalInput(suggestedInvestment.currentAmount)
-        : "0",
-    targetAmount,
-  };
 }
 
 export default function ChatPage() {
@@ -316,6 +275,7 @@ export default function ChatPage() {
         priority: item.priority ?? "medium",
         sortOrder: index,
       })),
+      clarifications: form.clarifications,
     };
   };
 
@@ -473,26 +433,7 @@ export default function ChatPage() {
         return currentForm;
       }
 
-      return {
-        ...currentForm,
-        goal: {
-          ...currentForm.goal,
-          targetModel: "investment_box",
-          transactionType: "income",
-          investmentBoxId: String(investment.id),
-          investmentBox: investment,
-          investmentBoxIds: Array.from(new Set([...currentForm.goal.investmentBoxIds, String(investment.id)])),
-          investmentBoxes: [
-            ...currentForm.goal.investmentBoxes.filter(
-              (currentInvestment) =>
-                String(currentInvestment.id) !== "investment" &&
-                String(currentInvestment.id) !== "draft-investment-box" &&
-                String(currentInvestment.id) !== String(investment.id),
-            ),
-            investment,
-          ],
-        },
-      };
+      return applyCreatedInvestmentToPlanForm(currentForm, investment);
     });
   };
 

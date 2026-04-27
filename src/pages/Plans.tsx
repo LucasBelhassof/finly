@@ -1,8 +1,10 @@
 import { FolderKanban, Loader2, Plus, Sparkles, Target } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
+import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
+import { formatDecimalInput, parseDecimalInput, type InvestmentCoreFormState } from "@/components/investments/investment-form-utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -13,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -108,6 +111,17 @@ function getCurrentMonthRange() {
     startDate: formatInputDate(firstDay),
     endDate: formatInputDate(lastDay),
   };
+}
+
+function getInclusiveMonthSpan(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+    return 1;
+  }
+
+  return Math.max((end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1, 1);
 }
 
 function createEmptyGoal(source: PlanGoalSource = "manual"): PlanFormGoal {
@@ -295,6 +309,66 @@ export function getPlanFormValidationError(form: PlanFormState) {
   }
 
   return null;
+}
+
+export function buildInvestmentInitialValues(form: PlanFormState | null): Partial<InvestmentCoreFormState> | undefined {
+  if (!form) {
+    return undefined;
+  }
+
+  const suggestedInvestment = form.goal.investmentBoxes[0] ?? form.goal.investmentBox;
+  const parsedTargetAmount = parseDecimalInput(form.goal.targetAmount);
+  const hasPlanningTargetAmount = Number.isFinite(parsedTargetAmount) && parsedTargetAmount > 0;
+  const targetAmount = hasPlanningTargetAmount
+    ? formatDecimalInput(Number(parsedTargetAmount.toFixed(2)))
+    : suggestedInvestment?.targetAmount !== null && suggestedInvestment?.targetAmount !== undefined
+      ? formatDecimalInput(suggestedInvestment.targetAmount)
+      : "";
+  const suggestedFixedAmount = hasPlanningTargetAmount
+    ? formatDecimalInput(Number((parsedTargetAmount / getInclusiveMonthSpan(form.goal.startDate, form.goal.endDate)).toFixed(2)))
+    : suggestedInvestment?.fixedAmount && suggestedInvestment.fixedAmount > 0
+      ? formatDecimalInput(suggestedInvestment.fixedAmount)
+      : "";
+  const contributionMode = hasPlanningTargetAmount ? "fixed_amount" : suggestedInvestment?.contributionMode ?? "fixed_amount";
+
+  return {
+    name: suggestedInvestment?.name?.trim() || form.title.trim(),
+    description: suggestedInvestment?.description?.trim() || form.description.trim(),
+    contributionMode,
+    fixedAmount: contributionMode === "fixed_amount" ? suggestedFixedAmount : "",
+    incomePercentage:
+      contributionMode === "income_percentage" && suggestedInvestment?.incomePercentage !== null
+        ? formatDecimalInput(suggestedInvestment.incomePercentage)
+        : "",
+    currentAmount:
+      suggestedInvestment?.currentAmount !== null && suggestedInvestment?.currentAmount !== undefined
+        ? formatDecimalInput(suggestedInvestment.currentAmount)
+        : "0",
+    targetAmount,
+  };
+}
+
+export function applyCreatedInvestmentToPlanForm(form: PlanFormState, investment: InvestmentItem): PlanFormState {
+  return {
+    ...form,
+    goal: {
+      ...form.goal,
+      targetModel: "investment_box",
+      transactionType: "income",
+      investmentBoxId: String(investment.id),
+      investmentBox: investment,
+      investmentBoxIds: Array.from(new Set([...form.goal.investmentBoxIds, String(investment.id)])),
+      investmentBoxes: [
+        ...form.goal.investmentBoxes.filter(
+          (currentInvestment) =>
+            String(currentInvestment.id) !== "investment" &&
+            String(currentInvestment.id) !== "draft-investment-box" &&
+            String(currentInvestment.id) !== String(investment.id),
+        ),
+        investment,
+      ],
+    },
+  };
 }
 
 export function formatDate(value: string | null | undefined) {
@@ -629,11 +703,19 @@ export function PlanFormFields({
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Inicio</label>
-                <Input type="date" value={form.goal.startDate} onChange={(event) => updateGoal({ startDate: event.target.value })} />
+                <DatePickerInput
+                  value={form.goal.startDate}
+                  onChange={(value) => updateGoal({ startDate: value })}
+                  placeholder="Selecionar data inicial"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Fim</label>
-                <Input type="date" value={form.goal.endDate} onChange={(event) => updateGoal({ endDate: event.target.value })} />
+                <DatePickerInput
+                  value={form.goal.endDate}
+                  onChange={(value) => updateGoal({ endDate: value })}
+                  placeholder="Selecionar data final"
+                />
               </div>
             </div>
 
@@ -841,6 +923,11 @@ export default function PlansPage() {
   const [aiChatId, setAiChatId] = useState("");
   const [aiDraftForm, setAiDraftForm] = useState<PlanFormState | null>(null);
   const [suggestedChatId, setSuggestedChatId] = useState("");
+  const [investmentDialogContext, setInvestmentDialogContext] = useState<"manual" | "ai" | null>(null);
+  const createInvestmentInitialValues = useMemo(
+    () => buildInvestmentInitialValues(investmentDialogContext === "ai" ? aiDraftForm : planForm),
+    [aiDraftForm, investmentDialogContext, planForm],
+  );
 
   const handleOpenCreate = () => {
     setPlanForm(createEmptyPlanForm());
@@ -942,6 +1029,15 @@ export default function PlansPage() {
     }
   };
 
+  const handleCreatedInvestment = (investment: InvestmentItem) => {
+    if (investmentDialogContext === "ai") {
+      setAiDraftForm((currentForm) => (currentForm ? applyCreatedInvestmentToPlanForm(currentForm, investment) : currentForm));
+      return;
+    }
+
+    setPlanForm((currentForm) => applyCreatedInvestmentToPlanForm(currentForm, investment));
+  };
+
   return (
     <AppShell title="Planejamentos" description="Organize planos financeiros criados manualmente ou a partir dos chats">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1007,6 +1103,9 @@ export default function PlansPage() {
         open={manualDialogOpen}
         onOpenChange={(open) => {
           setManualDialogOpen(open);
+          if (!open) {
+            setInvestmentDialogContext(null);
+          }
         }}
       >
         <DialogContent className="sm:max-w-2xl">
@@ -1017,7 +1116,13 @@ export default function PlansPage() {
           <form onSubmit={handleSubmitPlan} className="space-y-5">
             <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
               <div className="pr-4">
-                <PlanFormFields form={planForm} categories={categories} investments={investments} onChange={setPlanForm} />
+                <PlanFormFields
+                  form={planForm}
+                  categories={categories}
+                  investments={investments}
+                  onChange={setPlanForm}
+                  onCreateInvestment={() => setInvestmentDialogContext("manual")}
+                />
               </div>
             </ScrollArea>
             <DialogFooter>
@@ -1032,7 +1137,15 @@ export default function PlansPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+      <Dialog
+        open={aiDialogOpen}
+        onOpenChange={(open) => {
+          setAiDialogOpen(open);
+          if (!open) {
+            setInvestmentDialogContext(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Gerar planejamento com IA</DialogTitle>
@@ -1068,7 +1181,13 @@ export default function PlansPage() {
             {aiDraftForm ? (
               <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
                 <div className="pr-4">
-                  <PlanFormFields form={aiDraftForm} categories={categories} investments={investments} onChange={setAiDraftForm} />
+                  <PlanFormFields
+                    form={aiDraftForm}
+                    categories={categories}
+                    investments={investments}
+                    onChange={setAiDraftForm}
+                    onCreateInvestment={() => setInvestmentDialogContext("ai")}
+                  />
                 </div>
               </ScrollArea>
             ) : null}
@@ -1083,6 +1202,13 @@ export default function PlansPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateInvestmentDialog
+        open={investmentDialogContext !== null}
+        onOpenChange={(open) => setInvestmentDialogContext(open ? investmentDialogContext : null)}
+        onCreated={handleCreatedInvestment}
+        initialValues={createInvestmentInitialValues}
+      />
 
     </AppShell>
   );

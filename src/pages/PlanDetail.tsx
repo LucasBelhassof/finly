@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
+import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +53,8 @@ import {
 } from "@/hooks/use-plans";
 import { appRoutes } from "@/lib/routes";
 import {
+  applyCreatedInvestmentToPlanForm,
+  buildInvestmentInitialValues,
   PlanFormFields,
   createPlanFormFromPlan,
   formatDate,
@@ -64,7 +67,7 @@ import {
   normalizePlanForm,
   type PlanFormState,
 } from "@/pages/Plans";
-import type { ChatConversation, ChatMessage, PlanItem, PlanPriority } from "@/types/api";
+import type { ChatConversation, ChatMessage, InvestmentItem, PlanItem, PlanPriority } from "@/types/api";
 
 const EMPTY_SELECT_VALUE = "__empty__";
 const MODAL_SELECT_TRIGGER_CLASSNAME = "h-11 rounded-xl border-border/60 bg-secondary/35";
@@ -228,6 +231,7 @@ export default function PlanDetailPage() {
   const unlinkChat = useUnlinkChatFromPlan();
   const [editing, setEditing] = useState(false);
   const [planForm, setPlanForm] = useState<PlanFormState | null>(null);
+  const [createInvestmentOpen, setCreateInvestmentOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkChatId, setLinkChatId] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -241,6 +245,7 @@ export default function PlanDetailPage() {
   const generateChatSummary = useGenerateChatSummary();
   const { data: recommendations = [] } = usePlanRecommendations(plan?.id);
   const unlinkedChats = useMemo(() => chats.filter((chat) => chat.planId !== plan?.id), [chats, plan?.id]);
+  const createInvestmentInitialValues = useMemo(() => buildInvestmentInitialValues(planForm), [planForm]);
 
   useEffect(() => {
     if (!plan?.chats.length) {
@@ -380,6 +385,10 @@ export default function PlanDetailPage() {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
+  };
+
+  const handleCreatedInvestment = (investment: InvestmentItem) => {
+    setPlanForm((currentForm) => (currentForm ? applyCreatedInvestmentToPlanForm(currentForm, investment) : currentForm));
   };
 
   const handleUpdatePlanItems = async (nextItems: PlanItem[]) => {
@@ -763,6 +772,7 @@ export default function PlanDetailPage() {
         onOpenChange={(open) => {
           setEditing(open);
           if (!open) {
+            setCreateInvestmentOpen(false);
             setPlanForm(null);
           }
         }}
@@ -776,7 +786,13 @@ export default function PlanDetailPage() {
             <form onSubmit={handleSubmitEdit} className="space-y-5">
               <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
                 <div className="pr-4">
-                  <PlanFormFields form={planForm} categories={categories} investments={investments} onChange={setPlanForm} />
+                  <PlanFormFields
+                    form={planForm}
+                    categories={categories}
+                    investments={investments}
+                    onChange={setPlanForm}
+                    onCreateInvestment={() => setCreateInvestmentOpen(true)}
+                  />
                 </div>
               </ScrollArea>
               <DialogFooter>
@@ -791,6 +807,13 @@ export default function PlanDetailPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <CreateInvestmentDialog
+        open={createInvestmentOpen}
+        onOpenChange={setCreateInvestmentOpen}
+        onCreated={handleCreatedInvestment}
+        initialValues={createInvestmentInitialValues}
+      />
 
       <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
         <DialogContent>

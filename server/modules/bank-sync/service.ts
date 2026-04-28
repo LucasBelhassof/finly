@@ -90,6 +90,13 @@ interface PluggyInstallmentContext {
   installmentNumber: number | null;
 }
 
+interface ExistingPluggyImportedTransaction {
+  id: number;
+  category_id: number;
+  installment_purchase_id: number | null;
+  installment_number: number | null;
+}
+
 async function findExistingPluggyInstallmentPurchase({
   userId,
   bankConnectionId,
@@ -248,33 +255,11 @@ async function resolvePluggyInstallmentContext(
   };
 }
 
-async function upsertPluggyImportedTransaction({
-  userId,
-  bankConnectionId,
-  categoryId,
-  description,
-  amount,
-  occurredOn,
-  seedKey,
-  installmentPurchaseId,
-  installmentNumber,
-}: {
-  userId: number;
-  bankConnectionId: number;
-  categoryId: number;
-  description: string;
-  amount: number;
-  occurredOn: string;
-  seedKey: string;
-  installmentPurchaseId: number | null;
-  installmentNumber: number | null;
-}): Promise<boolean> {
-  const existing = await db.query<{
-    id: number;
-    category_id: number;
-    installment_purchase_id: number | null;
-    installment_number: number | null;
-  }>(
+async function findExistingPluggyImportedTransaction(
+  userId: number,
+  seedKey: string,
+): Promise<ExistingPluggyImportedTransaction | null> {
+  const existing = await db.query<ExistingPluggyImportedTransaction>(
     `
       SELECT id, category_id, installment_purchase_id, installment_number
       FROM transactions
@@ -285,9 +270,33 @@ async function upsertPluggyImportedTransaction({
     [userId, seedKey],
   );
 
-  const existingRow = existing.rows[0] ?? null;
+  return existing.rows[0] ?? null;
+}
 
-  if (!existingRow) {
+async function upsertPluggyImportedTransaction({
+  userId,
+  bankConnectionId,
+  categoryId,
+  description,
+  amount,
+  occurredOn,
+  seedKey,
+  installmentPurchaseId,
+  installmentNumber,
+  existingTransaction,
+}: {
+  userId: number;
+  bankConnectionId: number;
+  categoryId: number;
+  description: string;
+  amount: number;
+  occurredOn: string;
+  seedKey: string;
+  installmentPurchaseId: number | null;
+  installmentNumber: number | null;
+  existingTransaction: ExistingPluggyImportedTransaction | null;
+}): Promise<boolean> {
+  if (!existingTransaction) {
     const transaction = await createImportedTransaction({
       userId,
       bankConnectionId,
@@ -303,30 +312,27 @@ async function upsertPluggyImportedTransaction({
     return Boolean(transaction);
   }
 
-  const shouldUpdateCategory = Number(existingRow.category_id) !== categoryId;
   const shouldUpdateInstallmentPurchaseId =
     Number.isInteger(installmentPurchaseId) &&
-    Number(existingRow.installment_purchase_id ?? null) !== Number(installmentPurchaseId);
+    Number(existingTransaction.installment_purchase_id ?? null) !== Number(installmentPurchaseId);
   const shouldUpdateInstallmentNumber =
     Number.isInteger(installmentNumber) &&
-    Number(existingRow.installment_number ?? null) !== Number(installmentNumber);
+    Number(existingTransaction.installment_number ?? null) !== Number(installmentNumber);
 
-  if (shouldUpdateCategory || shouldUpdateInstallmentPurchaseId || shouldUpdateInstallmentNumber) {
+  if (shouldUpdateInstallmentPurchaseId || shouldUpdateInstallmentNumber) {
     await db.query(
       `
         UPDATE transactions
-        SET category_id = $3,
-            installment_purchase_id = $4,
-            installment_number = $5
+        SET installment_purchase_id = $3,
+            installment_number = $4
         WHERE user_id = $1
           AND id = $2
       `,
       [
         userId,
-        existingRow.id,
-        categoryId,
-        shouldUpdateInstallmentPurchaseId ? installmentPurchaseId : existingRow.installment_purchase_id,
-        shouldUpdateInstallmentNumber ? installmentNumber : existingRow.installment_number,
+        existingTransaction.id,
+        shouldUpdateInstallmentPurchaseId ? installmentPurchaseId : existingTransaction.installment_purchase_id,
+        shouldUpdateInstallmentNumber ? installmentNumber : existingTransaction.installment_number,
       ],
     );
   }
@@ -685,14 +691,17 @@ async function importTransaction(
     return false;
   }
 
-  const categoryId = Number(categorization.category?.id ?? null);
-  if (!Number.isInteger(categoryId)) {
+  const inferredCategoryId = Number(categorization.category?.id ?? null);
+  if (!Number.isInteger(inferredCategoryId)) {
     throw new Error(`Pluggy transaction category could not be resolved for ${tx.id}`);
   }
 
   const amount = categorization.type === "income" ? Math.abs(tx.amount) : -Math.abs(tx.amount);
   const seedKey = `pluggy:${tx.id}`;
   const occurredOn = tx.date.slice(0, 10);
+  const existingTransaction = await findExistingPluggyImportedTransaction(userId, seedKey);
+  const existingCategoryId = Number(existingTransaction?.category_id ?? null);
+  const categoryId = Number.isInteger(existingCategoryId) ? existingCategoryId : inferredCategoryId;
   const installmentContext =
     accountType === "credit_card" && categorization.type === "expense"
       ? await resolvePluggyInstallmentContext(userId, bankConnectionId, categoryId, tx.description, occurredOn, amount)
@@ -707,6 +716,7 @@ async function importTransaction(
     seedKey,
     installmentPurchaseId: installmentContext.installmentPurchaseId,
     installmentNumber: installmentContext.installmentNumber,
+    existingTransaction,
   });
 
   if (!inserted) {

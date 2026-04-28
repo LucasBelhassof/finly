@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import CreditLimitBar from "@/components/accounts/CreditLimitBar";
 import { ColorField } from "@/components/ui/color-field";
 import {
   Dialog,
@@ -32,7 +33,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBanks, useCreateBankConnection, useDeleteBankConnection, useUpdateBankConnection } from "@/hooks/use-banks";
 import {
   usePluggyConnect,
@@ -44,7 +44,6 @@ import {
 } from "@/hooks/use-pluggy";
 import { ACCOUNT_COLOR_PRESETS, getInstitutionInitials, getSuggestedAccountColor } from "@/lib/account-colors";
 import { resolveCategoryColorValue } from "@/lib/category-colors";
-import { cn } from "@/lib/utils";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import type { BankItem, CreateBankConnectionInput, UpdateBankConnectionInput } from "@/types/api";
 
@@ -345,61 +344,6 @@ function PluggyConnectSection({ isPremium }: { isPremium: boolean }) {
           </Button>
         </div>
       )}
-    </div>
-  );
-}
-
-function CreditLimitBar({
-  currentBalance,
-  creditLimit,
-  formattedCreditLimit,
-}: {
-  currentBalance: number;
-  creditLimit: number;
-  formattedCreditLimit: string | null;
-}) {
-  // currentBalance for a credit card represents the amount owed (positive = debt)
-  const used = Math.max(0, currentBalance);
-  const pct = Math.min(100, (used / creditLimit) * 100);
-  const available = Math.max(0, creditLimit - used);
-  const availablePct = Math.max(0, 100 - pct);
-
-  const barColor =
-    pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-income";
-
-  const formattedUsed = used.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const formattedLimit = formattedCreditLimit ?? creditLimit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const formattedAvailable = available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="w-56 max-w-full space-y-1">
-        <div className="text-xs text-muted-foreground">
-          <span>{formattedUsed} de {formattedLimit}</span>
-        </div>
-        <div className="text-[11px] font-medium text-muted-foreground">
-          <span>{pct.toFixed(0)}% usado</span>
-        </div>
-      </div>
-      <TooltipProvider delayDuration={120}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="w-56 max-w-full cursor-default">
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-border/40">
-                <div
-                  className={cn("h-full rounded-full transition-all", barColor)}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-          </TooltipTrigger>
-          <TooltipContent className="space-y-1 text-xs">
-            <p>{pct.toFixed(0)}% do limite usado</p>
-            <p>{availablePct.toFixed(0)}% disponivel</p>
-            <p className="text-muted-foreground">{formattedAvailable} livre</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
     </div>
   );
 }
@@ -852,6 +796,7 @@ export default function AccountsPage() {
                         {account.institutionName && account.institutionName !== account.name ? (
                           <p className="mt-0.5 text-sm text-muted-foreground">{account.name}</p>
                         ) : null}
+                        <p className="mt-1 text-sm font-medium text-foreground">{account.formattedBalance}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 self-end sm:self-auto">

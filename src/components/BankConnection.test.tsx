@@ -19,6 +19,11 @@ const banks: BankItem[] = [
     color: "bg-primary",
     currentBalance: 2450.9,
     formattedBalance: "R$ 2.450,90",
+    creditLimit: null,
+    formattedCreditLimit: null,
+    transactionCount: 12,
+    institutionName: null,
+    institutionImageUrl: null,
   },
   {
     id: 2,
@@ -33,6 +38,11 @@ const banks: BankItem[] = [
     color: "bg-warning",
     currentBalance: 830.25,
     formattedBalance: "R$ 830,25",
+    creditLimit: 5000,
+    formattedCreditLimit: "R$ 5.000,00",
+    transactionCount: 8,
+    institutionName: null,
+    institutionImageUrl: null,
   },
   {
     id: 3,
@@ -47,11 +57,16 @@ const banks: BankItem[] = [
     color: "bg-amber-500",
     currentBalance: 120,
     formattedBalance: "R$ 120,00",
+    creditLimit: null,
+    formattedCreditLimit: null,
+    transactionCount: 3,
+    institutionName: null,
+    institutionImageUrl: null,
   },
 ];
 
 describe("BankConnection", () => {
-  it("renders the user accounts card with all linked account types", () => {
+  it("renders separate dashboard cards for bank accounts and credit cards", () => {
     render(
       <MemoryRouter>
         <BankConnection banks={banks} />
@@ -59,22 +74,26 @@ describe("BankConnection", () => {
     );
 
     expect(screen.getByText("Contas")).toBeInTheDocument();
+    expect(screen.getByText("Cartões")).toBeInTheDocument();
     expect(screen.getByText("Nubank")).toBeInTheDocument();
     expect(screen.getByText("Cartão Visa")).toBeInTheDocument();
-    expect(screen.getByText("Carteira")).toBeInTheDocument();
+    expect(screen.queryByText("Carteira")).not.toBeInTheDocument();
     expect(screen.getByText("Conta")).toBeInTheDocument();
     expect(screen.getByText("Cartão")).toBeInTheDocument();
-    expect(screen.getByText("Caixa")).toBeInTheDocument();
+    expect(screen.getByText("R$ 2.450,90")).toBeInTheDocument();
+    expect(screen.getByText("Vinculado a Nubank")).toBeInTheDocument();
+    expect(screen.getByText("17% usado")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /adicionar/i })).toHaveAttribute("href", "/accounts");
   });
 
-  it("shows the empty state guidance when there are no linked accounts", () => {
+  it("shows dedicated empty states for bank accounts and credit cards", () => {
     render(
       <MemoryRouter>
         <BankConnection banks={[]} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Nenhuma conta vinculada ainda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhuma conta bancária vinculada ainda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum cartão vinculado ainda/i)).toBeInTheDocument();
   });
 });

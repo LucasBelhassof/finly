@@ -1,34 +1,32 @@
-import { Check, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { DateRangePickerInput } from "@/components/ui/date-picker-input";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { InstallmentCountMode, InstallmentSortBy, InstallmentSortOrder, InstallmentsOverview, InstallmentsOverviewFilters } from "@/types/api";
-import type { InstallmentsPeriodPreset } from "@/lib/installments-period-filter";
+import type {
+  InstallmentCountMode,
+  InstallmentSortBy,
+  InstallmentSortOrder,
+  InstallmentsOverview,
+  InstallmentsOverviewFilters,
+} from "@/types/api";
 
 interface InstallmentsFiltersProps {
   filters: InstallmentsOverviewFilters;
-  periodPreset: InstallmentsPeriodPreset;
+  appliedRangeLabel: string;
   overview?: InstallmentsOverview;
   onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-  onPeriodPresetChange: (preset: InstallmentsPeriodPreset) => void;
-  onCustomPeriodChange: (range: { startDate: string; endDate: string }) => void;
-  onApplyFilters: () => void;
   onResetFilters: () => void;
   onExportCsv: () => void;
 }
 
 export default function InstallmentsFilters({
   filters,
-  periodPreset,
+  appliedRangeLabel,
   overview,
   onChange,
-  onPeriodPresetChange,
-  onCustomPeriodChange,
-  onApplyFilters,
   onResetFilters,
-  onExportCsv,
+  onExportCsv: _onExportCsv,
 }: InstallmentsFiltersProps) {
   const amountRange = overview?.filterOptions.installmentAmountRange;
   const installmentCountOptions =
@@ -36,7 +34,6 @@ export default function InstallmentsFilters({
       ? overview?.filterOptions.remainingInstallmentValues ?? []
       : overview?.filterOptions.installmentCountValues ?? [];
   const shouldShowInstallmentCountValueSelect = filters.installmentCountMode !== "all";
-  const shouldShowCustomPeriodInput = periodPreset === "custom";
 
   const update = <K extends keyof InstallmentsOverviewFilters>(key: K, value: InstallmentsOverviewFilters[K]) => {
     onChange({
@@ -51,42 +48,19 @@ export default function InstallmentsFilters({
   };
 
   return (
-    <div className="glass-card rounded-2xl border border-border/40 p-4">
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-4">
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-4">
         <label className="space-y-1 text-sm text-muted-foreground">
-          <span>Cartão</span>
-          <Select
-            value={filters.cardId}
-            onValueChange={(value) => update("cardId", value)}
-          >
+          <span>CartÃ£o</span>
+          <Select value={filters.cardId} onValueChange={(value) => update("cardId", value)}>
             <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
-              <SelectValue placeholder="Todos os cartões" />
+              <SelectValue placeholder="Todos os cartÃµes" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os cartões</SelectItem>
+              <SelectItem value="all">Todos os cartÃµes</SelectItem>
               {overview?.filterOptions.cards.map((card) => (
                 <SelectItem key={card.id} value={String(card.id)}>
                   {card.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-
-        <label className="space-y-1 text-sm text-muted-foreground">
-          <span>Categoria</span>
-          <Select
-            value={filters.categoryId}
-            onValueChange={(value) => update("categoryId", value)}
-          >
-            <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
-              <SelectValue placeholder="Todas as categorias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              {overview?.filterOptions.categories.map((category) => (
-                <SelectItem key={category.id} value={String(category.id)}>
-                  {category.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -114,10 +88,7 @@ export default function InstallmentsFilters({
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>Ordenacao</span>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_120px]">
-            <Select
-              value={filters.sortBy}
-              onValueChange={(value) => update("sortBy", value as InstallmentSortBy)}
-            >
+            <Select value={filters.sortBy} onValueChange={(value) => update("sortBy", value as InstallmentSortBy)}>
               <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
                 <SelectValue placeholder="Inteligente" />
               </SelectTrigger>
@@ -129,10 +100,7 @@ export default function InstallmentsFilters({
                 <SelectItem value="purchase_date">Data da compra</SelectItem>
               </SelectContent>
             </Select>
-            <Select
-              value={filters.sortOrder}
-              onValueChange={(value) => update("sortOrder", value as InstallmentSortOrder)}
-            >
+            <Select value={filters.sortOrder} onValueChange={(value) => update("sortOrder", value as InstallmentSortOrder)}>
               <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
                 <SelectValue placeholder="Desc" />
               </SelectTrigger>
@@ -143,6 +111,7 @@ export default function InstallmentsFilters({
             </Select>
           </div>
         </label>
+
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>Quantidade de parcelas</span>
           <div className={shouldShowInstallmentCountValueSelect ? "grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_120px]" : "grid grid-cols-1"}>
@@ -187,7 +156,6 @@ export default function InstallmentsFilters({
           </div>
         </label>
 
-      
         <label className="space-y-1 text-sm text-muted-foreground">
           <span>Parcela minima</span>
           <Input
@@ -217,70 +185,21 @@ export default function InstallmentsFilters({
             className="h-11 rounded-xl border-border/60 bg-secondary/35"
           />
         </label>
-
-        <label className="space-y-1 text-sm text-muted-foreground">
-          <span>período das parcelas</span>
-          <div className={shouldShowCustomPeriodInput ? "grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "grid grid-cols-1"}>
-            <Select
-              value={periodPreset}
-              onValueChange={(value) => onPeriodPresetChange(value as InstallmentsPeriodPreset)}
-            >
-              <SelectTrigger
-                data-testid="installments-period-preset-trigger"
-                className="h-11 rounded-xl border-border/60 bg-secondary/35"
-              >
-                <SelectValue placeholder="Mes atual" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="current_month">Mes Atual</SelectItem>
-                <SelectItem value="next_month">Proximo Mes</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {shouldShowCustomPeriodInput ? (
-              <DateRangePickerInput
-                startValue={filters.purchaseStart}
-                endValue={filters.purchaseEnd}
-                onChange={({ startValue, endValue }) => {
-                  if (!startValue || !endValue) {
-                    return;
-                  }
-
-                  onCustomPeriodChange({
-                    startDate: startValue,
-                    endDate: endValue,
-                  });
-                }}
-                className="h-11"
-                placeholder="Selecione a competencia inicial e final"
-              />
-            ) : null}
-          </div>
-        </label>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-        <Button
-          variant="destructive"
-          className="w-full rounded-xl border-border/60 bg-secondary/20 sm:w-auto"
-          onClick={onResetFilters}
-        >
-          <RotateCcw size={14} />
-          Limpar filtros
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full rounded-xl border-border/60 bg-secondary/20 sm:w-auto"
-          onClick={onApplyFilters}
-        >
-          <Check size={14} />
-          Aplicar filtros
-        </Button>
-        {/* <Button className="rounded-xl" onClick={onExportCsv}>
-          <Download size={14} />
-          Exportar CSV
-        </Button> */}
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{appliedRangeLabel}</div>
+
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <Button
+            variant="ghost"
+            className="w-full rounded-xl px-0 text-destructive hover:bg-transparent hover:text-destructive/80 sm:w-auto"
+            onClick={onResetFilters}
+          >
+            <RotateCcw size={14} />
+            Limpar filtros
+          </Button>
+        </div>
       </div>
     </div>
   );

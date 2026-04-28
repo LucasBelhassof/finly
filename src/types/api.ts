@@ -253,6 +253,7 @@ export interface ApiInvestmentsResponse {
 export interface ApiInstallmentOverviewFilters {
   cardId?: number | string;
   categoryId?: number | string;
+  search?: string;
   status?: string;
   installmentAmountMin?: number | null;
   installmentAmountMax?: number | null;
@@ -1214,6 +1215,7 @@ export type InstallmentCountMode = "all" | "installment_count" | "remaining_inst
 export interface InstallmentsOverviewFilters {
   cardId: string;
   categoryId: string;
+  search: string;
   status: "all" | InstallmentStatus;
   installmentAmountMin: number | null;
   installmentAmountMax: number | null;

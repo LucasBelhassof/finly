@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
 import TransactionsPage from "@/pages/Transactions";
@@ -256,6 +257,14 @@ function createMutation(result?: unknown) {
   };
 }
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={["/"]}>
+      <TransactionsPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("TransactionsPage", () => {
   beforeEach(() => {
     mockUseTransactions.mockReturnValue({
@@ -275,7 +284,7 @@ describe("TransactionsPage", () => {
   it("syncs the pie chart click with the existing category filter and toggles back to all", async () => {
     mockUseCreateCategory.mockReturnValue(createMutation({ id: 99 }));
 
-    render(<TransactionsPage />);
+    renderPage();
 
     expect(screen.getByText("iFood")).toBeInTheDocument();
     expect(screen.getByText("Uber")).toBeInTheDocument();
@@ -305,7 +314,7 @@ describe("TransactionsPage", () => {
     });
     mockUseCreateCategory.mockReturnValue(createCategory);
 
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Nova categoria" }));
     fireEvent.change(screen.getByPlaceholderText("Nome da categoria"), { target: { value: "Lazer" } });
@@ -343,7 +352,7 @@ describe("TransactionsPage", () => {
       ],
     });
 
-    render(<TransactionsPage />);
+    renderPage();
 
     expect(screen.getAllByText("Lazer").length).toBeGreaterThan(0);
   });
@@ -370,7 +379,7 @@ describe("TransactionsPage", () => {
       ],
     });
 
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /Editar categoria Lazer/i }));
     fireEvent.click(screen.getByRole("button", { name: "Excluir" }));
@@ -382,7 +391,7 @@ describe("TransactionsPage", () => {
   });
 
   it("hides delete for system categories in the edit modal", () => {
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /Editar categoria Transporte/i }));
 
@@ -393,7 +402,7 @@ describe("TransactionsPage", () => {
     const updateTransaction = createMutation();
     mockUseUpdateTransaction.mockReturnValue(updateTransaction);
 
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getAllByText("Salario")[0]!);
 
@@ -412,7 +421,7 @@ describe("TransactionsPage", () => {
   });
 
   it("does not list credit cards when creating an income transaction", async () => {
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /Nova transação/i }));
     fireEvent.click(screen.getAllByRole("combobox")[0]!);
@@ -428,7 +437,7 @@ describe("TransactionsPage", () => {
     const deleteTransaction = createMutation();
     mockUseDeleteTransaction.mockReturnValue(deleteTransaction);
 
-    render(<TransactionsPage />);
+    renderPage();
 
     fireEvent.click(screen.getAllByText("Salario")[0]!);
     fireEvent.click(screen.getByRole("button", { name: "Excluir" }));

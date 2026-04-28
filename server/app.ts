@@ -226,6 +226,7 @@ export function createApp() {
     const overview = await getInstallmentsOverview(getAuthenticatedUserId(request), {
       cardId: request.query.cardId as string | undefined,
       categoryId: request.query.categoryId as string | undefined,
+      search: request.query.search as string | undefined,
       status: request.query.status as string | undefined,
       installmentAmountMin: request.query.installmentAmountMin as string | undefined,
       installmentAmountMax: request.query.installmentAmountMax as string | undefined,

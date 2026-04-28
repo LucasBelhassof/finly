@@ -41,6 +41,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useBanks } from "@/hooks/use-banks";
 import { useFilteredTransactionsData } from "@/hooks/use-filtered-transactions-data";
+import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import {
   useCategories,
   useCreateCategory,
@@ -55,8 +56,6 @@ import {
   TRANSACTIONS_YEAR_SELECTION,
   getCurrentMonthSelection,
   resolveMonthYearRange,
-  resolvePresetRange,
-  type TransactionsDateFilterPreset,
 } from "@/lib/transactions-date-filter";
 import { DEFAULT_CATEGORY_COLOR, resolveCategoryColorPresentation } from "@/lib/category-colors";
 import { cn } from "@/lib/utils";
@@ -178,17 +177,25 @@ export default function TransactionsPage() {
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
   const removeCategory = useDeleteCategory();
+  const currentSelection = getCurrentMonthSelection();
+  const {
+    selectedMonthIndex,
+    selectedYear,
+    datePreset,
+    dateRange,
+    handleMonthChange,
+    handleYearChange,
+    handlePresetChange,
+    handleCustomRangeApply,
+  } = useUrlPeriodFilter({
+    selectedMonthIndex: currentSelection.monthIndex,
+    selectedYear: currentSelection.year,
+    datePreset: currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
+    dateRange: resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+  });
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(() => getCurrentMonthSelection().monthIndex);
-  const [selectedYear, setSelectedYear] = useState(() => getCurrentMonthSelection().year);
-  const [datePreset, setDatePreset] = useState<TransactionsDateFilterPreset>(
-    getCurrentMonthSelection().monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
-  );
-  const [dateRange, setDateRange] = useState(() =>
-    resolveMonthYearRange(getCurrentMonthSelection().monthIndex, getCurrentMonthSelection().year),
-  );
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -267,28 +274,6 @@ export default function TransactionsPage() {
   const openCreateTransaction = (type: "income" | "expense") => {
     setTransactionForm(emptyTransactionForm(type));
     setTransactionDialogOpen(true);
-  };
-
-  const handlePresetChange = (preset: Exclude<TransactionsDateFilterPreset, "custom">) => {
-    setDatePreset(preset);
-    setDateRange(resolvePresetRange(preset));
-  };
-
-  const handleMonthChange = (monthIndex: number) => {
-    setSelectedMonthIndex(monthIndex);
-    setDatePreset(monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(monthIndex, selectedYear));
-  };
-
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    setDatePreset(selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(selectedMonthIndex, year));
-  };
-
-  const handleCustomRangeApply = (range: { startDate: string; endDate: string }) => {
-    setDatePreset("custom");
-    setDateRange(range);
   };
 
   const openEditTransaction = (transaction: TransactionItem) => {

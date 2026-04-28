@@ -1,35 +1,97 @@
-import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import AppShell from "@/components/AppShell";
+import MetricInfoTooltip from "@/components/MetricInfoTooltip";
 import InstallmentsCharts from "@/components/installments/InstallmentsCharts";
 import InstallmentsFilters from "@/components/installments/InstallmentsFilters";
 import { formatCurrency, formatMonthKey } from "@/components/installments/formatters";
 import InstallmentsInsights from "@/components/installments/InstallmentsInsights";
 import InstallmentsSummaryCards from "@/components/installments/InstallmentsSummaryCards";
 import InstallmentsTable from "@/components/installments/InstallmentsTable";
-import AppShell from "@/components/AppShell";
-import MetricInfoTooltip from "@/components/MetricInfoTooltip";
+import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
+import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstallmentsOverview } from "@/hooks/use-installments";
-import { resolveInstallmentsPeriodRange } from "@/lib/installments-period-filter";
+import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
+import {
+  getCurrentMonthSelection,
+  resolveMonthYearRange,
+  TRANSACTIONS_YEAR_SELECTION,
+} from "@/lib/transactions-date-filter";
 import type { InstallmentOverviewItem, InstallmentsOverviewFilters } from "@/types/api";
-import type { InstallmentsPeriodPreset, InstallmentsPeriodRange } from "@/lib/installments-period-filter";
 
-const defaultPeriodPreset: InstallmentsPeriodPreset = "current_month";
-const defaultPeriodRange = resolveInstallmentsPeriodRange(defaultPeriodPreset);
-const defaultFilters: InstallmentsOverviewFilters = {
-  cardId: "all",
-  categoryId: "all",
-  status: "all",
-  installmentAmountMin: null,
-  installmentAmountMax: null,
-  installmentCountMode: "all",
-  installmentCountValue: null,
-  purchaseStart: defaultPeriodRange.startDate,
-  purchaseEnd: defaultPeriodRange.endDate,
-  sortBy: "smart",
-  sortOrder: "desc",
-};
+const FILTER_QUERY_PARAM_KEYS = {
+  categoryId: "categoryId",
+  search: "search",
+} as const;
+
+function createDefaultFilters(dateRange: { startDate: string; endDate: string }): InstallmentsOverviewFilters {
+  return {
+    cardId: "all",
+    categoryId: "all",
+    search: "",
+    status: "all",
+    installmentAmountMin: null,
+    installmentAmountMax: null,
+    installmentCountMode: "all",
+    installmentCountValue: null,
+    purchaseStart: dateRange.startDate,
+    purchaseEnd: dateRange.endDate,
+    sortBy: "smart",
+    sortOrder: "desc",
+  };
+}
+
+function formatAppliedRangeLabel(startDate: string | null, endDate: string | null) {
+  if (!startDate || !endDate) {
+    return "";
+  }
+
+  return `${startDate.split("-").reverse().join("/")} - ${endDate.split("-").reverse().join("/")}`;
+}
+
+function mergeImmediateFilters(
+  filters: InstallmentsOverviewFilters,
+  immediateFilters: Pick<InstallmentsOverviewFilters, "categoryId" | "search" | "purchaseStart" | "purchaseEnd">,
+) {
+  if (
+    filters.categoryId === immediateFilters.categoryId &&
+    filters.search === immediateFilters.search &&
+    filters.purchaseStart === immediateFilters.purchaseStart &&
+    filters.purchaseEnd === immediateFilters.purchaseEnd
+  ) {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    ...immediateFilters,
+  };
+}
+
+function updateUrlFilterParams(
+  searchParams: URLSearchParams,
+  setSearchParams: ReturnType<typeof useSearchParams>[1],
+  updates: Partial<Record<(typeof FILTER_QUERY_PARAM_KEYS)[keyof typeof FILTER_QUERY_PARAM_KEYS], string | null>>,
+) {
+  const nextSearchParams = new URLSearchParams(searchParams);
+
+  Object.entries(updates).forEach(([key, value]) => {
+    if (!value) {
+      nextSearchParams.delete(key);
+      return;
+    }
+
+    nextSearchParams.set(key, value);
+  });
+
+  setSearchParams(nextSearchParams, { replace: true });
+}
 
 function InstallmentsSkeleton() {
   return (
@@ -111,59 +173,68 @@ function buildCsv(filters: InstallmentsOverviewFilters, items: InstallmentOvervi
 }
 
 export default function InstallmentsPage() {
-  const [draftFilters, setDraftFilters] = useState<InstallmentsOverviewFilters>(defaultFilters);
-  const [appliedFilters, setAppliedFilters] = useState<InstallmentsOverviewFilters>(defaultFilters);
-  const [draftPeriodPreset, setDraftPeriodPreset] = useState<InstallmentsPeriodPreset>(defaultPeriodPreset);
-  const [customPeriodRange, setCustomPeriodRange] = useState<InstallmentsPeriodRange | null>(null);
+  const currentSelection = getCurrentMonthSelection();
+  const defaultDateRange = resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year);
+  const defaultFilters = useMemo(() => createDefaultFilters(defaultDateRange), [defaultDateRange.endDate, defaultDateRange.startDate]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    selectedMonthIndex,
+    selectedYear,
+    datePreset,
+    dateRange,
+    handleMonthChange,
+    handleYearChange,
+    handlePresetChange,
+    handleCustomRangeApply,
+  } = useUrlPeriodFilter({
+    selectedMonthIndex: currentSelection.monthIndex,
+    selectedYear: currentSelection.year,
+    datePreset: currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
+    dateRange: defaultDateRange,
+  });
+  const selectedCategoryId = searchParams.get(FILTER_QUERY_PARAM_KEYS.categoryId)?.trim() || "all";
+  const search = searchParams.get(FILTER_QUERY_PARAM_KEYS.search) ?? "";
+  const immediateFilters = useMemo(
+    () => ({
+      categoryId: selectedCategoryId,
+      search,
+      purchaseStart: dateRange.startDate,
+      purchaseEnd: dateRange.endDate,
+    }),
+    [dateRange.endDate, dateRange.startDate, search, selectedCategoryId],
+  );
+  const [draftFilters, setDraftFilters] = useState<InstallmentsOverviewFilters>({
+    ...createDefaultFilters(defaultDateRange),
+    ...immediateFilters,
+  });
+  const [appliedFilters, setAppliedFilters] = useState<InstallmentsOverviewFilters>({
+    ...createDefaultFilters(defaultDateRange),
+    ...immediateFilters,
+  });
   const installmentsQuery = useInstallmentsOverview(appliedFilters);
   const overview = installmentsQuery.data;
   const next3Months = useMemo(() => overview?.charts.next3MonthsProjection ?? [], [overview]);
+  const appliedRangeLabel = formatAppliedRangeLabel(appliedFilters.purchaseStart, appliedFilters.purchaseEnd);
 
-  const handlePeriodPresetChange = (preset: InstallmentsPeriodPreset) => {
-    setDraftPeriodPreset(preset);
-
-    if (preset === "custom") {
-      setDraftFilters((current) => ({
-        ...current,
-        purchaseStart: customPeriodRange?.startDate ?? current.purchaseStart,
-        purchaseEnd: customPeriodRange?.endDate ?? current.purchaseEnd,
-      }));
-      return;
-    }
-
-    const nextRange = resolveInstallmentsPeriodRange(preset);
-    setDraftFilters((current) => ({
-      ...current,
-      purchaseStart: nextRange.startDate,
-      purchaseEnd: nextRange.endDate,
-    }));
-  };
-
-  const handleCustomPeriodChange = (range: InstallmentsPeriodRange) => {
-    setCustomPeriodRange(range);
-    setDraftPeriodPreset("custom");
-    setDraftFilters((current) => {
-      const nextFilters = {
-        ...current,
-        purchaseStart: range.startDate,
-        purchaseEnd: range.endDate,
-      };
-
-      setAppliedFilters(nextFilters);
-      return nextFilters;
-    });
-  };
+  useEffect(() => {
+    setDraftFilters((current) => mergeImmediateFilters(current, immediateFilters));
+    setAppliedFilters((current) => mergeImmediateFilters(current, immediateFilters));
+  }, [immediateFilters]);
 
   const handleFiltersChange = (nextFilters: InstallmentsOverviewFilters) => {
     setDraftFilters(nextFilters);
-  };
-
-  const handleApplyFilters = () => {
-    setAppliedFilters(draftFilters);
+    setAppliedFilters(nextFilters);
   };
 
   const handleResetFilters = () => {
-    setDraftPeriodPreset(defaultPeriodPreset);
+    const nextSearchParams = new URLSearchParams();
+    nextSearchParams.set("month", String(currentSelection.monthIndex));
+    nextSearchParams.set("year", String(currentSelection.year));
+    nextSearchParams.set("preset", "month");
+    nextSearchParams.set("startDate", defaultDateRange.startDate);
+    nextSearchParams.set("endDate", defaultDateRange.endDate);
+
+    setSearchParams(nextSearchParams, { replace: true });
     setDraftFilters({
       ...defaultFilters,
     });
@@ -172,34 +243,85 @@ export default function InstallmentsPage() {
     });
   };
 
-  if (installmentsQuery.isLoading) {
-    return (
-      <AppShell title="Parcelamentos" description="Acompanhe compras parceladas e compromissos futuros">
-        <InstallmentsSkeleton />
-      </AppShell>
-    );
-  }
+  const headerContent = (
+    <section data-tour-id="installments-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+          <TransactionsMonthYearFilter
+            selectedMonthIndex={selectedMonthIndex}
+            selectedYear={selectedYear}
+            onMonthChange={handleMonthChange}
+            onYearChange={handleYearChange}
+          />
+
+          <TransactionsDateFilter
+            preset={datePreset}
+            range={dateRange}
+            onSelectPreset={handlePresetChange}
+            onApplyCustomRange={handleCustomRangeApply}
+            showPresetButtons={false}
+          />
+
+          <Select
+            value={selectedCategoryId}
+            onValueChange={(value) =>
+              updateUrlFilterParams(searchParams, setSearchParams, {
+                [FILTER_QUERY_PARAM_KEYS.categoryId]: value === "all" ? null : value,
+              })
+            }
+          >
+            <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
+              <SelectValue placeholder="Todas as categorias" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as categorias</SelectItem>
+              {overview?.filterOptions.categories.map((category) => (
+                <SelectItem key={category.id} value={String(category.id)}>
+                  {category.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="relative w-full xl:max-w-sm xl:flex-1">
+            <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) =>
+                updateUrlFilterParams(searchParams, setSearchParams, {
+                  [FILTER_QUERY_PARAM_KEYS.search]: event.target.value.trim() || null,
+                })
+              }
+              placeholder="Buscar compra, cartÃ£o ou categoria..."
+              className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
+            />
+          </div>
+        </div>
+
+        <InstallmentsFilters
+          filters={draftFilters}
+          appliedRangeLabel={appliedRangeLabel}
+          overview={overview}
+          onChange={handleFiltersChange}
+          onResetFilters={handleResetFilters}
+          onExportCsv={() => buildCsv(appliedFilters, overview?.items ?? [])}
+        />
+      </div>
+    </section>
+  );
 
   return (
-    <AppShell title="Parcelamentos" description="Acompanhe compras parceladas e compromissos futuros">
-      {overview ? (
+    <AppShell
+      title="Parcelamentos"
+      description="Acompanhe compras parceladas e compromissos futuros"
+      headerContent={headerContent}
+    >
+      {installmentsQuery.isLoading ? (
+        <InstallmentsSkeleton />
+      ) : overview ? (
         <>
           <div data-tour-id="installments-summary">
             <InstallmentsSummaryCards overview={overview} />
-          </div>
-
-          <div data-tour-id="installments-filters">
-            <InstallmentsFilters
-              filters={draftFilters}
-              periodPreset={draftPeriodPreset}
-              overview={overview}
-              onChange={handleFiltersChange}
-              onPeriodPresetChange={handlePeriodPresetChange}
-              onCustomPeriodChange={handleCustomPeriodChange}
-              onApplyFilters={handleApplyFilters}
-              onResetFilters={handleResetFilters}
-              onExportCsv={() => buildCsv(appliedFilters, overview.items)}
-            />
           </div>
 
           <div data-tour-id="installments-insights">
@@ -211,7 +333,7 @@ export default function InstallmentsPage() {
               <div key={item.month} className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">{formatMonthKey(item.month)}</p>
-                  <MetricInfoTooltip content="Soma das parcelas projetadas para vencer neste mês, considerando os parcelamentos filtrados." />
+                  <MetricInfoTooltip content="Soma das parcelas projetadas para vencer neste mÃªs, considerando os parcelamentos filtrados." />
                 </div>
                 <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(item.amount)}</p>
               </div>
@@ -229,14 +351,14 @@ export default function InstallmentsPage() {
             <div className="glass-card rounded-2xl border border-border/40 p-6 text-center sm:p-8">
               <h2 className="text-lg font-semibold text-foreground">Nenhum parcelamento encontrado</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ajuste o período das parcelas ou revise as transações de cartão parceladas para visualizar dados nesta tela.
+                Ajuste o perÃ­odo das parcelas ou revise as transaÃ§Ãµes de cartÃ£o parceladas para visualizar dados nesta tela.
               </p>
             </div>
           )}
         </>
       ) : installmentsQuery.isError ? (
         <div className="glass-card rounded-2xl border border-border/40 p-6 text-center sm:p-8">
-          <h2 className="text-lg font-semibold text-foreground">Não foi possível carregar os parcelamentos</h2>
+          <h2 className="text-lg font-semibold text-foreground">NÃ£o foi possÃ­vel carregar os parcelamentos</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {installmentsQuery.error instanceof Error ? installmentsQuery.error.message : "Tente novamente em instantes."}
           </p>

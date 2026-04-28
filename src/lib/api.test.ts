@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   configureApiAuth,
   getDashboard,
+  getInstallmentsOverview,
   mapImportAiSuggestionsResponse,
   mapImportCommitResponse,
   mapImportPreviewResponse,
@@ -555,6 +556,7 @@ describe("api mappers", () => {
       applied_filters: {
         cardId: 2,
         categoryId: "all",
+        search: "nubank",
         status: "overdue",
         installmentAmountMin: 50,
         installmentAmountMax: 300,
@@ -624,6 +626,7 @@ describe("api mappers", () => {
     });
 
     expect(result.appliedFilters.cardId).toBe("2");
+    expect(result.appliedFilters.search).toBe("nubank");
     expect(result.appliedFilters.installmentCountMode).toBe("remaining_installments");
     expect(result.appliedFilters.installmentCountValue).toBe(6);
     expect(result.alerts.concentration.triggered).toBe(true);
@@ -635,5 +638,67 @@ describe("api mappers", () => {
     expect(result.items[0].displayInstallmentNumber).toBe(3);
     expect(result.items[0].installmentDueDate).toBe("2026-04-15");
     expect(result.items[0].installmentMonth).toBe("2026-04");
+  });
+
+  it("requests installments overview with search when provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          applied_filters: {
+            search: "visa",
+          },
+          active_installments_count: 0,
+          monthly_commitment: 0,
+          remaining_balance_total: 0,
+          original_amount_total: 0,
+          payoff_projection_month: null,
+          alerts: {
+            concentration: {
+              threshold_ratio: 0.5,
+              triggered: false,
+              card_id: null,
+              card_name: null,
+              share_ratio: 0,
+              monthly_amount: 0,
+            },
+          },
+          charts: {
+            next_3_months_projection: [],
+            monthly_commitment_evolution: [],
+            card_distribution: [],
+            top_categories: [],
+          },
+          filter_options: {
+            cards: [],
+            categories: [],
+            statuses: ["active", "paid", "overdue"],
+            installment_count_values: [],
+            remaining_installment_values: [],
+            installment_amount_range: {
+              min: 0,
+              max: 0,
+            },
+          },
+          items: [],
+        }),
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getInstallmentsOverview({
+      search: "visa",
+      categoryId: "2",
+      purchaseStart: "2026-04-01",
+      purchaseEnd: "2026-04-30",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/installments/overview?categoryId=2&search=visa&purchaseStart=2026-04-01&purchaseEnd=2026-04-30"),
+      expect.objectContaining({
+        credentials: "include",
+      }),
+    );
   });
 });

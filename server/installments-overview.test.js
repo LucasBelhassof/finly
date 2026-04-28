@@ -266,6 +266,34 @@ describe("installments overview helpers", () => {
     ]);
   });
 
+  it("filters grouped purchases by search across description, card and category", () => {
+    const byDescription = buildInstallmentsOverviewResponse(baseRows, { search: "note" }, "2026-04-09");
+    const byCard = buildInstallmentsOverviewResponse(baseRows, { search: "visa" }, "2026-04-09");
+    const byCategoryAndStatus = buildInstallmentsOverviewResponse(
+      baseRows,
+      {
+        search: "educa",
+        status: "paid",
+        purchaseStart: "2025-11-01",
+        purchaseEnd: "2026-02-28",
+      },
+      "2026-04-09",
+    );
+
+    expect(byDescription.items.length).toBeGreaterThan(0);
+    expect(new Set(byDescription.items.map((item) => item.installment_purchase_id))).toEqual(new Set([10]));
+    expect(byDescription.items.every((item) => item.description === "Notebook")).toBe(true);
+    expect(byDescription.applied_filters.search).toBe("note");
+
+    expect(byCard.items).toHaveLength(1);
+    expect(byCard.items[0].card_name).toBe("Visa");
+
+    expect(byCategoryAndStatus.items.length).toBeGreaterThan(0);
+    expect(new Set(byCategoryAndStatus.items.map((item) => item.installment_purchase_id))).toEqual(new Set([11]));
+    expect(byCategoryAndStatus.items.every((item) => item.category === "Educacao" && item.status === "paid")).toBe(true);
+    expect(byCategoryAndStatus.monthly_commitment).toBe(0);
+  });
+
   it("derives due dates and tolerates installment rounding", () => {
     const overview = buildInstallmentsOverviewResponse(baseRows, { cardId: 2 }, "2026-04-09");
     const roundedItem = overview.items.find((item) => item.installment_purchase_id === 12);

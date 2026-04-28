@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import AppShell from "@/components/AppShell";
 import BalanceCards from "@/components/BalanceCards";
 import BankConnection from "@/components/BankConnection";
@@ -9,48 +7,34 @@ import TransactionsDateFilter from "@/components/transactions/TransactionsDateFi
 import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
 import SpendingChart from "@/components/SpendingChart";
 import { useDashboard } from "@/hooks/use-dashboard";
+import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { resolveDayPeriodGreeting } from "@/lib/greeting";
 import {
-  TRANSACTIONS_YEAR_SELECTION,
   getCurrentMonthSelection,
   resolveMonthYearRange,
-  resolvePresetRange,
-  type TransactionsDateFilterPreset,
 } from "@/lib/transactions-date-filter";
 
 export default function Index() {
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(() => getCurrentMonthSelection().monthIndex);
-  const [selectedYear, setSelectedYear] = useState(() => getCurrentMonthSelection().year);
-  const [datePreset, setDatePreset] = useState<TransactionsDateFilterPreset>("month");
-  const [dateRange, setDateRange] = useState(() =>
-    resolveMonthYearRange(getCurrentMonthSelection().monthIndex, getCurrentMonthSelection().year),
-  );
+  const currentSelection = getCurrentMonthSelection();
+  const {
+    selectedMonthIndex,
+    selectedYear,
+    datePreset,
+    dateRange,
+    handleMonthChange,
+    handleYearChange,
+    handlePresetChange,
+    handleCustomRangeApply,
+  } = useUrlPeriodFilter({
+    selectedMonthIndex: currentSelection.monthIndex,
+    selectedYear: currentSelection.year,
+    datePreset: "month",
+    dateRange: resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+  });
   const { data, isLoading, isError } = useDashboard({
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
   });
-
-  const handleMonthChange = (monthIndex: number) => {
-    setSelectedMonthIndex(monthIndex);
-    setDatePreset(monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(monthIndex, selectedYear));
-  };
-
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    setDatePreset(selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(selectedMonthIndex, year));
-  };
-
-  const handlePresetChange = (preset: Exclude<TransactionsDateFilterPreset, "custom">) => {
-    setDatePreset(preset);
-    setDateRange(resolvePresetRange(preset));
-  };
-
-  const handleCustomRangeApply = (range: { startDate: string; endDate: string }) => {
-    setDatePreset("custom");
-    setDateRange(range);
-  };
 
   return (
     <AppShell title={resolveDayPeriodGreeting()} description="Aqui está o resumo das suas finanças" showGreeting>

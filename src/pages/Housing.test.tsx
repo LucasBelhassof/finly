@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import HousingPage from "@/pages/Housing";
@@ -205,6 +206,14 @@ vi.mock("@/hooks/use-housing", () => ({
   }),
 }));
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={["/"]}>
+      <HousingPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("HousingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -214,7 +223,7 @@ describe("HousingPage", () => {
   });
 
   it("creates a housing expense through the modal", async () => {
-    render(<HousingPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /nova despesa recorrente/i }));
     fireEvent.change(screen.getByPlaceholderText(/financiamento do apartamento/i), {
@@ -251,7 +260,7 @@ describe("HousingPage", () => {
   });
 
   it("requires installment count for financing expenses", async () => {
-    render(<HousingPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /nova despesa recorrente/i }));
     fireEvent.change(screen.getByPlaceholderText(/financiamento do apartamento/i), {
@@ -275,7 +284,7 @@ describe("HousingPage", () => {
   });
 
   it("updates and deletes persisted housing expenses", async () => {
-    render(<HousingPage />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /editar financiamento do carro/i }));
     fireEvent.change(screen.getByPlaceholderText(/valor mensal/i), {

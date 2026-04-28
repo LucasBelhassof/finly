@@ -18,13 +18,12 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useBanks } from "@/hooks/use-banks";
 import { useTransactions } from "@/hooks/use-transactions";
+import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { resolveCategoryColorPresentation } from "@/lib/category-colors";
 import {
   formatDateRangeLabel,
-  TRANSACTIONS_YEAR_SELECTION,
   getCurrentMonthSelection,
-  resolveMonthYearRange,
   resolvePresetRange,
   type TransactionsDateFilterPreset,
 } from "@/lib/transactions-date-filter";
@@ -210,11 +209,23 @@ export default function ExpenseMetricsPage() {
   const isMobile = useIsMobile();
   const { data: transactions = [], isLoading: isTransactionsLoading, isError: isTransactionsError } = useTransactions();
   const { data: banks = [], isLoading: isBanksLoading } = useBanks();
+  const currentSelection = getCurrentMonthSelection();
+  const {
+    selectedMonthIndex,
+    selectedYear,
+    datePreset,
+    dateRange,
+    handleMonthChange,
+    handleYearChange,
+    handlePresetChange,
+    handleCustomRangeApply,
+  } = useUrlPeriodFilter({
+    selectedMonthIndex: currentSelection.monthIndex,
+    selectedYear: currentSelection.year,
+    datePreset: "month",
+    dateRange: resolvePresetRange("month"),
+  });
 
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(() => getCurrentMonthSelection().monthIndex);
-  const [selectedYear, setSelectedYear] = useState(() => getCurrentMonthSelection().year);
-  const [datePreset, setDatePreset] = useState<TransactionsDateFilterPreset>("month");
-  const [dateRange, setDateRange] = useState(() => resolvePresetRange("month"));
   const [selectedAccountId, setSelectedAccountId] = useState("all");
   const [typeFilter, setTypeFilter] = useState<MetricTypeFilter>("all");
 
@@ -330,28 +341,6 @@ export default function ExpenseMetricsPage() {
       ),
     [banks],
   );
-
-  const handlePresetChange = (preset: Exclude<TransactionsDateFilterPreset, "custom">) => {
-    setDatePreset(preset);
-    setDateRange(resolvePresetRange(preset));
-  };
-
-  const handleMonthChange = (monthIndex: number) => {
-    setSelectedMonthIndex(monthIndex);
-    setDatePreset(monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(monthIndex, selectedYear));
-  };
-
-  const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    setDatePreset(selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(selectedMonthIndex, year));
-  };
-
-  const handleCustomRangeApply = (range: { startDate: string; endDate: string }) => {
-    setDatePreset("custom");
-    setDateRange(range);
-  };
 
   if (isTransactionsLoading || isBanksLoading) {
     return (

@@ -9,6 +9,7 @@ export const installmentsOverviewQueryKey = (filters: Partial<InstallmentsOvervi
     "overview",
     filters.cardId ?? "all",
     filters.categoryId ?? "all",
+    filters.search?.trim() || "search:any",
     filters.status ?? "all",
     filters.installmentAmountMin ?? "min:any",
     filters.installmentAmountMax ?? "max:any",

@@ -1028,6 +1028,7 @@ export function mapInstallmentsOverviewResponse(response: ApiInstallmentsOvervie
       cardId: appliedFilters.cardId !== undefined && appliedFilters.cardId !== null ? String(appliedFilters.cardId) : "all",
       categoryId:
         appliedFilters.categoryId !== undefined && appliedFilters.categoryId !== null ? String(appliedFilters.categoryId) : "all",
+      search: safeString(appliedFilters.search),
       status:
         appliedFilters.status === "active" || appliedFilters.status === "paid" || appliedFilters.status === "overdue"
           ? appliedFilters.status
@@ -1571,6 +1572,7 @@ export async function getInstallmentsOverview(filters: Partial<InstallmentsOverv
     buildPath("/api/installments/overview", {
       cardId: filters.cardId,
       categoryId: filters.categoryId,
+      search: filters.search?.trim() ? filters.search.trim() : undefined,
       status: filters.status,
       installmentAmountMin: filters.installmentAmountMin ?? undefined,
       installmentAmountMax: filters.installmentAmountMax ?? undefined,

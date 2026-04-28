@@ -9,10 +9,11 @@ interface AppShellProps {
   title: string;
   description: string;
   children: ReactNode;
+  headerContent?: ReactNode;
   showGreeting?: boolean;
 }
 
-export default function AppShell({ title, description, children, showGreeting = false }: AppShellProps) {
+export default function AppShell({ title, description, children, headerContent, showGreeting = false }: AppShellProps) {
   const { user } = useAuthSession();
 
   return (
@@ -20,33 +21,37 @@ export default function AppShell({ title, description, children, showGreeting = 
       <div className="flex h-screen w-full min-w-0 overflow-hidden">
         <Sidebar />
 
-        <main className="flex-1 min-w-0 overflow-y-auto scrollbar-thin">
+        <main className="min-w-0 flex-1 overflow-y-auto scrollbar-thin">
           <header
             className="sticky top-0 z-10 border-b border-border/50 bg-background/80 px-4 py-4 backdrop-blur-lg sm:px-6"
             data-tour-id="app-header"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
-                <SidebarTrigger
-                  className="mt-0.5 inline-flex h-10 w-10 shrink-0 rounded-lg border border-border/60 text-foreground hover:bg-secondary md:hidden"
-                  aria-label="Abrir menu de navegacao"
-                  title="Abrir menu"
-                  data-tour-id="sidebar-trigger"
-                />
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-3">
+                  <SidebarTrigger
+                    className="mt-0.5 inline-flex h-10 w-10 shrink-0 rounded-lg border border-border/60 text-foreground hover:bg-secondary md:hidden"
+                    aria-label="Abrir menu de navegacao"
+                    title="Abrir menu"
+                    data-tour-id="sidebar-trigger"
+                  />
 
-                <div className="min-w-0">
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary md:hidden">Navegacao</p>
-                  <h1 className="text-xl font-bold text-foreground">
-                    {showGreeting ? `${title}, ${user?.name ?? "Usuário"} ` : title}
-                    {showGreeting ? "\u{1F44B}" : null}
-                  </h1>
-                  <p className="text-sm text-muted-foreground">{description}</p>
+                  <div className="min-w-0">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-primary md:hidden">Navegacao</p>
+                    <h1 className="text-xl font-bold text-foreground">
+                      {showGreeting ? `${title}, ${user?.name ?? "UsuÃ¡rio"} ` : title}
+                      {showGreeting ? "\u{1F44B}" : null}
+                    </h1>
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                  </div>
+                </div>
+
+                <div data-tour-id="header-notifications">
+                  <NotificationBell />
                 </div>
               </div>
 
-              <div data-tour-id="header-notifications">
-                <NotificationBell />
-              </div>
+              {headerContent ? <div>{headerContent}</div> : null}
             </div>
           </header>
 

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ExpenseMetricsPage from "@/pages/ExpenseMetrics";
@@ -182,6 +183,14 @@ const transactions: TransactionItem[] = [
   },
 ];
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={["/"]}>
+      <ExpenseMetricsPage />
+    </MemoryRouter>,
+  );
+}
+
 describe("ExpenseMetricsPage", () => {
   beforeEach(() => {
     mockUseTransactions.mockReturnValue({
@@ -196,7 +205,7 @@ describe("ExpenseMetricsPage", () => {
   });
 
   it("renders the main metrics and rankings for the selected period", () => {
-    render(<ExpenseMetricsPage />);
+    renderPage();
 
     expect(screen.getByRole("heading", { name: "Métricas" })).toBeInTheDocument();
     expect(screen.getByText("R$ 500,00")).toBeInTheDocument();

@@ -105,6 +105,14 @@ function normalizeNumberFilter(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeSearchFilter(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeText(value) {
+  return String(value ?? "").toLocaleLowerCase("pt-BR");
+}
+
 function normalizeOverviewFilters(filters = {}) {
   const status =
     filters.status === "active" || filters.status === "paid" || filters.status === "overdue" ? filters.status : "all";
@@ -124,6 +132,7 @@ function normalizeOverviewFilters(filters = {}) {
   return {
     cardId: filters.cardId && String(filters.cardId) !== "all" ? String(filters.cardId) : "all",
     categoryId: filters.categoryId && String(filters.categoryId) !== "all" ? String(filters.categoryId) : "all",
+    search: normalizeSearchFilter(filters.search),
     status,
     installmentAmountMin: normalizeNumberFilter(filters.installmentAmountMin),
     installmentAmountMax: normalizeNumberFilter(filters.installmentAmountMax),
@@ -249,6 +258,15 @@ function matchesPurchaseFilters(purchase, filters) {
 
   if (filters.categoryId !== "all" && String(purchase.categoryId) !== filters.categoryId) {
     return false;
+  }
+
+  if (filters.search) {
+    const searchTerm = normalizeText(filters.search);
+    const searchableFields = [purchase.description, purchase.cardName, purchase.category].map(normalizeText);
+
+    if (!searchableFields.some((field) => field.includes(searchTerm))) {
+      return false;
+    }
   }
 
   if (filters.status !== "all" && purchase.status !== filters.status) {

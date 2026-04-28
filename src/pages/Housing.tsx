@@ -49,13 +49,12 @@ import { toast } from "@/components/ui/sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useBanks } from "@/hooks/use-banks";
 import { useCreateHousing, useDeleteHousing, useHousing, useUpdateHousing } from "@/hooks/use-housing";
+import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { useCategories } from "@/hooks/use-transactions";
 import {
   TRANSACTIONS_YEAR_SELECTION,
   getCurrentMonthSelection,
   resolveMonthYearRange,
-  resolvePresetRange,
-  type TransactionsDateFilterPreset,
 } from "@/lib/transactions-date-filter";
 import type { CategoryItem, CreateHousingInput, HousingExpenseType, HousingItem, UpdateHousingInput } from "@/types/api";
 
@@ -343,12 +342,21 @@ export default function HousingPage() {
   const deleteHousing = useDeleteHousing();
 
   const currentSelection = getCurrentMonthSelection();
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentSelection.monthIndex);
-  const [selectedYear, setSelectedYear] = useState(currentSelection.year);
-  const [datePreset, setDatePreset] = useState<TransactionsDateFilterPreset>(
-    currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
-  );
-  const [dateRange, setDateRange] = useState(() => resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year));
+  const {
+    selectedMonthIndex,
+    selectedYear,
+    datePreset,
+    dateRange,
+    handleMonthChange: updateMonthFilter,
+    handleYearChange: updateYearFilter,
+    handlePresetChange,
+    handleCustomRangeApply,
+  } = useUrlPeriodFilter({
+    selectedMonthIndex: currentSelection.monthIndex,
+    selectedYear: currentSelection.year,
+    datePreset: currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
+    dateRange: resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+  });
   const [search, setSearch] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
@@ -458,26 +466,12 @@ export default function HousingPage() {
     setDialogOpen(true);
   };
 
-  const handlePresetChange = (preset: Exclude<TransactionsDateFilterPreset, "custom">) => {
-    setDatePreset(preset);
-    setDateRange(resolvePresetRange(preset));
-  };
-
   const handleMonthChange = (monthIndex: number) => {
-    setSelectedMonthIndex(monthIndex);
-    setDatePreset(monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(monthIndex, selectedYear));
+    updateMonthFilter(monthIndex);
   };
 
   const handleYearChange = (year: number) => {
-    setSelectedYear(year);
-    setDatePreset(selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
-    setDateRange(resolveMonthYearRange(selectedMonthIndex, year));
-  };
-
-  const handleCustomRangeApply = (range: { startDate: string; endDate: string }) => {
-    setDatePreset("custom");
-    setDateRange(range);
+    updateYearFilter(year);
   };
 
   const startEditExpense = (expense: HousingItem) => {

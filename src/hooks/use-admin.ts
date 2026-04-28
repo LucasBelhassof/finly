@@ -4,6 +4,7 @@ import {
   getAdminNotificationTargets,
   getAdminNotifications,
   getAdminActivity,
+  getAdminAiUsage,
   getAdminFinancialMetrics,
   getAdminOverview,
   getAdminSubscriptionMetrics,
@@ -48,6 +49,14 @@ export function useAdminActivity() {
   return useQuery({
     queryKey: ["admin", "activity"],
     queryFn: () => getAdminActivity(20),
+    staleTime: 30_000,
+  });
+}
+
+export function useAdminAiUsage(startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ["admin", "ai-usage", startDate ?? "", endDate ?? ""],
+    queryFn: () => getAdminAiUsage(startDate, endDate),
     staleTime: 30_000,
   });
 }

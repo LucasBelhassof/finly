@@ -16,6 +16,7 @@ import type {
   ApiChatSearchResponse,
   ApiChatSearchResult,
   ApiAdminActivityResponse,
+  ApiAdminAiUsageResponse,
   ApiAdminFinancialMetricsResponse,
   ApiAdminNotificationsResponse,
   ApiAdminOverviewResponse,
@@ -24,6 +25,7 @@ import type {
   ApiAdminUsersResponse,
   ApiDashboardResponse,
   AdminActivityData,
+  AdminAiUsageData,
   AdminFinancialMetricsData,
   AdminNotificationsData,
   AdminNotificationTargetsData,
@@ -449,6 +451,106 @@ function mapAdminUsersResponse(response: ApiAdminUsersResponse): AdminUsersData 
       lastSessionAt: item.lastSessionAt ? safeString(item.lastSessionAt) : null,
       transactionCount: safeNumber(item.transactionCount),
       netTotal: safeNumber(item.netTotal),
+    })),
+  };
+}
+
+function mapAdminAiUsageResponse(response: ApiAdminAiUsageResponse): AdminAiUsageData {
+  return {
+    period: {
+      startDate: safeString(response.period?.startDate),
+      endDate: safeString(response.period?.endDate),
+    },
+    summary: {
+      totalRequests: safeNumber(response.summary?.totalRequests),
+      successfulRequests: safeNumber(response.summary?.successfulRequests),
+      failedRequests: safeNumber(response.summary?.failedRequests),
+      assistantMessages: safeNumber(response.summary?.assistantMessages),
+      inputTokens: safeNumber(response.summary?.inputTokens),
+      outputTokens: safeNumber(response.summary?.outputTokens),
+      totalTokens: safeNumber(response.summary?.totalTokens),
+      estimatedCostUsd: safeNumber(response.summary?.estimatedCostUsd),
+      trackedUsageRequests: safeNumber(response.summary?.trackedUsageRequests),
+      untrackedUsageRequests: safeNumber(response.summary?.untrackedUsageRequests),
+    },
+    byModel: (response.byModel ?? []).map((item) => ({
+      provider: safeString(item.provider),
+      model: safeString(item.model),
+      requests: safeNumber(item.requests),
+      assistantMessages: safeNumber(item.assistantMessages),
+      inputTokens: safeNumber(item.inputTokens),
+      outputTokens: safeNumber(item.outputTokens),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+      lastUsedAt: item.lastUsedAt ? safeString(item.lastUsedAt) : null,
+    })),
+    byOperation: (response.byOperation ?? []).map((item) => ({
+      surface: safeString(item.surface),
+      operation: safeString(item.operation),
+      requests: safeNumber(item.requests),
+      successes: safeNumber(item.successes),
+      failures: safeNumber(item.failures),
+      inputTokens: safeNumber(item.inputTokens),
+      outputTokens: safeNumber(item.outputTokens),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+    })),
+    topUsers: (response.topUsers ?? []).map((item) => ({
+      id: item.id ?? "",
+      name: safeString(item.name, "UsuÃ¡rio"),
+      email: safeString(item.email),
+      requests: safeNumber(item.requests),
+      assistantMessages: safeNumber(item.assistantMessages),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+    })),
+    userUsage: (response.userUsage ?? []).map((item) => ({
+      id: item.id ?? "",
+      name: safeString(item.name, "UsuÃ¡rio"),
+      email: safeString(item.email),
+      requests: safeNumber(item.requests),
+      successfulRequests: safeNumber(item.successfulRequests),
+      failedRequests: safeNumber(item.failedRequests),
+      assistantMessages: safeNumber(item.assistantMessages),
+      inputTokens: safeNumber(item.inputTokens),
+      outputTokens: safeNumber(item.outputTokens),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+      lastUsedAt: item.lastUsedAt ? safeString(item.lastUsedAt) : null,
+    })),
+    dailySeries: (response.dailySeries ?? []).map((item) => ({
+      date: safeString(item.date),
+      requests: safeNumber(item.requests),
+      assistantMessages: safeNumber(item.assistantMessages),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+      failures: safeNumber(item.failures),
+    })),
+    dailyByModel: (response.dailyByModel ?? []).map((item) => ({
+      date: safeString(item.date),
+      provider: safeString(item.provider),
+      model: safeString(item.model),
+      requests: safeNumber(item.requests),
+      inputTokens: safeNumber(item.inputTokens),
+      outputTokens: safeNumber(item.outputTokens),
+      totalTokens: safeNumber(item.totalTokens),
+      estimatedCostUsd: safeNumber(item.estimatedCostUsd),
+    })),
+    recentFailures: (response.recentFailures ?? []).map((item) => ({
+      createdAt: safeString(item.createdAt),
+      surface: safeString(item.surface),
+      operation: safeString(item.operation),
+      provider: item.provider ? safeString(item.provider) : null,
+      model: item.model ? safeString(item.model) : null,
+      errorCode: item.errorCode ? safeString(item.errorCode) : null,
+      errorMessage: item.errorMessage ? safeString(item.errorMessage) : null,
+      user: item.user
+        ? {
+            id: item.user.id ?? "",
+            name: safeString(item.user.name, "UsuÃ¡rio"),
+            email: safeString(item.user.email),
+          }
+        : null,
     })),
   };
 }
@@ -1469,6 +1571,17 @@ export async function getAdminActivity(limit?: number) {
   );
 
   return mapAdminActivityResponse(response);
+}
+
+export async function getAdminAiUsage(startDate?: string, endDate?: string) {
+  const response = await request<ApiAdminAiUsageResponse>(
+    buildPath("/api/admin/ai-usage", {
+      startDate,
+      endDate,
+    }),
+  );
+
+  return mapAdminAiUsageResponse(response);
 }
 
 export async function getAdminNotificationTargets() {

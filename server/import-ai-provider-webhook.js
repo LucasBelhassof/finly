@@ -6,6 +6,11 @@ function getWebhookProviderConfig() {
 }
 
 export async function requestWebhookImportAiSuggestions(payload) {
+  const response = await requestWebhookImportAiSuggestionsWithTelemetry(payload);
+  return response.items;
+}
+
+export async function requestWebhookImportAiSuggestionsWithTelemetry(payload) {
   const config = getWebhookProviderConfig();
 
   if (!config.url) {
@@ -32,7 +37,22 @@ export async function requestWebhookImportAiSuggestions(payload) {
       throw new Error(body?.message ?? "O webhook de IA falhou.");
     }
 
-    return Array.isArray(body?.items) ? body.items : [];
+    return {
+      items: Array.isArray(body?.items) ? body.items : [],
+      provider: typeof body?.provider === "string" ? body.provider : null,
+      model: typeof body?.model === "string" ? body.model : null,
+      usage:
+        body?.usage && typeof body.usage === "object"
+          ? {
+              inputTokens: Number.isFinite(Number(body.usage.inputTokens)) ? Math.max(0, Math.round(Number(body.usage.inputTokens))) : null,
+              outputTokens: Number.isFinite(Number(body.usage.outputTokens)) ? Math.max(0, Math.round(Number(body.usage.outputTokens))) : null,
+              totalTokens: Number.isFinite(Number(body.usage.totalTokens)) ? Math.max(0, Math.round(Number(body.usage.totalTokens))) : null,
+              requestCount: Number.isFinite(Number(body.usage.requestCount)) ? Math.max(0, Math.round(Number(body.usage.requestCount))) : null,
+            }
+          : null,
+      estimatedCostUsd:
+        Number.isFinite(Number(body?.estimatedCostUsd)) ? Number(Number(body.estimatedCostUsd).toFixed(8)) : null,
+    };
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error("A sugestao por IA expirou antes da resposta.");

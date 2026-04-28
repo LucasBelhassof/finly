@@ -300,6 +300,291 @@ export async function getAdminActivity(input: { limit?: number | string } = {}) 
   };
 }
 
+export async function getAdminAiUsage(input: AdminDateRangeInput = {}) {
+  const endDate = normalizeDateInput(input.endDate, new Date().toISOString().slice(0, 10));
+  const startDate = normalizeDateInput(
+    input.startDate,
+    new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10),
+  );
+
+  const rangeValues = [startDate, endDate];
+  const baseWhere = `created_at >= $1::date AND created_at < ($2::date + INTERVAL '1 day')`;
+
+  const [summaryResult, byModelResult, byOperationResult, topUsersResult, userUsageResult, dailySeriesResult, dailyByModelResult, failuresResult] =
+    await Promise.all([
+      db.query(
+        `
+          SELECT
+            COALESCE(SUM(COALESCE(request_count, 1)), 0)::INT AS total_requests,
+            COALESCE(SUM(CASE WHEN success THEN COALESCE(request_count, 1) ELSE 0 END), 0)::INT AS successful_requests,
+            COALESCE(SUM(CASE WHEN NOT success THEN COALESCE(request_count, 1) ELSE 0 END), 0)::INT AS failed_requests,
+            COUNT(*) FILTER (WHERE success AND surface = 'chat' AND operation = 'reply')::INT AS assistant_messages,
+            COALESCE(SUM(input_tokens), 0)::BIGINT AS input_tokens,
+            COALESCE(SUM(output_tokens), 0)::BIGINT AS output_tokens,
+            COALESCE(SUM(total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN input_tokens IS NOT NULL OR output_tokens IS NOT NULL OR total_tokens IS NOT NULL OR estimated_cost_usd IS NOT NULL
+                    THEN COALESCE(request_count, 1)
+                  ELSE 0
+                END
+              ),
+              0
+            )::INT AS tracked_usage_requests,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN input_tokens IS NULL AND output_tokens IS NULL AND total_tokens IS NULL AND estimated_cost_usd IS NULL
+                    THEN COALESCE(request_count, 1)
+                  ELSE 0
+                END
+              ),
+              0
+            )::INT AS untracked_usage_requests
+          FROM ai_usage_events
+          WHERE ${baseWhere}
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            provider,
+            model,
+            COALESCE(SUM(COALESCE(request_count, 1)), 0)::INT AS requests,
+            COUNT(*) FILTER (WHERE success AND surface = 'chat' AND operation = 'reply')::INT AS assistant_messages,
+            COALESCE(SUM(input_tokens), 0)::BIGINT AS input_tokens,
+            COALESCE(SUM(output_tokens), 0)::BIGINT AS output_tokens,
+            COALESCE(SUM(total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd,
+            MAX(created_at) AS last_used_at
+          FROM ai_usage_events
+          WHERE ${baseWhere}
+          GROUP BY provider, model
+          ORDER BY requests DESC, total_tokens DESC, estimated_cost_usd DESC, provider ASC, model ASC
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            surface,
+            operation,
+            COALESCE(SUM(COALESCE(request_count, 1)), 0)::INT AS requests,
+            COALESCE(SUM(CASE WHEN success THEN COALESCE(request_count, 1) ELSE 0 END), 0)::INT AS successes,
+            COALESCE(SUM(CASE WHEN NOT success THEN COALESCE(request_count, 1) ELSE 0 END), 0)::INT AS failures,
+            COALESCE(SUM(input_tokens), 0)::BIGINT AS input_tokens,
+            COALESCE(SUM(output_tokens), 0)::BIGINT AS output_tokens,
+            COALESCE(SUM(total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd
+          FROM ai_usage_events
+          WHERE ${baseWhere}
+          GROUP BY surface, operation
+          ORDER BY requests DESC, total_tokens DESC, estimated_cost_usd DESC, surface ASC, operation ASC
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            u.id,
+            u.name,
+            u.email,
+            COALESCE(SUM(COALESCE(a.request_count, 1)), 0)::INT AS requests,
+            COUNT(*) FILTER (WHERE a.success AND a.surface = 'chat' AND a.operation = 'reply')::INT AS assistant_messages,
+            COALESCE(SUM(a.total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(a.estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd
+          FROM ai_usage_events a
+          INNER JOIN users u ON u.id = a.user_id
+          WHERE ${baseWhere.replaceAll("created_at", "a.created_at")}
+          GROUP BY u.id, u.name, u.email
+          ORDER BY requests DESC, total_tokens DESC, estimated_cost_usd DESC, u.name ASC
+          LIMIT 10
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            u.id,
+            u.name,
+            u.email,
+            COALESCE(SUM(COALESCE(a.request_count, 1)), 0)::INT AS requests,
+            COALESCE(SUM(CASE WHEN a.success THEN COALESCE(a.request_count, 1) ELSE 0 END), 0)::INT AS successful_requests,
+            COALESCE(SUM(CASE WHEN NOT a.success THEN COALESCE(a.request_count, 1) ELSE 0 END), 0)::INT AS failed_requests,
+            COUNT(*) FILTER (WHERE a.success AND a.surface = 'chat' AND a.operation = 'reply')::INT AS assistant_messages,
+            COALESCE(SUM(a.input_tokens), 0)::BIGINT AS input_tokens,
+            COALESCE(SUM(a.output_tokens), 0)::BIGINT AS output_tokens,
+            COALESCE(SUM(a.total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(a.estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd,
+            MAX(a.created_at) AS last_used_at
+          FROM ai_usage_events a
+          INNER JOIN users u ON u.id = a.user_id
+          WHERE ${baseWhere.replaceAll("created_at", "a.created_at")}
+          GROUP BY u.id, u.name, u.email
+          ORDER BY requests DESC, total_tokens DESC, estimated_cost_usd DESC, u.name ASC
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS date,
+            COALESCE(SUM(COALESCE(request_count, 1)), 0)::INT AS requests,
+            COUNT(*) FILTER (WHERE success AND surface = 'chat' AND operation = 'reply')::INT AS assistant_messages,
+            COALESCE(SUM(total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd,
+            COALESCE(SUM(CASE WHEN NOT success THEN COALESCE(request_count, 1) ELSE 0 END), 0)::INT AS failures
+          FROM ai_usage_events
+          WHERE ${baseWhere}
+          GROUP BY 1
+          ORDER BY 1 ASC
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS date,
+            provider,
+            model,
+            COALESCE(SUM(COALESCE(request_count, 1)), 0)::INT AS requests,
+            COALESCE(SUM(input_tokens), 0)::BIGINT AS input_tokens,
+            COALESCE(SUM(output_tokens), 0)::BIGINT AS output_tokens,
+            COALESCE(SUM(total_tokens), 0)::BIGINT AS total_tokens,
+            COALESCE(SUM(estimated_cost_usd), 0)::NUMERIC(14, 8) AS estimated_cost_usd
+          FROM ai_usage_events
+          WHERE ${baseWhere}
+          GROUP BY 1, provider, model
+          ORDER BY 1 ASC, requests DESC, provider ASC, model ASC
+        `,
+        rangeValues,
+      ),
+      db.query(
+        `
+          SELECT
+            a.created_at,
+            a.surface,
+            a.operation,
+            a.provider,
+            a.model,
+            a.error_code,
+            a.error_message,
+            u.id AS user_id,
+            u.name AS user_name,
+            u.email AS user_email
+          FROM ai_usage_events a
+          INNER JOIN users u ON u.id = a.user_id
+          WHERE ${baseWhere.replaceAll("created_at", "a.created_at")}
+            AND a.success = FALSE
+          ORDER BY a.created_at DESC
+          LIMIT 20
+        `,
+        rangeValues,
+      ),
+    ]);
+
+  const summary = summaryResult.rows[0] ?? {};
+
+  return {
+    period: {
+      startDate,
+      endDate,
+    },
+    summary: {
+      totalRequests: Number(summary.total_requests ?? 0),
+      successfulRequests: Number(summary.successful_requests ?? 0),
+      failedRequests: Number(summary.failed_requests ?? 0),
+      assistantMessages: Number(summary.assistant_messages ?? 0),
+      inputTokens: Number(summary.input_tokens ?? 0),
+      outputTokens: Number(summary.output_tokens ?? 0),
+      totalTokens: Number(summary.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(summary.estimated_cost_usd),
+      trackedUsageRequests: Number(summary.tracked_usage_requests ?? 0),
+      untrackedUsageRequests: Number(summary.untracked_usage_requests ?? 0),
+    },
+    byModel: byModelResult.rows.map((row) => ({
+      provider: String(row.provider ?? ""),
+      model: String(row.model ?? ""),
+      requests: Number(row.requests ?? 0),
+      assistantMessages: Number(row.assistant_messages ?? 0),
+      inputTokens: Number(row.input_tokens ?? 0),
+      outputTokens: Number(row.output_tokens ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+      lastUsedAt: row.last_used_at ? new Date(String(row.last_used_at)).toISOString() : null,
+    })),
+    byOperation: byOperationResult.rows.map((row) => ({
+      surface: String(row.surface ?? ""),
+      operation: String(row.operation ?? ""),
+      requests: Number(row.requests ?? 0),
+      successes: Number(row.successes ?? 0),
+      failures: Number(row.failures ?? 0),
+      inputTokens: Number(row.input_tokens ?? 0),
+      outputTokens: Number(row.output_tokens ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+    })),
+    topUsers: topUsersResult.rows.map((row) => ({
+      id: Number(row.id),
+      name: String(row.name),
+      email: row.email ? String(row.email) : "",
+      requests: Number(row.requests ?? 0),
+      assistantMessages: Number(row.assistant_messages ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+    })),
+    userUsage: userUsageResult.rows.map((row) => ({
+      id: Number(row.id),
+      name: String(row.name),
+      email: row.email ? String(row.email) : "",
+      requests: Number(row.requests ?? 0),
+      successfulRequests: Number(row.successful_requests ?? 0),
+      failedRequests: Number(row.failed_requests ?? 0),
+      assistantMessages: Number(row.assistant_messages ?? 0),
+      inputTokens: Number(row.input_tokens ?? 0),
+      outputTokens: Number(row.output_tokens ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+      lastUsedAt: row.last_used_at ? new Date(String(row.last_used_at)).toISOString() : null,
+    })),
+    dailySeries: dailySeriesResult.rows.map((row) => ({
+      date: String(row.date),
+      requests: Number(row.requests ?? 0),
+      assistantMessages: Number(row.assistant_messages ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+      failures: Number(row.failures ?? 0),
+    })),
+    dailyByModel: dailyByModelResult.rows.map((row) => ({
+      date: String(row.date),
+      provider: String(row.provider ?? ""),
+      model: String(row.model ?? ""),
+      requests: Number(row.requests ?? 0),
+      inputTokens: Number(row.input_tokens ?? 0),
+      outputTokens: Number(row.output_tokens ?? 0),
+      totalTokens: Number(row.total_tokens ?? 0),
+      estimatedCostUsd: parseNumeric(row.estimated_cost_usd),
+    })),
+    recentFailures: failuresResult.rows.map((row) => ({
+      createdAt: new Date(String(row.created_at)).toISOString(),
+      surface: String(row.surface ?? ""),
+      operation: String(row.operation ?? ""),
+      provider: row.provider ? String(row.provider) : null,
+      model: row.model ? String(row.model) : null,
+      errorCode: row.error_code ? String(row.error_code) : null,
+      errorMessage: row.error_message ? String(row.error_message) : null,
+      user: {
+        id: Number(row.user_id),
+        name: String(row.user_name),
+        email: row.user_email ? String(row.user_email) : "",
+      },
+    })),
+  };
+}
+
 export async function getAdminUsers(input: {
   page?: number | string;
   pageSize?: number | string;

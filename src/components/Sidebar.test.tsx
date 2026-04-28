@@ -106,8 +106,10 @@ describe("Sidebar", () => {
     renderSidebar(appRoutes.adminOverview);
 
     const adminOverviewLink = screen.getAllByRole("link").find((link) => link.getAttribute("href") === appRoutes.adminOverview);
+    const adminAiUsageLink = screen.getAllByRole("link").find((link) => link.getAttribute("href") === appRoutes.adminAiUsage);
 
     expect(adminOverviewLink).toBeTruthy();
+    expect(adminAiUsageLink).toBeTruthy();
   });
 
   it("keeps notifications out of the sidebar navigation", () => {

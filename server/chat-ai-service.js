@@ -1,5 +1,64 @@
 import { getDirectChatProviderConfig, requestDirectChatReplyByProvider } from "./chat-ai-provider-direct.js";
 
+function getProviderModel(provider, config, reply) {
+  if (reply?.model) {
+    return reply.model;
+  }
+
+  if (config?.model) {
+    return config.model;
+  }
+
+  return provider === "gemini" ? "gemini-2.5-flash" : "gpt-4o-mini";
+}
+
+async function emitUsageEvent(handler, event) {
+  if (typeof handler !== "function") {
+    return;
+  }
+
+  try {
+    await handler(event);
+  } catch {
+    // Telemetry must not break the primary IA flow.
+  }
+}
+
+async function requestProviderWithUsage(payload, provider, config, usageContext) {
+  try {
+    const reply = await requestDirectChatReplyByProvider(payload, provider, config);
+    await emitUsageEvent(payload.onUsageEvent, {
+      ...usageContext,
+      success: true,
+      provider,
+      model: getProviderModel(provider, config, reply),
+      inputTokens: reply.usage?.inputTokens ?? null,
+      outputTokens: reply.usage?.outputTokens ?? null,
+      totalTokens: reply.usage?.totalTokens ?? null,
+      requestCount: reply.usage?.requestCount ?? null,
+      estimatedCostUsd: reply.estimatedCostUsd ?? null,
+      errorCode: null,
+      errorMessage: null,
+    });
+    return reply;
+  } catch (error) {
+    await emitUsageEvent(payload.onUsageEvent, {
+      ...usageContext,
+      success: false,
+      provider,
+      model: getProviderModel(provider, config),
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      requestCount: 1,
+      estimatedCostUsd: null,
+      errorCode: "provider_request_failed",
+      errorMessage: error instanceof Error ? error.message : "Erro ao consultar provider de IA.",
+    });
+    throw error;
+  }
+}
+
 function buildFallbackReply(message, context) {
   const text = String(message ?? "").toLowerCase();
   const balanceCard = context.summaryCards.find((card) => card.label === "Saldo Total");
@@ -55,10 +114,16 @@ export async function generateChatReply(payload) {
   if (config.provider === "gemini") {
     if (canUseGemini) {
       try {
-        return await requestDirectChatReplyByProvider(payload, "gemini", config);
+        return await requestProviderWithUsage(payload, "gemini", config, {
+          surface: "chat",
+          operation: "reply",
+        });
       } catch (error) {
         if (canUseOpenAi) {
-          return requestDirectChatReplyByProvider(payload, "openai", config);
+          return requestProviderWithUsage(payload, "openai", config, {
+            surface: "chat",
+            operation: "reply",
+          });
         }
 
         throw error;
@@ -66,14 +131,20 @@ export async function generateChatReply(payload) {
     }
 
     if (canUseOpenAi) {
-      return requestDirectChatReplyByProvider(payload, "openai", config);
+      return requestProviderWithUsage(payload, "openai", config, {
+        surface: "chat",
+        operation: "reply",
+      });
     }
 
     throw new Error("Configure GEMINI_API_KEY ou OPENAI_API_KEY para usar o chat com IA.");
   }
 
   if (canUseOpenAi) {
-    return requestDirectChatReplyByProvider(payload, "openai", config);
+    return requestProviderWithUsage(payload, "openai", config, {
+      surface: "chat",
+      operation: "reply",
+    });
   }
 
   throw new Error("OPENAI_API_KEY is required when CHAT_AI_PROVIDER=openai.");
@@ -109,29 +180,33 @@ function buildFallbackTitle(message) {
 async function requestConfiguredChatPayload(payload, config = getChatAiConfig()) {
   const canUseGemini = Boolean(config.geminiApiKey);
   const canUseOpenAi = Boolean(config.openAiApiKey);
+  const usageContext = {
+    surface: payload.surface ?? "chat",
+    operation: payload.operation ?? "generic",
+  };
 
   if (config.provider === "gemini") {
     if (canUseGemini) {
       try {
-        return await requestDirectChatReplyByProvider(payload, "gemini", config);
+        return await requestProviderWithUsage(payload, "gemini", config, usageContext);
       } catch (error) {
         if (!canUseOpenAi) {
           throw error;
         }
 
-        return requestDirectChatReplyByProvider(payload, "openai", config);
+        return requestProviderWithUsage(payload, "openai", config, usageContext);
       }
     }
 
     if (canUseOpenAi) {
-      return requestDirectChatReplyByProvider(payload, "openai", config);
+      return requestProviderWithUsage(payload, "openai", config, usageContext);
     }
 
     throw new Error("Configure GEMINI_API_KEY ou OPENAI_API_KEY para usar o chat com IA.");
   }
 
   if (canUseOpenAi) {
-    return requestDirectChatReplyByProvider(payload, "openai", config);
+    return requestProviderWithUsage(payload, "openai", config, usageContext);
   }
 
   throw new Error("OPENAI_API_KEY is required when CHAT_AI_PROVIDER=openai.");
@@ -157,6 +232,9 @@ export async function generateChatTitle(payload) {
   }
 
   const titlePayload = {
+    surface: "chat",
+    operation: "title",
+    onUsageEvent: payload.onUsageEvent,
     task: "title",
     message: payload.message,
     generatedAt: payload.generatedAt,
@@ -175,21 +253,33 @@ export async function generateChatTitle(payload) {
   if (config.provider === "gemini") {
     if (canUseGemini) {
       try {
-        reply = await requestDirectChatReplyByProvider(titlePayload, "gemini", config);
+        reply = await requestProviderWithUsage(titlePayload, "gemini", config, {
+          surface: "chat",
+          operation: "title",
+        });
       } catch (error) {
         if (!canUseOpenAi) {
           throw error;
         }
 
-        reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+        reply = await requestProviderWithUsage(titlePayload, "openai", config, {
+          surface: "chat",
+          operation: "title",
+        });
       }
     } else if (canUseOpenAi) {
-      reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+      reply = await requestProviderWithUsage(titlePayload, "openai", config, {
+        surface: "chat",
+        operation: "title",
+      });
     } else {
       throw new Error("Configure GEMINI_API_KEY ou OPENAI_API_KEY para usar o chat com IA.");
     }
   } else if (canUseOpenAi) {
-    reply = await requestDirectChatReplyByProvider(titlePayload, "openai", config);
+    reply = await requestProviderWithUsage(titlePayload, "openai", config, {
+      surface: "chat",
+      operation: "title",
+    });
   } else {
     throw new Error("OPENAI_API_KEY is required when CHAT_AI_PROVIDER=openai.");
   }
@@ -505,6 +595,9 @@ export async function generatePlanDraft(payload) {
 
   const reply = await requestConfiguredChatPayload(
     {
+      surface: "plans",
+      operation: "draft",
+      onUsageEvent: payload.onUsageEvent,
       task: "plan_draft",
       generatedAt: payload.generatedAt,
       history: [
@@ -538,6 +631,9 @@ export async function revisePlanDraft(payload) {
 
   const reply = await requestConfiguredChatPayload(
     {
+      surface: "plans",
+      operation: "draft_revision",
+      onUsageEvent: payload.onUsageEvent,
       task: "plan_draft_revision",
       generatedAt: payload.generatedAt,
       history: [
@@ -613,6 +709,9 @@ export async function suggestPlanLink(payload) {
 
   const reply = await requestConfiguredChatPayload(
     {
+      surface: "plans",
+      operation: "link_suggestion",
+      onUsageEvent: payload.onUsageEvent,
       task: "plan_link_suggestion",
       generatedAt: payload.generatedAt,
       history: [
@@ -748,6 +847,9 @@ export async function generatePlanAssessment(payload) {
 
   const reply = await requestConfiguredChatPayload(
     {
+      surface: "plans",
+      operation: "assessment",
+      onUsageEvent: payload.onUsageEvent,
       task: "plan_assessment",
       generatedAt: payload.generatedAt,
       history: [
@@ -789,6 +891,9 @@ export async function generateChatSummary(payload) {
 
   const reply = await requestConfiguredChatPayload(
     {
+      surface: "chat",
+      operation: "summary",
+      onUsageEvent: payload.onUsageEvent,
       task: "chat_summary",
       generatedAt: payload.generatedAt,
       history: [

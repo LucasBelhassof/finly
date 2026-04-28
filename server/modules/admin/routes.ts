@@ -8,6 +8,7 @@ import {
   getAdminFinancialMetrics,
   getAdminOverview,
   getAdminSubscriptionMetrics,
+  getAdminAiUsage,
   getAdminUsers,
 } from "./service.js";
 import {
@@ -127,6 +128,15 @@ export function createAdminRouter() {
     await auditAdminAccess(request, "admin_activity_viewed");
     const result = await getAdminActivity({
       limit: request.query.limit as string | undefined,
+    });
+    response.json(result);
+  });
+
+  router.get("/ai-usage", async (request, response) => {
+    await auditAdminAccess(request, "admin_ai_usage_viewed");
+    const result = await getAdminAiUsage({
+      startDate: request.query.startDate as string | undefined,
+      endDate: request.query.endDate as string | undefined,
     });
     response.json(result);
   });

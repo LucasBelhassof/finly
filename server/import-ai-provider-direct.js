@@ -4,6 +4,14 @@ const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const AI_STATUS_VALUES = ["suggested", "no_match", "error", "invalid"];
 const AI_REASON_MAX_LENGTH = 160;
+const DEFAULT_INPUT_PRICE_PER_MILLION = {
+  openai: 0,
+  gemini: 0,
+};
+const DEFAULT_OUTPUT_PRICE_PER_MILLION = {
+  openai: 0,
+  gemini: 0,
+};
 
 const aiCategorizationSchema = {
   type: "object",
@@ -40,6 +48,11 @@ function parseTimeoutMs(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 8000;
 }
 
+function parsePricePerMillion(value, fallback) {
+  const parsed = Number.parseFloat(String(value ?? ""));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export function getDirectProviderConfig() {
   return {
     provider: process.env.IMPORT_AI_PROVIDER?.trim() === "gemini" ? "gemini" : "openai",
@@ -47,6 +60,61 @@ export function getDirectProviderConfig() {
     timeoutMs: parseTimeoutMs(process.env.IMPORT_AI_TIMEOUT_MS),
     openAiApiKey: process.env.OPENAI_API_KEY?.trim() || "",
     geminiApiKey: process.env.GEMINI_API_KEY?.trim() || "",
+    pricing: {
+      openai: {
+        inputPerMillion: parsePricePerMillion(
+          process.env.IMPORT_AI_PRICING_OPENAI_INPUT_PER_MILLION,
+          DEFAULT_INPUT_PRICE_PER_MILLION.openai,
+        ),
+        outputPerMillion: parsePricePerMillion(
+          process.env.IMPORT_AI_PRICING_OPENAI_OUTPUT_PER_MILLION,
+          DEFAULT_OUTPUT_PRICE_PER_MILLION.openai,
+        ),
+      },
+      gemini: {
+        inputPerMillion: parsePricePerMillion(
+          process.env.IMPORT_AI_PRICING_GEMINI_INPUT_PER_MILLION,
+          DEFAULT_INPUT_PRICE_PER_MILLION.gemini,
+        ),
+        outputPerMillion: parsePricePerMillion(
+          process.env.IMPORT_AI_PRICING_GEMINI_OUTPUT_PER_MILLION,
+          DEFAULT_OUTPUT_PRICE_PER_MILLION.gemini,
+        ),
+      },
+    },
+  };
+}
+
+function normalizeInteger(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+}
+
+function estimateUsageCost(usage, pricing) {
+  if (!pricing || (!pricing.inputPerMillion && !pricing.outputPerMillion)) {
+    return null;
+  }
+
+  const inputCost = (normalizeInteger(usage?.inputTokens) / 1_000_000) * (pricing.inputPerMillion ?? 0);
+  const outputCost = (normalizeInteger(usage?.outputTokens) / 1_000_000) * (pricing.outputPerMillion ?? 0);
+  return Number((inputCost + outputCost).toFixed(8));
+}
+
+function extractUsage(provider, responseBody) {
+  if (provider === "gemini") {
+    return {
+      inputTokens: normalizeInteger(responseBody?.usageMetadata?.promptTokenCount),
+      outputTokens: normalizeInteger(responseBody?.usageMetadata?.candidatesTokenCount),
+      totalTokens: normalizeInteger(responseBody?.usageMetadata?.totalTokenCount),
+      requestCount: 1,
+    };
+  }
+
+  return {
+    inputTokens: normalizeInteger(responseBody?.usage?.prompt_tokens),
+    outputTokens: normalizeInteger(responseBody?.usage?.completion_tokens),
+    totalTokens: normalizeInteger(responseBody?.usage?.total_tokens),
+    requestCount: 1,
   };
 }
 
@@ -295,17 +363,38 @@ async function requestOpenAiImportSuggestions(payload, config) {
   const request = buildProviderRequest("openai", payload, config);
   const responseBody = await executeProviderRequest(request, config.timeoutMs);
   const structuredBody = extractStructuredBody("openai", responseBody);
-  return normalizeAiCategorizationResults(structuredBody);
+  const usage = extractUsage("openai", responseBody);
+
+  return {
+    items: normalizeAiCategorizationResults(structuredBody),
+    provider: "openai",
+    model: config.model || DEFAULT_OPENAI_MODEL,
+    usage,
+    estimatedCostUsd: estimateUsageCost(usage, config.pricing?.openai),
+  };
 }
 
 async function requestGeminiImportSuggestions(payload, config) {
   const request = buildProviderRequest("gemini", payload, config);
   const responseBody = await executeProviderRequest(request, config.timeoutMs);
   const structuredBody = extractStructuredBody("gemini", responseBody);
-  return normalizeAiCategorizationResults(structuredBody);
+  const usage = extractUsage("gemini", responseBody);
+
+  return {
+    items: normalizeAiCategorizationResults(structuredBody),
+    provider: "gemini",
+    model: config.model || DEFAULT_GEMINI_MODEL,
+    usage,
+    estimatedCostUsd: estimateUsageCost(usage, config.pricing?.gemini),
+  };
 }
 
 export async function requestDirectImportAiSuggestions(payload) {
+  const response = await requestDirectImportAiSuggestionsWithTelemetry(payload);
+  return response.items;
+}
+
+export async function requestDirectImportAiSuggestionsWithTelemetry(payload) {
   const config = getDirectProviderConfig();
 
   return config.provider === "gemini"

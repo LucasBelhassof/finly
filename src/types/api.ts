@@ -1350,6 +1350,102 @@ export interface ApiAdminUsersResponse {
   }>;
 }
 
+export interface ApiAdminAiUsageResponse {
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  summary?: {
+    totalRequests?: number;
+    successfulRequests?: number;
+    failedRequests?: number;
+    assistantMessages?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+    trackedUsageRequests?: number;
+    untrackedUsageRequests?: number;
+  };
+  byModel?: Array<{
+    provider?: string;
+    model?: string;
+    requests?: number;
+    assistantMessages?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+    lastUsedAt?: string | null;
+  }>;
+  byOperation?: Array<{
+    surface?: string;
+    operation?: string;
+    requests?: number;
+    successes?: number;
+    failures?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+  }>;
+  topUsers?: Array<{
+    id?: number | string;
+    name?: string;
+    email?: string;
+    requests?: number;
+    assistantMessages?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+  }>;
+  userUsage?: Array<{
+    id?: number | string;
+    name?: string;
+    email?: string;
+    requests?: number;
+    successfulRequests?: number;
+    failedRequests?: number;
+    assistantMessages?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+    lastUsedAt?: string | null;
+  }>;
+  dailySeries?: Array<{
+    date?: string;
+    requests?: number;
+    assistantMessages?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+    failures?: number;
+  }>;
+  dailyByModel?: Array<{
+    date?: string;
+    provider?: string;
+    model?: string;
+    requests?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    estimatedCostUsd?: number;
+  }>;
+  recentFailures?: Array<{
+    createdAt?: string;
+    surface?: string;
+    operation?: string;
+    provider?: string | null;
+    model?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    user?: {
+      id?: number | string;
+      name?: string;
+      email?: string;
+    } | null;
+  }>;
+}
+
 export interface AdminOverviewData {
   totals: {
     totalUsers: number;
@@ -1449,6 +1545,102 @@ export interface AdminUsersData {
     lastSessionAt: string | null;
     transactionCount: number;
     netTotal: number;
+  }>;
+}
+
+export interface AdminAiUsageData {
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  summary: {
+    totalRequests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    assistantMessages: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    trackedUsageRequests: number;
+    untrackedUsageRequests: number;
+  };
+  byModel: Array<{
+    provider: string;
+    model: string;
+    requests: number;
+    assistantMessages: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    lastUsedAt: string | null;
+  }>;
+  byOperation: Array<{
+    surface: string;
+    operation: string;
+    requests: number;
+    successes: number;
+    failures: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+  }>;
+  topUsers: Array<{
+    id: number | string;
+    name: string;
+    email: string;
+    requests: number;
+    assistantMessages: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+  }>;
+  userUsage: Array<{
+    id: number | string;
+    name: string;
+    email: string;
+    requests: number;
+    successfulRequests: number;
+    failedRequests: number;
+    assistantMessages: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    lastUsedAt: string | null;
+  }>;
+  dailySeries: Array<{
+    date: string;
+    requests: number;
+    assistantMessages: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+    failures: number;
+  }>;
+  dailyByModel: Array<{
+    date: string;
+    provider: string;
+    model: string;
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    estimatedCostUsd: number;
+  }>;
+  recentFailures: Array<{
+    createdAt: string;
+    surface: string;
+    operation: string;
+    provider: string | null;
+    model: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+    user: {
+      id: number | string;
+      name: string;
+      email: string;
+    } | null;
   }>;
 }
 

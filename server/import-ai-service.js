@@ -1,5 +1,5 @@
-import { requestDirectImportAiSuggestions } from "./import-ai-provider-direct.js";
-import { requestWebhookImportAiSuggestions } from "./import-ai-provider-webhook.js";
+import { requestDirectImportAiSuggestionsWithTelemetry } from "./import-ai-provider-direct.js";
+import { requestWebhookImportAiSuggestionsWithTelemetry } from "./import-ai-provider-webhook.js";
 
 function parseBooleanFlag(value) {
   return String(value ?? "")
@@ -49,14 +49,16 @@ export async function suggestImportCategories(payload) {
 
   const items =
     config.mode === "webhook"
-      ? await requestWebhookImportAiSuggestions(payload)
-      : await requestDirectImportAiSuggestions(payload);
+      ? await requestWebhookImportAiSuggestionsWithTelemetry(payload)
+      : await requestDirectImportAiSuggestionsWithTelemetry(payload);
 
   return {
     status: "completed",
-    items,
-    provider: config.provider,
-    model: config.model,
+    items: items.items,
+    provider: items.provider ?? config.provider,
+    model: items.model ?? config.model,
+    usage: items.usage ?? null,
+    estimatedCostUsd: items.estimatedCostUsd ?? null,
     autoApplyThreshold: config.autoApplyThreshold,
     maxRowsPerRequest: config.maxRowsPerRequest,
   };

@@ -55,10 +55,16 @@ describe("import-ai-service", () => {
   });
 
   it("keeps webhook mode isolated from direct provider keys", async () => {
-    const webhookMock = vi.fn().mockResolvedValue([]);
+    const webhookMock = vi.fn().mockResolvedValue({
+      items: [],
+      provider: "openai",
+      model: "gpt-4o-mini",
+      usage: null,
+      estimatedCostUsd: null,
+    });
 
     vi.doMock("./import-ai-provider-webhook.js", () => ({
-      requestWebhookImportAiSuggestions: webhookMock,
+      requestWebhookImportAiSuggestionsWithTelemetry: webhookMock,
     }));
 
     const { suggestImportCategories } = await import("./import-ai-service.js");

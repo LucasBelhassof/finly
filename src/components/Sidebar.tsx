@@ -69,6 +69,7 @@ const adminItems = [
   { label: "Visão geral", to: appRoutes.adminOverview },
   { label: "Usuários", to: appRoutes.adminUsers },
   { label: "Financeiro", to: appRoutes.adminFinancialMetrics },
+  { label: "IA", to: appRoutes.adminAiUsage },
   { label: "Assinaturas", to: appRoutes.adminSubscriptions },
   { label: "Atividade", to: appRoutes.adminActivity },
   { label: "Notificações", to: appRoutes.adminNotifications },

@@ -88,6 +88,92 @@ function normalizeDateValue(value) {
   return String(value).slice(0, 10);
 }
 
+function normalizeAiUsageInteger(value, fallback = null) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : fallback;
+}
+
+function normalizeAiUsageDecimal(value, fallback = null) {
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(String(value));
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(8)) : fallback;
+}
+
+async function insertAiUsageEvent(event, client = pool) {
+  const provider = typeof event?.provider === "string" ? event.provider.trim() : "";
+
+  if (!provider || provider === "local") {
+    return null;
+  }
+
+  const surface = String(event?.surface ?? "").trim();
+  const operation = String(event?.operation ?? "").trim();
+
+  if (!surface || !operation) {
+    return null;
+  }
+
+  const result = await client.query(
+    `
+      INSERT INTO ai_usage_events (
+        user_id,
+        surface,
+        operation,
+        success,
+        provider,
+        model,
+        input_tokens,
+        output_tokens,
+        total_tokens,
+        request_count,
+        estimated_cost_usd,
+        error_code,
+        error_message,
+        chat_message_id,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, NOW()))
+      ON CONFLICT DO NOTHING
+      RETURNING id
+    `,
+    [
+      event.userId,
+      surface,
+      operation,
+      event.success !== false,
+      provider,
+      event.model ? String(event.model).trim() : null,
+      normalizeAiUsageInteger(event.inputTokens),
+      normalizeAiUsageInteger(event.outputTokens),
+      normalizeAiUsageInteger(event.totalTokens),
+      normalizeAiUsageInteger(event.requestCount, event.success === false ? 1 : null),
+      normalizeAiUsageDecimal(event.estimatedCostUsd),
+      event.errorCode ? String(event.errorCode).trim().slice(0, 120) : null,
+      event.errorMessage ? String(event.errorMessage).trim().slice(0, 1000) : null,
+      normalizeAiUsageInteger(event.chatMessageId),
+      event.createdAt ? new Date(event.createdAt).toISOString() : null,
+    ],
+  );
+
+  return result.rows[0]?.id ?? null;
+}
+
+function buildAiUsageLogger(userId, extra = {}) {
+  return async (event) =>
+    insertAiUsageEvent({
+      userId,
+      ...extra,
+      ...event,
+    });
+}
+
 function addMonthsToDate(value, monthOffset, dueDay) {
   const date = parseDateOnly(value);
   const year = date.getUTCFullYear();
@@ -2603,12 +2689,41 @@ export async function getTransactionImportAiSuggestions(userId, input) {
     rowIndexes: input.rowIndexes,
     maxRows: config.maxRowsPerRequest,
     suggestCategories: async ({ items, categories: allowedCategories }) => {
-      const response = await suggestImportCategories({
-        items,
-        categories: allowedCategories,
-      });
+      try {
+        const response = await suggestImportCategories({
+          items,
+          categories: allowedCategories,
+        });
 
-      return response.items;
+        await insertAiUsageEvent({
+          userId: resolvedUserId,
+          surface: "imports",
+          operation: "category_suggestions",
+          success: true,
+          provider: response.provider,
+          model: response.model,
+          inputTokens: response.usage?.inputTokens ?? null,
+          outputTokens: response.usage?.outputTokens ?? null,
+          totalTokens: response.usage?.totalTokens ?? null,
+          requestCount: response.usage?.requestCount ?? 1,
+          estimatedCostUsd: response.estimatedCostUsd ?? null,
+        });
+
+        return response.items;
+      } catch (error) {
+        await insertAiUsageEvent({
+          userId: resolvedUserId,
+          surface: "imports",
+          operation: "category_suggestions",
+          success: false,
+          provider: config.provider,
+          model: config.model || null,
+          requestCount: 1,
+          errorCode: "import_ai_request_failed",
+          errorMessage: error instanceof Error ? error.message : "Falha na sugestao por IA da importacao.",
+        });
+        throw error;
+      }
     },
   });
 
@@ -4112,6 +4227,7 @@ export async function generatePlanDraftFromChat(userId, chatPublicId) {
     chat: payload.chat,
     context: payload.context,
     generatedAt: new Date().toISOString(),
+    onUsageEvent: buildAiUsageLogger(payload.userId),
   });
 }
 
@@ -4123,6 +4239,7 @@ export async function revisePlanDraftFromChat(userId, chatPublicId, draft, corre
     draft,
     correction,
     generatedAt: new Date().toISOString(),
+    onUsageEvent: buildAiUsageLogger(payload.userId),
   });
 }
 
@@ -4448,6 +4565,7 @@ export async function suggestPlanLinkForChat(userId, chatPublicId) {
       items: plan.items.map((item) => ({ title: item.title, status: item.status })),
     })),
     generatedAt: new Date().toISOString(),
+    onUsageEvent: buildAiUsageLogger(payload.userId),
   });
 }
 
@@ -4524,6 +4642,7 @@ async function persistPlanAssessment({ userId, planRow, plan, trigger = null }) 
     context: buildPlanAssessmentContext(plan),
     trigger,
     generatedAt: new Date().toISOString(),
+    onUsageEvent: buildAiUsageLogger(userId),
   });
 
   const result = await pool.query(
@@ -4774,6 +4893,7 @@ export async function generatePlanChatSummary(userId, chatPublicId) {
       })),
     },
     generatedAt: new Date().toISOString(),
+    onUsageEvent: buildAiUsageLogger(resolvedUserId),
   });
 
   const result = await pool.query(
@@ -5354,11 +5474,22 @@ export async function createChatReply(userId, publicId, inputMessages) {
     content: item.content,
     createdAt: item.createdAt,
   }));
+  const chatReplyFailureLogger = async (event) => {
+    if (event?.success !== false) {
+      return;
+    }
+
+    await insertAiUsageEvent({
+      userId: resolvedUserId,
+      ...event,
+    });
+  };
   const assistantReply = await generateChatReply({
     message: combinedMessage,
     generatedAt: new Date().toISOString(),
     context,
     history: recentHistory,
+    onUsageEvent: chatReplyFailureLogger,
   });
 
   const assistantMessage = {
@@ -5374,6 +5505,22 @@ export async function createChatReply(userId, publicId, inputMessages) {
     chatId: conversation.public_id,
   };
 
+  await insertAiUsageEvent({
+    userId: resolvedUserId,
+    surface: "chat",
+    operation: "reply",
+    success: true,
+    provider: assistantReply.provider,
+    model: assistantReply.model,
+    inputTokens: assistantReply.usage?.inputTokens ?? null,
+    outputTokens: assistantReply.usage?.outputTokens ?? null,
+    totalTokens: assistantReply.usage?.totalTokens ?? null,
+    requestCount: assistantReply.usage?.requestCount ?? null,
+    estimatedCostUsd: assistantReply.estimatedCostUsd ?? null,
+    chatMessageId: assistantMessage.id,
+    createdAt: assistantMessage.createdAt,
+  });
+
   let chat = mapChatConversation(conversation);
 
   if (isFirstMessage) {
@@ -5381,6 +5528,7 @@ export async function createChatReply(userId, publicId, inputMessages) {
       const title = await generateChatTitle({
         message: combinedMessage,
         generatedAt: new Date().toISOString(),
+        onUsageEvent: buildAiUsageLogger(resolvedUserId),
       });
       chat = await updateChatConversationTitle(resolvedUserId, conversation.id, title.content);
     } catch {

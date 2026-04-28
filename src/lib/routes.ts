@@ -26,6 +26,7 @@ export const appRoutes = {
   adminOverview: "/admin/overview",
   adminUsers: "/admin/users",
   adminFinancialMetrics: "/admin/financial-metrics",
+  adminAiUsage: "/admin/ai-usage",
   adminSubscriptions: "/admin/subscriptions",
   adminActivity: "/admin/activity",
   adminNotifications: "/admin/notifications",

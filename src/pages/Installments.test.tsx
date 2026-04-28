@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -120,31 +120,67 @@ vi.mock("@/components/installments/InstallmentsFilters", () => ({
     filters: InstallmentsOverviewFilters;
     appliedRangeLabel: string;
     onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-    onApplyFilters: () => void;
+    onApplyFilters: (nextFilters: InstallmentsOverviewFilters) => void;
     onResetFilters: () => void;
   }) => (
+    <MockInstallmentsFilters
+      filters={filters}
+      appliedRangeLabel={appliedRangeLabel}
+      onChange={onChange}
+      onApplyFilters={onApplyFilters}
+      onResetFilters={onResetFilters}
+    />
+  ),
+}));
+
+function MockInstallmentsFilters({
+  filters,
+  appliedRangeLabel,
+  onChange,
+  onApplyFilters,
+  onResetFilters,
+}: {
+  filters: InstallmentsOverviewFilters;
+  appliedRangeLabel: string;
+  onChange: (nextFilters: InstallmentsOverviewFilters) => void;
+  onApplyFilters: (nextFilters: InstallmentsOverviewFilters) => void;
+  onResetFilters: () => void;
+}) {
+  const [draft, setDraft] = useState(filters);
+
+  useEffect(() => {
+    setDraft(filters);
+  }, [filters]);
+
+  return (
     <div>
       <span>{appliedRangeLabel}</span>
       <button
         type="button"
         onClick={() =>
-          onChange({
-            ...filters,
+          setDraft({
+            ...draft,
             status: "paid",
           })
         }
       >
         Status quitados
       </button>
-      <button type="button" onClick={onApplyFilters}>
+      <button
+        type="button"
+        onClick={() => {
+          onChange(draft);
+          onApplyFilters(draft);
+        }}
+      >
         Aplicar filtros
       </button>
       <button type="button" onClick={onResetFilters}>
         Limpar filtros
       </button>
     </div>
-  ),
-}));
+  );
+}
 
 vi.mock("@/components/installments/InstallmentsCharts", () => ({
   default: ({ overview }: { overview: InstallmentsOverview }) => (

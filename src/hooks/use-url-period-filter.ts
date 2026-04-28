@@ -85,17 +85,29 @@ export function resolveUrlPeriodFilterState(
   const parsedPreset = searchParams.get(QUERY_PARAM_KEYS.preset);
   const parsedStartDate = searchParams.get(QUERY_PARAM_KEYS.startDate);
   const parsedEndDate = searchParams.get(QUERY_PARAM_KEYS.endDate);
+  const monthIsValid = isValidMonthIndex(parsedMonth);
+  const yearIsValid = isValidYear(parsedYear);
+  const presetIsValid = isValidPreset(parsedPreset);
+  const carriesMonthOrYear = searchParams.has(QUERY_PARAM_KEYS.month) || searchParams.has(QUERY_PARAM_KEYS.year);
 
-  const selectedMonthIndex = isValidMonthIndex(parsedMonth) ? parsedMonth : defaults.selectedMonthIndex;
-  const selectedYear = isValidYear(parsedYear) ? parsedYear : defaults.selectedYear;
-  const hasMonthOrYearInUrl = isValidMonthIndex(parsedMonth) || isValidYear(parsedYear);
+  if (carriesMonthOrYear && (!monthIsValid || !yearIsValid)) {
+    return defaults;
+  }
 
   const hasValidExplicitRange =
     isValidDateKey(parsedStartDate) &&
     isValidDateKey(parsedEndDate) &&
     parsedStartDate <= parsedEndDate;
 
-  const datePreset = isValidPreset(parsedPreset)
+  if (parsedPreset === "custom" && !hasValidExplicitRange) {
+    return defaults;
+  }
+
+  const selectedMonthIndex = monthIsValid ? parsedMonth : defaults.selectedMonthIndex;
+  const selectedYear = yearIsValid ? parsedYear : defaults.selectedYear;
+  const hasMonthOrYearInUrl = monthIsValid || yearIsValid;
+
+  const datePreset = presetIsValid
     ? parsedPreset
     : hasMonthOrYearInUrl
       ? selectedMonthIndex === TRANSACTIONS_YEAR_SELECTION
@@ -103,14 +115,16 @@ export function resolveUrlPeriodFilterState(
         : "month"
       : defaults.datePreset;
 
-  const dateRange = hasValidExplicitRange
-    ? {
+  const dateRange = datePreset === "custom"
+    ? hasValidExplicitRange
+      ? {
         startDate: parsedStartDate,
         endDate: parsedEndDate,
       }
+      : defaults.dateRange
     : hasMonthOrYearInUrl
       ? resolveMonthYearRange(selectedMonthIndex, selectedYear)
-      : isValidPreset(parsedPreset) && parsedPreset !== "custom"
+      : presetIsValid
         ? resolvePresetRange(parsedPreset, now)
         : defaults.dateRange;
 

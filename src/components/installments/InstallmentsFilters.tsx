@@ -16,6 +16,7 @@ interface InstallmentsFiltersProps {
   appliedRangeLabel: string;
   overview?: InstallmentsOverview;
   onChange: (nextFilters: InstallmentsOverviewFilters) => void;
+  onApplyFilters: (nextFilters: InstallmentsOverviewFilters) => void;
   onResetFilters: () => void;
   onExportCsv: () => void;
 }
@@ -25,6 +26,7 @@ export default function InstallmentsFilters({
   appliedRangeLabel,
   overview,
   onChange,
+  onApplyFilters,
   onResetFilters,
   onExportCsv: _onExportCsv,
 }: InstallmentsFiltersProps) {
@@ -191,6 +193,9 @@ export default function InstallmentsFilters({
         <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">{appliedRangeLabel}</div>
 
         <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <Button className="w-full rounded-xl sm:w-auto" onClick={() => onApplyFilters(filters)}>
+            Aplicar filtros
+          </Button>
           <Button
             variant="ghost"
             className="w-full rounded-xl px-0 text-destructive hover:bg-transparent hover:text-destructive/80 sm:w-auto"

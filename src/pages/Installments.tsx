@@ -223,6 +223,9 @@ export default function InstallmentsPage() {
 
   const handleFiltersChange = (nextFilters: InstallmentsOverviewFilters) => {
     setDraftFilters(nextFilters);
+  };
+
+  const handleApplyFilters = (nextFilters: InstallmentsOverviewFilters) => {
     setAppliedFilters(nextFilters);
   };
 
@@ -303,6 +306,7 @@ export default function InstallmentsPage() {
           appliedRangeLabel={appliedRangeLabel}
           overview={overview}
           onChange={handleFiltersChange}
+          onApplyFilters={handleApplyFilters}
           onResetFilters={handleResetFilters}
           onExportCsv={() => buildCsv(appliedFilters, overview?.items ?? [])}
         />

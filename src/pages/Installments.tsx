@@ -295,7 +295,7 @@ export default function InstallmentsPage() {
                   [FILTER_QUERY_PARAM_KEYS.search]: event.target.value.trim() || null,
                 })
               }
-              placeholder="Buscar compra, cartÃ£o ou categoria..."
+              placeholder="Buscar compra, cartões ou categoria..."
               className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
             />
           </div>
@@ -355,14 +355,14 @@ export default function InstallmentsPage() {
             <div className="glass-card rounded-2xl border border-border/40 p-6 text-center sm:p-8">
               <h2 className="text-lg font-semibold text-foreground">Nenhum parcelamento encontrado</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ajuste o perÃ­odo das parcelas ou revise as transaÃ§Ãµes de cartÃ£o parceladas para visualizar dados nesta tela.
+                Ajuste o período das parcelas ou revise as transações de cartões parceladas para visualizar dados nesta tela.
               </p>
             </div>
           )}
         </>
       ) : installmentsQuery.isError ? (
         <div className="glass-card rounded-2xl border border-border/40 p-6 text-center sm:p-8">
-          <h2 className="text-lg font-semibold text-foreground">NÃ£o foi possÃ­vel carregar os parcelamentos</h2>
+          <h2 className="text-lg font-semibold text-foreground">Não foi possível carregar os parcelamentos</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {installmentsQuery.error instanceof Error ? installmentsQuery.error.message : "Tente novamente em instantes."}
           </p>

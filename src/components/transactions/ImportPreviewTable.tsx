@@ -25,15 +25,15 @@ export default function ImportPreviewTable({
   onChangeDraft,
 }: ImportPreviewTableProps) {
   return (
-    <Table className="w-full min-w-[832px] table-fixed">
+    <Table className="w-full table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-14 whitespace-nowrap">Linha</TableHead>
-          <TableHead className="w-[300px]">Descricao</TableHead>
-          <TableHead className="w-[132px] whitespace-nowrap">Valor</TableHead>
-          <TableHead className="w-[156px] whitespace-nowrap">Data</TableHead>
-          <TableHead className="w-[156px] whitespace-nowrap">Tipo</TableHead>
-          <TableHead className="w-[192px] whitespace-nowrap">
+          <TableHead className="w-[7%] whitespace-nowrap">Linha</TableHead>
+          <TableHead className="w-[28%]">Descricao</TableHead>
+          <TableHead className="w-[11%] whitespace-nowrap">Valor</TableHead>
+          <TableHead className="w-[13%] whitespace-nowrap">Data</TableHead>
+          <TableHead className="w-[12%] whitespace-nowrap">Tipo</TableHead>
+          <TableHead className="w-[15%]">
             <div className="flex items-center gap-1.5">
               <span>Categoria</span>
               <TooltipProvider delayDuration={120}>
@@ -54,7 +54,7 @@ export default function ImportPreviewTable({
               </TooltipProvider>
             </div>
           </TableHead>
-          <TableHead className="w-[176px] whitespace-nowrap">Acoes</TableHead>
+          <TableHead className="w-[14%]">Acoes</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

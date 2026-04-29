@@ -22,7 +22,6 @@ export default function CreditLimitBar({
   const availablePct = Math.max(0, 100 - pct);
 
   const barColor = pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-warning" : "bg-income";
-
   const formattedUsed = used.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const formattedLimit =
     formattedCreditLimit ?? creditLimit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

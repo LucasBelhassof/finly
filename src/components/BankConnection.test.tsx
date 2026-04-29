@@ -75,6 +75,7 @@ describe("BankConnection", () => {
 
     expect(screen.getByText("Contas")).toBeInTheDocument();
     expect(screen.getByText("Cartões")).toBeInTheDocument();
+    expect(screen.getByText("Cartões")).toBeInTheDocument();
     expect(screen.getByText("Nubank")).toBeInTheDocument();
     expect(screen.getByText("Cartão Visa")).toBeInTheDocument();
     expect(screen.queryByText("Carteira")).not.toBeInTheDocument();
@@ -83,9 +84,13 @@ describe("BankConnection", () => {
     expect(screen.getByText("R$ 2.450,90")).toBeInTheDocument();
     expect(screen.getByText("Vinculado a Nubank")).toBeInTheDocument();
     expect(screen.getByText("17% usado")).toBeInTheDocument();
+    expect(screen.getByText("R$ 2.450,90")).toBeInTheDocument();
+    expect(screen.getByText("Vinculado a Nubank")).toBeInTheDocument();
+    expect(screen.getByText("17% usado")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /adicionar/i })).toHaveAttribute("href", "/accounts");
   });
 
+  it("shows dedicated empty states for bank accounts and credit cards", () => {
   it("shows dedicated empty states for bank accounts and credit cards", () => {
     render(
       <MemoryRouter>
@@ -93,6 +98,8 @@ describe("BankConnection", () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByText(/Nenhuma conta bancária vinculada ainda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum cartão vinculado ainda/i)).toBeInTheDocument();
     expect(screen.getByText(/Nenhuma conta bancária vinculada ainda/i)).toBeInTheDocument();
     expect(screen.getByText(/Nenhum cartão vinculado ainda/i)).toBeInTheDocument();
   });

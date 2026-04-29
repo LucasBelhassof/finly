@@ -10,7 +10,29 @@ interface BalanceCardsProps {
   isError?: boolean;
 }
 
-const fallbackLabels = ["Saldo Total", "Receitas", "Despesas"];
+const fallbackLabels = ["Receitas", "Despesas", "Saldo acumulado"];
+
+function getDashboardCardOrder(label: string) {
+  const normalized = label.toLowerCase();
+
+  if (normalized.includes("receita")) {
+    return 0;
+  }
+
+  if (normalized.includes("despesa")) {
+    return 1;
+  }
+
+  if (normalized.includes("saldo")) {
+    return 2;
+  }
+
+  return 99;
+}
+
+function getDashboardCardLabel(label: string) {
+  return label.toLowerCase().includes("saldo") ? "Saldo acumulado" : label;
+}
 
 function getDashboardCardExplanation(label: string) {
   const normalized = label.toLowerCase();
@@ -71,17 +93,21 @@ export default function BalanceCards({ cards = [], isLoading, isError }: Balance
     );
   }
 
+  const orderedCards = [...cards].sort(
+    (left, right) => getDashboardCardOrder(left.label) - getDashboardCardOrder(right.label),
+  );
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-      {cards.map((card) => (
+      {orderedCards.map((card) => (
         <div
           key={card.label}
           className="glass-card group animate-fade-in p-4 transition-all duration-300 hover:glow-border sm:p-5"
         >
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{card.label}</span>
-              <MetricInfoTooltip content={getDashboardCardExplanation(card.label)} />
+              <span className="text-sm text-muted-foreground">{getDashboardCardLabel(card.label)}</span>
+              <MetricInfoTooltip content={getDashboardCardExplanation(getDashboardCardLabel(card.label))} />
             </div>
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-lg ${

@@ -1,5 +1,5 @@
 import { ArrowDownCircle, ArrowUpCircle, Pencil, Plus, Search, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AppShell from "@/components/AppShell";
 import CategoryPieChart from "@/components/CategoryPieChart";
@@ -197,6 +197,8 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [selectedBankAccountId, setSelectedBankAccountId] = useState("all");
+  const [selectedAccountType, setSelectedAccountType] = useState<"all" | "bank_account" | "credit_card">("all");
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -225,16 +227,88 @@ export default function TransactionsPage() {
       }),
     [banks, transactionForm.type],
   );
+  const bankAccounts = useMemo(() => banks.filter((bank) => bank.accountType === "bank_account"), [banks]);
+  const creditCards = useMemo(() => banks.filter((bank) => bank.accountType === "credit_card"), [banks]);
+  const selectedBankAccount = useMemo(
+    () => bankAccounts.find((bank) => String(bank.id) === selectedBankAccountId) ?? null,
+    [bankAccounts, selectedBankAccountId],
+  );
+  const availableAccountTypeOptions = useMemo(() => {
+    if (!selectedBankAccount) {
+      return [];
+    }
+
+    const hasLinkedCards = creditCards.some(
+      (card) => String(card.parentBankConnectionId) === String(selectedBankAccount.id),
+    );
+
+    return [
+      { value: "bank_account" as const, label: "Conta corrente" },
+      ...(hasLinkedCards ? [{ value: "credit_card" as const, label: "Cartão" }] : []),
+    ];
+  }, [creditCards, selectedBankAccount]);
+  const selectedBankLinkedCardIds = useMemo(
+    () =>
+      new Set(
+        creditCards
+          .filter((card) => String(card.parentBankConnectionId) === String(selectedBankAccount?.id))
+          .map((card) => String(card.id)),
+      ),
+    [creditCards, selectedBankAccount],
+  );
+
+  useEffect(() => {
+    if (!selectedBankAccount) {
+      setSelectedAccountType("all");
+      return;
+    }
+
+    if (availableAccountTypeOptions.length === 1) {
+      setSelectedAccountType(availableAccountTypeOptions[0].value);
+      return;
+    }
+
+    const isCurrentTypeAvailable =
+      selectedAccountType === "all" || availableAccountTypeOptions.some((option) => option.value === selectedAccountType);
+
+    if (!isCurrentTypeAvailable) {
+      setSelectedAccountType("all");
+    }
+  }, [availableAccountTypeOptions, selectedAccountType, selectedBankAccount]);
+
   const visibleTransactions = useMemo(
     () =>
       transactions.filter(
-        (transaction) =>
-          transaction.housingId === null &&
-          (transaction.account.accountType === "bank_account" ||
+        (transaction) => {
+          const isSupportedAccountType =
+            transaction.account.accountType === "bank_account" ||
             transaction.account.accountType === "credit_card" ||
-            transaction.account.accountType === "cash"),
+            transaction.account.accountType === "cash";
+
+          if (transaction.housingId !== null || !isSupportedAccountType) {
+            return false;
+          }
+
+          if (!selectedBankAccount) {
+            return true;
+          }
+
+          const transactionAccountId = String(transaction.account.id);
+          const isSelectedBankTransaction = transactionAccountId === String(selectedBankAccount.id);
+          const isLinkedCardTransaction = selectedBankLinkedCardIds.has(transactionAccountId);
+
+          if (selectedAccountType === "bank_account") {
+            return isSelectedBankTransaction;
+          }
+
+          if (selectedAccountType === "credit_card") {
+            return isLinkedCardTransaction;
+          }
+
+          return isSelectedBankTransaction || isLinkedCardTransaction;
+        },
       ),
-    [transactions],
+    [selectedAccountType, selectedBankAccount, selectedBankLinkedCardIds, transactions],
   );
   const { filteredTransactions, summaryCardsData, categoryBreakdown, breakdownTransactionType } = useFilteredTransactionsData(visibleTransactions, categories, {
     search,
@@ -872,7 +946,7 @@ export default function TransactionsPage() {
 
       <div data-tour-id="transactions-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+          <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end">
             <TransactionsMonthYearFilter
               selectedMonthIndex={selectedMonthIndex}
               selectedYear={selectedYear}
@@ -887,6 +961,52 @@ export default function TransactionsPage() {
               onApplyCustomRange={handleCustomRangeApply}
               showPresetButtons={false}
             />
+
+            {bankAccounts.length ? (
+              <div
+                className={cn(
+                  "grid gap-3",
+                  selectedBankAccount ? "md:grid-cols-2 xl:min-w-[460px]" : "xl:min-w-[220px]",
+                )}
+              >
+                <div className="space-y-1.5">
+                  <Select value={selectedBankAccountId} onValueChange={setSelectedBankAccountId}>
+                    <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                      <SelectValue placeholder="Todas as contas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as contas</SelectItem>
+                      {bankAccounts.map((bank) => (
+                        <SelectItem key={bank.id} value={String(bank.id)}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedBankAccount ? (
+                  <div className="space-y-1.5">
+                    <Select
+                      value={selectedAccountType}
+                      onValueChange={(value) => setSelectedAccountType(value as "all" | "bank_account" | "credit_card")}
+                    >
+                      <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                        <SelectValue placeholder="Tipo da conta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAccountTypeOptions.length > 1 ? <SelectItem value="all">Todos</SelectItem> : null}
+                        {availableAccountTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value)}>
               <SelectTrigger
@@ -970,7 +1090,7 @@ export default function TransactionsPage() {
 
       <div hidden className="hidden rounded-2xl border border-border/40 p-3 sm:p-4">
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+          <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end">
             <TransactionsMonthYearFilter
               selectedMonthIndex={selectedMonthIndex}
               selectedYear={selectedYear}
@@ -985,6 +1105,52 @@ export default function TransactionsPage() {
               onApplyCustomRange={handleCustomRangeApply}
               showPresetButtons={false}
             />
+
+            {bankAccounts.length ? (
+              <div
+                className={cn(
+                  "grid gap-3",
+                  selectedBankAccount ? "md:grid-cols-2 xl:min-w-[460px]" : "xl:min-w-[220px]",
+                )}
+              >
+                <div className="space-y-1.5">
+                  <Select value={selectedBankAccountId} onValueChange={setSelectedBankAccountId}>
+                    <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                      <SelectValue placeholder="Todas as contas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as contas</SelectItem>
+                      {bankAccounts.map((bank) => (
+                        <SelectItem key={bank.id} value={String(bank.id)}>
+                          {bank.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedBankAccount ? (
+                  <div className="space-y-1.5">
+                    <Select
+                      value={selectedAccountType}
+                      onValueChange={(value) => setSelectedAccountType(value as "all" | "bank_account" | "credit_card")}
+                    >
+                      <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                        <SelectValue placeholder="Tipo da conta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAccountTypeOptions.length > 1 ? <SelectItem value="all">Todos</SelectItem> : null}
+                        {availableAccountTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <Select value={categoryFilter} onValueChange={(value) => setCategoryFilter(value)}>
               <SelectTrigger

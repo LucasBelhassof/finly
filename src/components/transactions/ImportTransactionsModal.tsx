@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { toast } from "@/components/ui/sonner";
 import {
   useCommitTransactionImport,
@@ -151,6 +150,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
     () =>
       previews.flatMap((preview) =>
         preview.items.map((item) => ({
+          bankConnectionName: preview.bankConnectionName,
           previewToken: preview.previewToken,
           item,
           draft: drafts[makeDraftKey(preview.previewToken, item.rowIndex)],
@@ -421,7 +421,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
             onChange={handleFileChange}
           />
 
-          <ScrollArea data-testid="import-preview-body" className="min-h-0 flex-1">
+          <div data-testid="import-preview-body" className="min-h-0 flex-1 overflow-auto">
             <div className="px-6 py-5">
             <div className="space-y-6">
               {!previews.length ? (
@@ -656,14 +656,13 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                   </div>
 
                   <div className="min-w-0 overflow-hidden rounded-2xl border border-border/50 bg-card">
-                    <ScrollArea className="w-full">
+                    <div className="max-h-[50vh] w-full overflow-auto">
                       <ImportPreviewTable
                         categories={categories}
                         rows={currentRows}
                         onChangeDraft={handleChangeDraft}
                       />
-                      <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pb-1">
@@ -688,7 +687,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
               ) : null}
             </div>
             </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter
             data-testid="import-preview-footer"

@@ -32,8 +32,6 @@ export default function ImportPreviewRow({
   previewToken,
 }: ImportPreviewRowProps) {
   const filteredCategories = categories.filter((category) => category.transactionType === draft.type);
-  const descriptionWidth = `${Math.min(Math.max(draft.description.length + 2, 28), 48)}ch`;
-  const amountWidth = `${Math.min(Math.max(draft.amount.length + 2, 10), 16)}ch`;
 
   return (
     <TableRow
@@ -42,7 +40,7 @@ export default function ImportPreviewRow({
         item.possibleDuplicate && "bg-warning/5 hover:bg-warning/10",
       )}
     >
-      <TableCell className="w-[72px] px-4 py-4 align-top text-xs text-muted-foreground">
+      <TableCell className="px-3 py-4 align-top text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
           <span>#{item.rowIndex}</span>
           {item.possibleDuplicate ? (
@@ -65,14 +63,13 @@ export default function ImportPreviewRow({
           ) : null}
         </div>
       </TableCell>
-      <TableCell className="w-[300px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <div className="space-y-2">
           <Textarea
             value={draft.description}
             onChange={(event) => onChange(previewToken, item.rowIndex, { description: event.target.value })}
             rows={3}
-            style={{ width: descriptionWidth }}
-            className="min-h-[84px] max-w-full resize-none whitespace-pre-wrap break-words rounded-xl border-border/50 bg-secondary/30 text-sm leading-relaxed"
+            className="min-h-[84px] w-full resize-none whitespace-pre-wrap break-words rounded-xl border-border/50 bg-secondary/30 text-sm leading-relaxed"
           />
           {item.errors.length === 0 && item.isInstallment && item.generatedInstallmentCount ? (
             <div className="flex items-center gap-1.5 text-xs text-info">
@@ -110,24 +107,23 @@ export default function ImportPreviewRow({
           <p className="mt-2 text-xs text-muted-foreground">Sem categoria definida, será importada como Outros.</p>
         ) : null}
       </TableCell>
-      <TableCell className="w-[132px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <Input
           value={draft.amount}
           onChange={(event) => onChange(previewToken, item.rowIndex, { amount: event.target.value })}
           inputMode="decimal"
-          style={{ width: amountWidth }}
-          className="h-10 max-w-full rounded-xl border-border/50 bg-secondary/30 px-2.5 text-right font-medium tabular-nums"
+          className="h-10 w-full rounded-xl border-border/50 bg-secondary/30 px-2.5 text-right font-medium tabular-nums"
         />
       </TableCell>
-      <TableCell className="w-[156px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <DatePickerInput
           value={draft.occurredOn}
           onChange={(value) => onChange(previewToken, item.rowIndex, { occurredOn: value })}
-          className="h-10 w-[148px] rounded-xl"
+          className="h-10 w-full rounded-xl"
           placeholder="Data"
         />
       </TableCell>
-      <TableCell className="w-[156px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <Select
           value={draft.type}
           onValueChange={(value: "income" | "expense") =>
@@ -139,7 +135,7 @@ export default function ImportPreviewRow({
         >
           <SelectTrigger
             className={cn(
-              "h-10 rounded-xl border-border/50 font-medium",
+              "h-10 w-full rounded-xl border-border/50 font-medium",
               draft.type === "expense"
                 ? "bg-expense/15 text-expense"
                 : "bg-income/15 text-income",
@@ -157,13 +153,13 @@ export default function ImportPreviewRow({
           </SelectContent>
         </Select>
       </TableCell>
-      <TableCell className="w-[192px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <div className="flex items-center gap-2">
           <Select
             value={String(draft.categoryId ?? "")}
             onValueChange={(value) => onChange(previewToken, item.rowIndex, { categoryId: value })}
           >
-            <SelectTrigger className="h-10 rounded-xl border-border/50 bg-secondary/30">
+            <SelectTrigger className="h-10 w-full rounded-xl border-border/50 bg-secondary/30">
               <SelectValue placeholder={draft.type === "income" ? "Categoria" : "Categoria"} />
             </SelectTrigger>
             <SelectContent>
@@ -176,16 +172,16 @@ export default function ImportPreviewRow({
           </Select>
         </div>
       </TableCell>
-      <TableCell className="w-[176px] px-4 py-4 align-top">
+      <TableCell className="px-3 py-4 align-top">
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
             <Checkbox
               checked={draft.exclude}
               onCheckedChange={(checked) => onChange(previewToken, item.rowIndex, { exclude: checked === true })}
             />
             Excluir da importação
           </label>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <label className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
             <Checkbox
               checked={draft.ignoreDuplicate}
               disabled={!item.possibleDuplicate}

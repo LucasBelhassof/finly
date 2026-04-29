@@ -53,13 +53,13 @@ export default function InstallmentsFilters({
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2 2xl:grid-cols-4">
         <label className="space-y-1 text-sm text-muted-foreground">
-          <span>CartÃ£o</span>
+          <span>Cartões</span>
           <Select value={filters.cardId} onValueChange={(value) => update("cardId", value)}>
             <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
-              <SelectValue placeholder="Todos os cartÃµes" />
+              <SelectValue placeholder="Todos os cartões" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os cartÃµes</SelectItem>
+              <SelectItem value="all">Todos os cartões</SelectItem>
               {overview?.filterOptions.cards.map((card) => (
                 <SelectItem key={card.id} value={String(card.id)}>
                   {card.name}

@@ -2608,9 +2608,10 @@ export async function deleteTransaction(userId, transactionId, input = {}) {
   }
 }
 
-export async function previewTransactionImport(userId, fileBuffer, importSource = "bank_statement", bankConnectionId, filename, contentType, filePassword) {
+export async function previewTransactionImport(userId, fileBuffer, importSource, bankConnectionId, filename, contentType, filePassword) {
   const resolvedUserId = await requireUserId(userId);
   const parsedBankConnectionId = bankConnectionId === undefined || bankConnectionId === null || bankConnectionId === "" ? null : Number(bankConnectionId);
+  const hasExplicitImportSource = importSource === "credit_card_statement" || importSource === "bank_statement";
   let bankConnection = null;
 
   if (parsedBankConnectionId !== null) {
@@ -2624,11 +2625,11 @@ export async function previewTransactionImport(userId, fileBuffer, importSource 
       throw new Error("bank connection not found");
     }
 
-    if (importSource === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
+    if (hasExplicitImportSource && importSource === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
       throw new Error("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
     }
 
-    if (importSource === "bank_statement" && bankConnection.account_type === "credit_card") {
+    if (hasExplicitImportSource && importSource === "bank_statement" && bankConnection.account_type === "credit_card") {
       throw new Error("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
     }
   }
@@ -2649,7 +2650,7 @@ export async function previewTransactionImport(userId, fileBuffer, importSource 
     ),
   );
 
-  return await createUniversalImportPreview({
+  const preview = await createUniversalImportPreview({
     categories,
     existingFingerprints,
     bankConnectionId: parsedBankConnectionId,
@@ -2659,10 +2660,22 @@ export async function previewTransactionImport(userId, fileBuffer, importSource 
     filePassword,
     filename,
     historicalRows,
-    requestedImportSource: importSource,
+    requestedImportSource: hasExplicitImportSource ? importSource : undefined,
     recurringRules,
     userId: resolvedUserId,
   });
+
+  if (bankConnection) {
+    if (preview.detectedSourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
+      throw new Error("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+    }
+
+    if (preview.detectedSourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
+      throw new Error("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+    }
+  }
+
+  return preview;
 }
 
 function isUniversalImportSourceKind(value) {

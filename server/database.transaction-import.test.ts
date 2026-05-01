@@ -155,9 +155,25 @@ function createDbState() {
         });
       }
 
+      if (
+        normalizedSql.includes("SELECT t.description, t.amount, t.category_id, t.occurred_on, c.transaction_type") &&
+        normalizedSql.includes("FROM transactions t") &&
+        normalizedSql.includes("INNER JOIN categories c ON c.id = t.category_id")
+      ) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+
       if (normalizedSql.includes("FROM bank_connections WHERE user_id = $1 AND id = $2 LIMIT 1")) {
         const bankConnection = bankConnections.get(Number(params[1]));
         return Promise.resolve({ rows: bankConnection ? [bankConnection] : [], rowCount: bankConnection ? 1 : 0 });
+      }
+
+      if (
+        normalizedSql.includes("SELECT match_key, type, category_id, times_confirmed, source") &&
+        normalizedSql.includes("FROM transaction_categorization_rules") &&
+        normalizedSql.includes("WHERE user_id = $1")
+      ) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
       }
 
       if (normalizedSql.includes("FROM transaction_categorization_rules WHERE user_id = $1 AND match_key = $2 LIMIT 1")) {
@@ -333,6 +349,56 @@ function buildUniversalSessionRow(overrides: Partial<Record<string, unknown>> = 
     aiSuggestion: null,
     commitData: { ...commitData, ...overrides.commitData },
   };
+}
+
+function buildUniversalInstallmentSessionRow({
+  description,
+  accountId = 20,
+  purchaseOccurredOn,
+  occurredOn,
+  installmentIndex,
+  installmentCount,
+  generatedInstallmentCount = installmentCount,
+}: {
+  description: string;
+  accountId?: number;
+  purchaseOccurredOn: string;
+  occurredOn: string;
+  installmentIndex: number;
+  installmentCount: number;
+  generatedInstallmentCount?: number;
+}) {
+  const normalizedBase = "compra loja";
+
+  return buildUniversalSessionRow({
+    original: {
+      description,
+      sourceKind: "generic_transactions",
+      importSource: "generic_transactions",
+      bankConnectionId: "",
+      isInstallment: true,
+      purchaseDescriptionBase: "Compra Loja",
+      normalizedPurchaseDescriptionBase: normalizedBase,
+      purchaseOccurredOn,
+      occurredOn,
+      installmentIndex,
+      installmentCount,
+      generatedInstallmentCount,
+    },
+    commitData: {
+      description,
+      sourceKind: "generic_transactions",
+      selectedBankConnectionId: accountId,
+      isInstallment: true,
+      purchaseDescriptionBase: "Compra Loja",
+      normalizedPurchaseDescriptionBase: normalizedBase,
+      purchaseOccurredOn,
+      occurredOn,
+      installmentIndex,
+      installmentCount,
+      generatedInstallmentCount,
+    },
+  });
 }
 
 async function loadDatabaseModule() {
@@ -592,6 +658,179 @@ describe("transaction import commit dispatcher", () => {
     expect(pgState.current?.inserts.map((item) => item.description)).toEqual(["Kabum 1/4", "Kabum 2/4", "Kabum 3/4", "Kabum 4/4"]);
   });
 
+  it("imports 'Compra Loja 1/3' as one purchase plus three installment transactions", async () => {
+    const { commitTransactionImport } = await loadDatabaseModule();
+    const { setUniversalPreviewSession } = await import("./import/preview-session-store.js");
+
+    setUniversalPreviewSession("universal-installments-1-3", {
+      kind: "universal",
+      previewToken: "universal-installments-1-3",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 20,
+      items: [
+        buildUniversalInstallmentSessionRow({
+          description: "Compra Loja 1/3",
+          purchaseOccurredOn: "2026-03-15",
+          occurredOn: "2026-03-15",
+          installmentIndex: 1,
+          installmentCount: 3,
+        }),
+      ],
+    });
+
+    const result = await commitTransactionImport(7, {
+      previewToken: "universal-installments-1-3",
+      items: [
+        {
+          rowIndex: 1,
+          description: "Compra Loja 1/3",
+          amount: "120.00",
+          occurredOn: "2026-03-15",
+          type: "expense",
+          categoryId: 4,
+          sourceKind: "generic_transactions",
+        },
+      ],
+    });
+
+    expect(result.importedCount).toBe(3);
+    expect(pgState.current?.installmentPurchases.size).toBe(1);
+    expect(pgState.current?.inserts.map((item) => item.description)).toEqual(["Compra Loja 1/3", "Compra Loja 2/3", "Compra Loja 3/3"]);
+    expect(pgState.current?.inserts.map((item) => item.occurredOn)).toEqual(["2026-03-15", "2026-04-15", "2026-05-15"]);
+  });
+
+  it("imports 'Compra Loja 2/3' with the expected installment series using the existing purchase date rule", async () => {
+    const { commitTransactionImport } = await loadDatabaseModule();
+    const { setUniversalPreviewSession } = await import("./import/preview-session-store.js");
+
+    setUniversalPreviewSession("universal-installments-2-3", {
+      kind: "universal",
+      previewToken: "universal-installments-2-3",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 20,
+      items: [
+        buildUniversalInstallmentSessionRow({
+          description: "Compra Loja 2/3",
+          purchaseOccurredOn: "2026-03-15",
+          occurredOn: "2026-04-15",
+          installmentIndex: 2,
+          installmentCount: 3,
+        }),
+      ],
+    });
+
+    const result = await commitTransactionImport(7, {
+      previewToken: "universal-installments-2-3",
+      items: [
+        {
+          rowIndex: 1,
+          description: "Compra Loja 2/3",
+          amount: "120.00",
+          occurredOn: "2026-04-15",
+          type: "expense",
+          categoryId: 4,
+          sourceKind: "generic_transactions",
+        },
+      ],
+    });
+
+    expect(result.importedCount).toBe(3);
+    expect(pgState.current?.installmentPurchases.size).toBe(1);
+    expect(pgState.current?.inserts.map((item) => item.description)).toEqual(["Compra Loja 1/3", "Compra Loja 2/3", "Compra Loja 3/3"]);
+    expect(pgState.current?.inserts.map((item) => item.occurredOn)).toEqual(["2026-03-15", "2026-04-15", "2026-05-15"]);
+  });
+
+  it("does not duplicate installment purchases or installment transactions when the same file is imported again", async () => {
+    const { commitTransactionImport } = await loadDatabaseModule();
+    const { setUniversalPreviewSession } = await import("./import/preview-session-store.js");
+
+    setUniversalPreviewSession("universal-installments-duplicate", {
+      kind: "universal",
+      previewToken: "universal-installments-duplicate",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 20,
+      items: [
+        buildUniversalInstallmentSessionRow({
+          description: "Compra Loja 1/3",
+          purchaseOccurredOn: "2026-03-15",
+          occurredOn: "2026-03-15",
+          installmentIndex: 1,
+          installmentCount: 3,
+        }),
+      ],
+    });
+
+    const input = {
+      previewToken: "universal-installments-duplicate",
+      items: [
+        {
+          rowIndex: 1,
+          description: "Compra Loja 1/3",
+          amount: "120.00",
+          occurredOn: "2026-03-15",
+          type: "expense" as const,
+          categoryId: 4,
+          sourceKind: "generic_transactions" as const,
+        },
+      ],
+    };
+
+    const first = await commitTransactionImport(7, input);
+    const purchasesAfterFirstImport = pgState.current?.installmentPurchases.size;
+    const insertsAfterFirstImport = pgState.current?.inserts.length;
+    const second = await commitTransactionImport(7, input);
+
+    expect(first.importedCount).toBe(3);
+    expect(second.importedCount).toBe(0);
+    expect(second.skippedCount).toBe(3);
+    expect(pgState.current?.installmentPurchases.size).toBe(purchasesAfterFirstImport);
+    expect(pgState.current?.inserts.length).toBe(insertsAfterFirstImport);
+  });
+
+  it("keeps non-installment universal expenses as a single imported transaction", async () => {
+    const { commitTransactionImport } = await loadDatabaseModule();
+    const { setUniversalPreviewSession } = await import("./import/preview-session-store.js");
+
+    setUniversalPreviewSession("universal-single-expense", {
+      kind: "universal",
+      previewToken: "universal-single-expense",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 10,
+      items: [buildUniversalSessionRow()],
+    });
+
+    const result = await commitTransactionImport(7, {
+      previewToken: "universal-single-expense",
+      items: [
+        {
+          rowIndex: 1,
+          description: "iFood pedido",
+          amount: "67.90",
+          occurredOn: "2026-04-06",
+          type: "expense",
+          categoryId: 1,
+          sourceKind: "generic_transactions",
+        },
+      ],
+    });
+
+    expect(result.importedCount).toBe(1);
+    expect(pgState.current?.installmentPurchases.size).toBe(0);
+    expect(pgState.current?.inserts).toHaveLength(1);
+  });
+
   it("keeps AI suggestions working for universal sessions without mutating protected fields", async () => {
     const { getTransactionImportAiSuggestions } = await loadDatabaseModule();
     const { getUniversalPreviewSession, setUniversalPreviewSession } = await import("./import/preview-session-store.js");
@@ -688,6 +927,62 @@ describe("transaction import commit dispatcher", () => {
 
     expect(result.importedCount).toBe(1);
     expect(result.results[0].status).toBe("imported");
+  });
+
+  it("allows universal preview with a credit-card account when no importSource hint is provided", async () => {
+    const { previewTransactionImport } = await loadDatabaseModule();
+    const csv = [
+      "date,title,amount",
+      "2026-03-19,Compra Loja - Parcela 3/10,30.99",
+      "2026-03-18,Cartao credito mercado,12.45",
+    ].join("\n");
+
+    const result = await previewTransactionImport(
+      7,
+      Buffer.from(csv, "utf8"),
+      undefined,
+      20,
+      "Nubank_2026-03-27.csv",
+      "text/csv",
+      undefined,
+    );
+
+    expect(result.detectedSourceKind).toBe("credit_card_statement");
+    expect(result.selectedBankConnectionId).toBe(20);
+    expect(result.bankConnectionId).toBe(20);
+    expect(result.fileSummary.totalRows).toBe(2);
+  });
+
+  it("rejects a universal preview after detection when a bank statement is linked to a credit card", async () => {
+    const { previewTransactionImport } = await loadDatabaseModule();
+    const csv = ["Data;Descricao;Valor", "06/04/2026;Transferencia Pix;-67,90", "06/04/2026;Deposito recebido;100,00"].join(
+      "\n",
+    );
+
+    await expect(
+      previewTransactionImport(7, Buffer.from(csv, "utf8"), undefined, 20, "extrato.csv", "text/csv", undefined),
+    ).rejects.toThrow("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+  });
+
+  it("rejects a universal preview after detection when a credit card statement is linked to a non-card account", async () => {
+    const { previewTransactionImport } = await loadDatabaseModule();
+    const csv = [
+      "date,title,amount",
+      "2026-03-19,Compra Loja - Parcela 3/10,30.99",
+      "2026-03-18,Cartao credito mercado,12.45",
+    ].join("\n");
+
+    await expect(
+      previewTransactionImport(7, Buffer.from(csv, "utf8"), undefined, 10, "Nubank_2026-03-27.csv", "text/csv", undefined),
+    ).rejects.toThrow("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+  });
+
+  it("keeps the legacy preview compatibility check when importSource is explicit", async () => {
+    const { previewTransactionImport } = await loadDatabaseModule();
+
+    await expect(
+      previewTransactionImport(7, Buffer.from("fake file"), "bank_statement", 20, "extrato.csv", "text/csv", undefined),
+    ).rejects.toThrow("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
   });
 
   it("surfaces invalid preview tokens for commit", async () => {

@@ -2106,27 +2106,29 @@ export function validateCommitLine(input, categories) {
 }
 
 export function buildImportedTransactionEntries({ normalizedLine, previewItem }) {
+  const hasInstallmentMetadata =
+    Boolean(previewItem?.isInstallment) &&
+    Number.isInteger(previewItem?.installmentIndex) &&
+    Number(previewItem.installmentIndex) >= 1 &&
+    Number.isInteger(previewItem?.installmentCount) &&
+    Number(previewItem.installmentCount) >= 2;
   const generatedInstallmentCount =
-    previewItem?.importSource === "credit_card_statement" &&
-    previewItem?.isInstallment &&
+    hasInstallmentMetadata &&
     Number.isInteger(previewItem.generatedInstallmentCount) &&
     Number(previewItem.generatedInstallmentCount) > 0
       ? Number(previewItem.generatedInstallmentCount)
+      : hasInstallmentMetadata
+        ? Number(previewItem.installmentCount)
       : 1;
   const installmentStartOffset =
-    previewItem?.isInstallment && Number.isInteger(previewItem.installmentIndex) ? 1 - Number(previewItem.installmentIndex) : 0;
+    hasInstallmentMetadata ? 1 - Number(previewItem.installmentIndex) : 0;
 
   return Array.from({ length: generatedInstallmentCount }, (_, index) => ({
     description:
-      previewItem?.isInstallment &&
+      hasInstallmentMetadata &&
       previewItem?.purchaseDescriptionBase &&
-      Number.isInteger(previewItem.installmentCount) &&
-      Number.isInteger(previewItem.installmentIndex)
-        ? formatInstallmentDescription(
-            previewItem.purchaseDescriptionBase,
-            index + 1,
-            Number(previewItem.installmentCount),
-          )
+      Number.isInteger(previewItem.installmentCount)
+        ? formatInstallmentDescription(previewItem.purchaseDescriptionBase, index + 1, Number(previewItem.installmentCount))
         : normalizedLine.description,
     descriptionBase:
       previewItem?.purchaseDescriptionBase && previewItem?.normalizedPurchaseDescriptionBase
@@ -2142,8 +2144,8 @@ export function buildImportedTransactionEntries({ normalizedLine, previewItem })
     purchaseOccurredOn: previewItem?.purchaseOccurredOn ?? normalizedLine.normalizedOccurredOn,
     type: normalizedLine.type,
     installmentCount:
-      previewItem?.isInstallment && Number.isInteger(previewItem.installmentCount) ? Number(previewItem.installmentCount) : null,
-    installmentNumber: previewItem?.isInstallment ? index + 1 : null,
+      hasInstallmentMetadata && Number.isInteger(previewItem.installmentCount) ? Number(previewItem.installmentCount) : null,
+    installmentNumber: hasInstallmentMetadata ? index + 1 : null,
   }));
 }
 

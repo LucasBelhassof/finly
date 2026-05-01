@@ -291,6 +291,38 @@ describe("transaction import helpers", () => {
     expect(entries[0].purchaseOccurredOn).toBe("2026-02-25");
   });
 
+  it("builds installment entries from metadata even when the source kind is generic", () => {
+    const normalizedLine = validateCommitLine(
+      {
+        description: "Compra Loja 2/3",
+        amount: "120.00",
+        occurredOn: "2026-04-15",
+        type: "expense",
+        categoryId: 4,
+      },
+      categories,
+    );
+
+    const entries = buildImportedTransactionEntries({
+      normalizedLine,
+      previewItem: {
+        importSource: "generic_transactions",
+        purchaseDescriptionBase: "Compra Loja",
+        normalizedPurchaseDescriptionBase: "compra loja",
+        purchaseOccurredOn: "2026-03-15",
+        isInstallment: true,
+        installmentIndex: 2,
+        installmentCount: 3,
+        generatedInstallmentCount: 3,
+      },
+    });
+
+    expect(entries).toHaveLength(3);
+    expect(entries.map((entry) => entry.description)).toEqual(["Compra Loja 1/3", "Compra Loja 2/3", "Compra Loja 3/3"]);
+    expect(entries.map((entry) => entry.occurredOn)).toEqual(["2026-03-15", "2026-04-15", "2026-05-15"]);
+    expect(entries.every((entry) => entry.amount === -120)).toBe(true);
+  });
+
   it("increments installment dates month by month with day clamping", () => {
     expect(addMonthsToOccurredOn("2026-01-31", 1)).toBe("2026-02-28");
     expect(addMonthsToOccurredOn("2026-01-31", 2)).toBe("2026-03-31");

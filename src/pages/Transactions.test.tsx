@@ -46,6 +46,19 @@ vi.mock("@/components/transactions/ImportTransactionsModal", () => ({
   default: () => null,
 }));
 
+vi.mock("@/hooks/use-url-period-filter", () => ({
+  useUrlPeriodFilter: () => ({
+    selectedMonthIndex: 3,
+    selectedYear: 2026,
+    datePreset: "month" as const,
+    dateRange: { startDate: "2026-04-01", endDate: "2026-04-30" },
+    handleMonthChange: vi.fn(),
+    handleYearChange: vi.fn(),
+    handlePresetChange: vi.fn(),
+    handleCustomRangeApply: vi.fn(),
+  }),
+}));
+
 vi.mock("@/components/transactions/TransactionsMonthYearFilter", () => ({
   default: () => <div>mock-date-filter</div>,
 }));

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImportTransactionsModal from "@/components/transactions/ImportTransactionsModal";
@@ -42,6 +43,20 @@ vi.mock("@/components/ui/sonner", () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+}));
+
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ value, onValueChange, children }: { value?: string; onValueChange: (v: string) => void; children: React.ReactNode }) => (
+    <select data-testid="bank-select" value={value ?? ""} onChange={(e) => onValueChange(e.target.value)}>
+      {children}
+    </select>
+  ),
+  SelectTrigger: () => null,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectGroup: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectLabel: () => null,
+  SelectItem: ({ value, children }: { value: string; children: React.ReactNode }) => <option value={value}>{children}</option>,
 }));
 
 const banks = [
@@ -196,13 +211,17 @@ describe("ImportTransactionsModal", () => {
     });
   });
 
+  function selectBankItau() {
+    fireEvent.change(screen.getByTestId("bank-select"), { target: { value: "2" } });
+  }
+
   it("renders the upload state without requiring an importSource selector", () => {
     render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
 
     expect(screen.getByText("Importar transações")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /gerar preview/i })).toBeDisabled();
     expect(screen.getByTestId("import-file-dropzone")).toBeInTheDocument();
-    expect(screen.getByText(/csv/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/csv/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/fatura de cartão/i)).not.toBeInTheDocument();
   });
 
@@ -212,7 +231,7 @@ describe("ImportTransactionsModal", () => {
     const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
     const clickSpy = vi.spyOn(fileInput, "click").mockImplementation(() => {});
 
-    fireEvent.click(screen.getByRole("button", { name: /selecionar arquivo/i }));
+    fireEvent.click(screen.getByTestId("select-file-button"));
 
     expect(clickSpy).toHaveBeenCalledTimes(1);
   });
@@ -238,13 +257,15 @@ describe("ImportTransactionsModal", () => {
       },
     });
 
+    selectBankItau();
+
     fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
 
     await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
 
     expect(previewMutateAsync).toHaveBeenCalledWith({
       file: expect.any(File),
-      bankConnectionId: undefined,
+      bankConnectionId: "2",
       filePassword: "",
     });
   });
@@ -258,6 +279,8 @@ describe("ImportTransactionsModal", () => {
         files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
       },
     });
+
+    selectBankItau();
 
     fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
 
@@ -277,6 +300,8 @@ describe("ImportTransactionsModal", () => {
         files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
       },
     });
+
+    selectBankItau();
 
     fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
 
@@ -299,6 +324,8 @@ describe("ImportTransactionsModal", () => {
       },
     });
 
+    selectBankItau();
+
     fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
 
     await waitFor(() => expect(screen.getByTestId("import-technical-details")).toBeInTheDocument());
@@ -317,6 +344,8 @@ describe("ImportTransactionsModal", () => {
       },
     });
 
+    selectBankItau();
+
     fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
 
     await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
@@ -326,7 +355,7 @@ describe("ImportTransactionsModal", () => {
     await waitFor(() =>
       expect(commitMutateAsync).toHaveBeenCalledWith({
         previewToken: "preview-1",
-        bankConnectionId: undefined,
+        bankConnectionId: "2",
         items: [
           expect.objectContaining({
             rowIndex: 15,

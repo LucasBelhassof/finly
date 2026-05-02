@@ -666,6 +666,16 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                         <p className="text-sm font-semibold text-foreground">Arraste o arquivo aqui</p>
                         <p className="text-xs text-muted-foreground">ou clique para selecionar</p>
                       </div>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        data-testid="select-file-button"
+                        onClick={(event) => { event.stopPropagation(); openFilePicker(); }}
+                      >
+                        Selecionar arquivo
+                      </Button>
                       <p className="text-xs text-muted-foreground">
                         {["CSV", "Excel", "OFX", "QIF", "PDF", "TXT", "JSON"].join(" · ")}
                       </p>

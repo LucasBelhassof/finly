@@ -587,7 +587,7 @@ describe("InstallmentsPage", () => {
 
     renderPage();
 
-    expect(screen.getByText("NÃ£o foi possÃ­vel carregar os parcelamentos")).toBeInTheDocument();
+    expect(screen.getByText("Não foi possível carregar os parcelamentos")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(refetch).toHaveBeenCalled();
   });

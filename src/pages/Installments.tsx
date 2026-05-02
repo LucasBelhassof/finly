@@ -26,8 +26,16 @@ import {
 import type { InstallmentOverviewItem, InstallmentsOverviewFilters } from "@/types/api";
 
 const FILTER_QUERY_PARAM_KEYS = {
+  cardId: "cardId",
   categoryId: "categoryId",
   search: "search",
+  status: "status",
+  installmentAmountMin: "installmentAmountMin",
+  installmentAmountMax: "installmentAmountMax",
+  installmentCountMode: "installmentCountMode",
+  installmentCountValue: "installmentCountValue",
+  sortBy: "sortBy",
+  sortOrder: "sortOrder",
 } as const;
 
 function createDefaultFilters(dateRange: { startDate: string; endDate: string }): InstallmentsOverviewFilters {
@@ -55,6 +63,25 @@ function formatAppliedRangeLabel(startDate: string | null, endDate: string | nul
   return `${startDate.split("-").reverse().join("/")} - ${endDate.split("-").reverse().join("/")}`;
 }
 
+function updateUrlFilterParams(
+  searchParams: URLSearchParams,
+  setSearchParams: ReturnType<typeof useSearchParams>[1],
+  updates: Partial<Record<(typeof FILTER_QUERY_PARAM_KEYS)[keyof typeof FILTER_QUERY_PARAM_KEYS], string | null>>,
+) {
+  const nextSearchParams = new URLSearchParams(searchParams);
+
+  Object.entries(updates).forEach(([key, value]) => {
+    if (!value) {
+      nextSearchParams.delete(key);
+      return;
+    }
+
+    nextSearchParams.set(key, value);
+  });
+
+  setSearchParams(nextSearchParams, { replace: true });
+}
+
 function mergeImmediateFilters(
   filters: InstallmentsOverviewFilters,
   immediateFilters: Pick<InstallmentsOverviewFilters, "categoryId" | "search" | "purchaseStart" | "purchaseEnd">,
@@ -74,23 +101,43 @@ function mergeImmediateFilters(
   };
 }
 
-function updateUrlFilterParams(
+function parseNumberParam(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readFiltersFromSearchParams(
   searchParams: URLSearchParams,
-  setSearchParams: ReturnType<typeof useSearchParams>[1],
-  updates: Partial<Record<(typeof FILTER_QUERY_PARAM_KEYS)[keyof typeof FILTER_QUERY_PARAM_KEYS], string | null>>,
-) {
-  const nextSearchParams = new URLSearchParams(searchParams);
+  defaults: InstallmentsOverviewFilters,
+  immediateFilters: Pick<InstallmentsOverviewFilters, "categoryId" | "search" | "purchaseStart" | "purchaseEnd">,
+): InstallmentsOverviewFilters {
+  const installmentCountMode = searchParams.get(FILTER_QUERY_PARAM_KEYS.installmentCountMode);
+  const sortBy = searchParams.get(FILTER_QUERY_PARAM_KEYS.sortBy);
+  const sortOrder = searchParams.get(FILTER_QUERY_PARAM_KEYS.sortOrder);
+  const status = searchParams.get(FILTER_QUERY_PARAM_KEYS.status);
 
-  Object.entries(updates).forEach(([key, value]) => {
-    if (!value) {
-      nextSearchParams.delete(key);
-      return;
-    }
-
-    nextSearchParams.set(key, value);
-  });
-
-  setSearchParams(nextSearchParams, { replace: true });
+  return {
+    ...defaults,
+    ...immediateFilters,
+    cardId: searchParams.get(FILTER_QUERY_PARAM_KEYS.cardId)?.trim() || defaults.cardId,
+    status: status === "active" || status === "paid" || status === "overdue" ? status : defaults.status,
+    installmentAmountMin: parseNumberParam(searchParams.get(FILTER_QUERY_PARAM_KEYS.installmentAmountMin)),
+    installmentAmountMax: parseNumberParam(searchParams.get(FILTER_QUERY_PARAM_KEYS.installmentAmountMax)),
+    installmentCountMode:
+      installmentCountMode === "installment_count" || installmentCountMode === "remaining_installments"
+        ? installmentCountMode
+        : defaults.installmentCountMode,
+    installmentCountValue: parseNumberParam(searchParams.get(FILTER_QUERY_PARAM_KEYS.installmentCountValue)),
+    sortBy:
+      sortBy === "installment_amount" || sortBy === "remaining_balance" || sortBy === "next_due_date" || sortBy === "purchase_date"
+        ? sortBy
+        : defaults.sortBy,
+    sortOrder: sortOrder === "asc" ? "asc" : defaults.sortOrder,
+  };
 }
 
 function InstallmentsSkeleton() {
@@ -203,30 +250,36 @@ export default function InstallmentsPage() {
     }),
     [dateRange.endDate, dateRange.startDate, search, selectedCategoryId],
   );
-  const [draftFilters, setDraftFilters] = useState<InstallmentsOverviewFilters>({
-    ...createDefaultFilters(defaultDateRange),
-    ...immediateFilters,
-  });
-  const [appliedFilters, setAppliedFilters] = useState<InstallmentsOverviewFilters>({
-    ...createDefaultFilters(defaultDateRange),
-    ...immediateFilters,
-  });
-  const installmentsQuery = useInstallmentsOverview(appliedFilters);
+  const [filters, setFilters] = useState<InstallmentsOverviewFilters>(() =>
+    readFiltersFromSearchParams(searchParams, createDefaultFilters(defaultDateRange), immediateFilters),
+  );
+  const installmentsQuery = useInstallmentsOverview(filters);
   const overview = installmentsQuery.data;
   const next3Months = useMemo(() => overview?.charts.next3MonthsProjection ?? [], [overview]);
-  const appliedRangeLabel = formatAppliedRangeLabel(appliedFilters.purchaseStart, appliedFilters.purchaseEnd);
+  const appliedRangeLabel = formatAppliedRangeLabel(filters.purchaseStart, filters.purchaseEnd);
 
   useEffect(() => {
-    setDraftFilters((current) => mergeImmediateFilters(current, immediateFilters));
-    setAppliedFilters((current) => mergeImmediateFilters(current, immediateFilters));
-  }, [immediateFilters]);
+    setFilters(readFiltersFromSearchParams(searchParams, createDefaultFilters(defaultDateRange), immediateFilters));
+  }, [defaultDateRange, immediateFilters, searchParams]);
 
   const handleFiltersChange = (nextFilters: InstallmentsOverviewFilters) => {
-    setDraftFilters(nextFilters);
-  };
-
-  const handleApplyFilters = (nextFilters: InstallmentsOverviewFilters) => {
-    setAppliedFilters(nextFilters);
+    setFilters(nextFilters);
+    updateUrlFilterParams(searchParams, setSearchParams, {
+      [FILTER_QUERY_PARAM_KEYS.cardId]: nextFilters.cardId === "all" ? null : nextFilters.cardId,
+      [FILTER_QUERY_PARAM_KEYS.categoryId]: nextFilters.categoryId === "all" ? null : nextFilters.categoryId,
+      [FILTER_QUERY_PARAM_KEYS.search]: nextFilters.search.trim() || null,
+      [FILTER_QUERY_PARAM_KEYS.status]: nextFilters.status === "all" ? null : nextFilters.status,
+      [FILTER_QUERY_PARAM_KEYS.installmentAmountMin]:
+        nextFilters.installmentAmountMin === null ? null : String(nextFilters.installmentAmountMin),
+      [FILTER_QUERY_PARAM_KEYS.installmentAmountMax]:
+        nextFilters.installmentAmountMax === null ? null : String(nextFilters.installmentAmountMax),
+      [FILTER_QUERY_PARAM_KEYS.installmentCountMode]:
+        nextFilters.installmentCountMode === "all" ? null : nextFilters.installmentCountMode,
+      [FILTER_QUERY_PARAM_KEYS.installmentCountValue]:
+        nextFilters.installmentCountValue === null ? null : String(nextFilters.installmentCountValue),
+      [FILTER_QUERY_PARAM_KEYS.sortBy]: nextFilters.sortBy === "smart" ? null : nextFilters.sortBy,
+      [FILTER_QUERY_PARAM_KEYS.sortOrder]: nextFilters.sortOrder === "desc" ? null : nextFilters.sortOrder,
+    });
   };
 
   const handleResetFilters = () => {
@@ -238,12 +291,7 @@ export default function InstallmentsPage() {
     nextSearchParams.set("endDate", defaultDateRange.endDate);
 
     setSearchParams(nextSearchParams, { replace: true });
-    setDraftFilters({
-      ...defaultFilters,
-    });
-    setAppliedFilters({
-      ...defaultFilters,
-    });
+    setFilters(defaultFilters);
   };
 
   const headerContent = (
@@ -302,13 +350,12 @@ export default function InstallmentsPage() {
         </div>
 
         <InstallmentsFilters
-          filters={draftFilters}
+          filters={filters}
           appliedRangeLabel={appliedRangeLabel}
           overview={overview}
           onChange={handleFiltersChange}
-          onApplyFilters={handleApplyFilters}
           onResetFilters={handleResetFilters}
-          onExportCsv={() => buildCsv(appliedFilters, overview?.items ?? [])}
+          onExportCsv={() => buildCsv(filters, overview?.items ?? [])}
         />
       </div>
     </section>

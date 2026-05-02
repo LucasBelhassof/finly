@@ -114,20 +114,17 @@ vi.mock("@/components/installments/InstallmentsFilters", () => ({
     filters,
     appliedRangeLabel,
     onChange,
-    onApplyFilters,
     onResetFilters,
   }: {
     filters: InstallmentsOverviewFilters;
     appliedRangeLabel: string;
     onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-    onApplyFilters: (nextFilters: InstallmentsOverviewFilters) => void;
     onResetFilters: () => void;
   }) => (
     <MockInstallmentsFilters
       filters={filters}
       appliedRangeLabel={appliedRangeLabel}
       onChange={onChange}
-      onApplyFilters={onApplyFilters}
       onResetFilters={onResetFilters}
     />
   ),
@@ -137,13 +134,11 @@ function MockInstallmentsFilters({
   filters,
   appliedRangeLabel,
   onChange,
-  onApplyFilters,
   onResetFilters,
 }: {
   filters: InstallmentsOverviewFilters;
   appliedRangeLabel: string;
   onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-  onApplyFilters: (nextFilters: InstallmentsOverviewFilters) => void;
   onResetFilters: () => void;
 }) {
   const [draft, setDraft] = useState(filters);
@@ -157,23 +152,16 @@ function MockInstallmentsFilters({
       <span>{appliedRangeLabel}</span>
       <button
         type="button"
-        onClick={() =>
-          setDraft({
-            ...draft,
-            status: "paid",
-          })
-        }
-      >
-        Status quitados
-      </button>
-      <button
-        type="button"
         onClick={() => {
-          onChange(draft);
-          onApplyFilters(draft);
+          const nextFilters = {
+            ...draft,
+            status: "paid" as const,
+          };
+          setDraft(nextFilters);
+          onChange(nextFilters);
         }}
       >
-        Aplicar filtros
+        Status quitados
       </button>
       <button type="button" onClick={onResetFilters}>
         Limpar filtros
@@ -464,7 +452,7 @@ describe("InstallmentsPage", () => {
     });
   });
 
-  it("keeps advanced filters in draft until applying them", async () => {
+  it("applies advanced filters immediately", async () => {
     mockUseInstallmentsOverview.mockImplementation((filters) => ({
       data: createOverviewForFilters(filters),
       isLoading: false,
@@ -475,11 +463,6 @@ describe("InstallmentsPage", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: "Status quitados" }));
-
-    expect(screen.getByText("Notebook")).toBeInTheDocument();
-    expect(screen.queryByText("Nenhum parcelamento encontrado")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Aplicar filtros" }));
 
     await waitFor(() => {
       expect(mockUseInstallmentsOverview).toHaveBeenCalledWith(
@@ -511,7 +494,6 @@ describe("InstallmentsPage", () => {
     fireEvent.click(screen.getAllByRole("combobox")[0]);
     fireEvent.click(screen.getByRole("option", { name: "Cursos" }));
     fireEvent.click(screen.getByRole("button", { name: "Status quitados" }));
-    fireEvent.click(screen.getByRole("button", { name: "Aplicar filtros" }));
 
     await waitFor(() => {
       expect(mockUseInstallmentsOverview).toHaveBeenCalledWith(
@@ -538,7 +520,20 @@ describe("InstallmentsPage", () => {
     });
 
     expect(screen.getByPlaceholderText(/Buscar compra/)).toHaveValue("");
-    expect(screen.getByText("Notebook")).toBeInTheDocument();
+    expect(screen.getByText("Nenhum parcelamento encontrado")).toBeInTheDocument();
+  });
+
+  it("does not render an apply button for advanced filters", () => {
+    mockUseInstallmentsOverview.mockReturnValue({
+      data: createOverview(),
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.queryByRole("button", { name: "Aplicar filtros" })).not.toBeInTheDocument();
   });
 
   it("keeps the chart query inheriting page filters while overriding only the chart period", async () => {

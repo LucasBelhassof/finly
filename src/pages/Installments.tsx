@@ -278,10 +278,10 @@ export default function InstallmentsPage() {
     setFilters(defaultFilters);
   };
 
-  const headerContent = (
+  const filtersSection = (
     <section data-tour-id="installments-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <TransactionsMonthYearFilter
             selectedMonthIndex={selectedMonthIndex}
             selectedYear={selectedYear}
@@ -297,39 +297,41 @@ export default function InstallmentsPage() {
             showPresetButtons={false}
           />
 
-          <Select
-            value={selectedCategoryId}
-            onValueChange={(value) =>
-              updateUrlFilterParams(searchParams, setSearchParams, {
-                [FILTER_QUERY_PARAM_KEYS.categoryId]: value === "all" ? null : value,
-              })
-            }
-          >
-            <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
-              <SelectValue placeholder="Todas as categorias" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as categorias</SelectItem>
-              {overview?.filterOptions.categories.map((category) => (
-                <SelectItem key={category.id} value={String(category.id)}>
-                  {category.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <div className="relative w-full xl:max-w-sm xl:flex-1">
-            <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) =>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-1 sm:flex-wrap sm:items-end">
+            <Select
+              value={selectedCategoryId}
+              onValueChange={(value) =>
                 updateUrlFilterParams(searchParams, setSearchParams, {
-                  [FILTER_QUERY_PARAM_KEYS.search]: event.target.value.trim() || null,
+                  [FILTER_QUERY_PARAM_KEYS.categoryId]: value === "all" ? null : value,
                 })
               }
-              placeholder="Buscar compra, cartões ou categoria..."
-              className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
-            />
+            >
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 sm:flex-1">
+                <SelectValue placeholder="Todas as categorias" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                {overview?.filterOptions.categories.map((category) => (
+                  <SelectItem key={category.id} value={String(category.id)}>
+                    {category.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="relative w-full sm:flex-1 sm:min-w-[180px]">
+              <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) =>
+                  updateUrlFilterParams(searchParams, setSearchParams, {
+                    [FILTER_QUERY_PARAM_KEYS.search]: event.target.value.trim() || null,
+                  })
+                }
+                placeholder="Buscar compra, cartões ou categoria..."
+                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
+              />
+            </div>
           </div>
         </div>
 
@@ -349,8 +351,9 @@ export default function InstallmentsPage() {
     <AppShell
       title="Parcelamentos"
       description="Acompanhe compras parceladas e compromissos futuros"
-      headerContent={headerContent}
     >
+      {filtersSection}
+
       {installmentsQuery.isLoading ? (
         <InstallmentsSkeleton />
       ) : overview ? (
@@ -368,7 +371,7 @@ export default function InstallmentsPage() {
               <div key={item.month} className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-muted-foreground">{formatMonthKey(item.month)}</p>
-                  <MetricInfoTooltip content="Soma das parcelas projetadas para vencer neste mÃªs, considerando os parcelamentos filtrados." />
+                  <MetricInfoTooltip content="Soma das parcelas projetadas para vencer neste mês, considerando os parcelamentos filtrados." />
                 </div>
                 <p className="mt-2 text-xl font-semibold text-foreground">{formatCurrency(item.amount)}</p>
               </div>

@@ -226,7 +226,7 @@ export default function ImportTransactionCard({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="button" variant="ghost" size="sm" className="h-6 px-0 text-xs" onClick={onOpenCreateCategory}>
+                <Button type="button" variant="link" size="sm" className="h-6 px-0 text-xs" onClick={onOpenCreateCategory}>
                   + Nova categoria
                 </Button>
               </div>

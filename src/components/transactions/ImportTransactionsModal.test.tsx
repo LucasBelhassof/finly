@@ -28,11 +28,17 @@ vi.mock("@/components/transactions/ImportTransactionCard", () => ({
   default: ({ row, onChange }: { row: { key: string; draft: { exclude: boolean } }; onChange: (patch: { exclude?: boolean }) => void }) => (
     <div data-testid={`import-card:${row.key}`}>
       <span data-testid={`row-status:${row.key}`}>{row.draft.exclude ? "ignored" : "included"}</span>
+      <span data-testid={`row-review-status:${row.key}`}>
+        {"hasError" in row && row.hasError ? "error" : "needsReview" in row && row.needsReview ? "review" : "ready"}
+      </span>
       <button type="button" onClick={() => onChange({ exclude: true })}>
         ignore-{row.key}
       </button>
       <button type="button" onClick={() => onChange({ exclude: false })}>
         restore-{row.key}
+      </button>
+      <button type="button" onClick={() => onChange({ categoryId: "99" })}>
+        categorize-{row.key}
       </button>
     </div>
   ),
@@ -196,6 +202,238 @@ const previewData: ImportPreviewData = {
     },
   ],
 };
+
+const installmentPreviewData: ImportPreviewData = {
+  ...previewData,
+  fileSummary: {
+    totalRows: 1,
+    importableRows: 1,
+    errorRows: 0,
+    warningRows: 1,
+    duplicateRows: 0,
+    actionRequiredRows: 1,
+  },
+  items: [
+    {
+      rowIndex: 30,
+      description: "Kabum - Parcela 3/10",
+      normalizedDescription: "kabum parcela 3/10",
+      purchaseDescriptionBase: "Kabum",
+      normalizedPurchaseDescriptionBase: "kabum",
+      amount: "154.25",
+      normalizedAmount: "154.25",
+      occurredOn: "2026-03-25",
+      normalizedOccurredOn: "2026-03-25",
+      purchaseOccurredOn: "2026-02-25",
+      isInstallment: true,
+      installmentIndex: 3,
+      installmentCount: 10,
+      generatedInstallmentCount: 10,
+      type: "expense",
+      importSource: "credit_card_statement",
+      sourceKind: "credit_card_statement",
+      bankConnectionId: 2,
+      bankConnectionName: "Caixa/Dinheiro",
+      suggestedCategoryId: null,
+      suggestedCategoryLabel: null,
+      suggestionSource: null,
+      matchedRuleId: null,
+      aiSuggestedType: null,
+      aiSuggestedCategoryId: null,
+      aiSuggestedCategoryLabel: null,
+      aiConfidence: null,
+      aiReason: null,
+      aiStatus: "idle",
+      possibleDuplicate: false,
+      duplicateReason: "",
+      canImport: true,
+      requiresCategorySelection: false,
+      requiresUserAction: false,
+      defaultExclude: false,
+      warnings: ["Compra parcelada detectada: 10 despesas mensais serao geradas ao importar, incluindo parcelas anteriores."],
+      errors: [],
+      issues: [{ level: "warning", message: "Compra parcelada detectada: 10 despesas mensais serao geradas ao importar, incluindo parcelas anteriores." }],
+      confidence: 0.9,
+      externalId: null,
+      rawMetadata: null,
+    },
+  ],
+};
+
+const reviewOnlyPreviewData: ImportPreviewData = {
+  ...previewData,
+  fileSummary: {
+    totalRows: 1,
+    importableRows: 0,
+    errorRows: 0,
+    warningRows: 1,
+    duplicateRows: 0,
+    actionRequiredRows: 1,
+  },
+  items: [
+    {
+      rowIndex: 40,
+      description: "Linha para revisar",
+      normalizedDescription: "linha para revisar",
+      purchaseDescriptionBase: null,
+      normalizedPurchaseDescriptionBase: null,
+      amount: "120.00",
+      normalizedAmount: "120.00",
+      occurredOn: "2026-03-29",
+      normalizedOccurredOn: "2026-03-29",
+      purchaseOccurredOn: null,
+      isInstallment: false,
+      installmentIndex: null,
+      installmentCount: null,
+      generatedInstallmentCount: null,
+      type: "expense",
+      importSource: "generic_transactions",
+      sourceKind: "generic_transactions",
+      bankConnectionId: 2,
+      bankConnectionName: "Caixa/Dinheiro",
+      suggestedCategoryId: null,
+      suggestedCategoryLabel: null,
+      suggestionSource: null,
+      matchedRuleId: null,
+      aiSuggestedType: null,
+      aiSuggestedCategoryId: null,
+      aiSuggestedCategoryLabel: null,
+      aiConfidence: null,
+      aiReason: null,
+      aiStatus: "idle",
+      possibleDuplicate: false,
+      duplicateReason: "",
+      canImport: true,
+      requiresCategorySelection: false,
+      requiresUserAction: false,
+      defaultExclude: false,
+      warnings: [],
+      errors: [],
+      issues: [{ level: "warning", message: "Revisar a linha." }],
+      confidence: 0.4,
+      externalId: null,
+      rawMetadata: null,
+    },
+  ],
+};
+
+const uncategorizedExpensePreviewData: ImportPreviewData = {
+  ...previewData,
+  fileSummary: {
+    totalRows: 1,
+    importableRows: 1,
+    errorRows: 0,
+    warningRows: 1,
+    duplicateRows: 0,
+    actionRequiredRows: 0,
+  },
+  items: [
+    {
+      rowIndex: 50,
+      description: "Compra sem categoria sugerida",
+      normalizedDescription: "compra sem categoria sugerida",
+      purchaseDescriptionBase: null,
+      normalizedPurchaseDescriptionBase: null,
+      amount: "89.90",
+      normalizedAmount: "89.90",
+      occurredOn: "2026-03-30",
+      normalizedOccurredOn: "2026-03-30",
+      purchaseOccurredOn: null,
+      isInstallment: false,
+      installmentIndex: null,
+      installmentCount: null,
+      generatedInstallmentCount: null,
+      type: "expense",
+      importSource: "generic_transactions",
+      sourceKind: "generic_transactions",
+      bankConnectionId: 2,
+      bankConnectionName: "Caixa/Dinheiro",
+      suggestedCategoryId: null,
+      suggestedCategoryLabel: null,
+      suggestionSource: null,
+      matchedRuleId: null,
+      aiSuggestedType: null,
+      aiSuggestedCategoryId: null,
+      aiSuggestedCategoryLabel: null,
+      aiConfidence: null,
+      aiReason: null,
+      aiStatus: "idle",
+      possibleDuplicate: false,
+      duplicateReason: "",
+      canImport: true,
+      requiresCategorySelection: false,
+      requiresUserAction: false,
+      defaultExclude: false,
+      warnings: ["Se nenhuma categoria for escolhida, a despesa sera importada como Compras."],
+      errors: [],
+      issues: [{ level: "warning", message: "Se nenhuma categoria for escolhida, a despesa sera importada como Compras." }],
+      confidence: 0.9,
+      externalId: null,
+      rawMetadata: null,
+    },
+  ],
+};
+
+const categoryResolutionPreviewData: ImportPreviewData = {
+  ...previewData,
+  fileSummary: {
+    totalRows: 1,
+    importableRows: 0,
+    errorRows: 0,
+    warningRows: 1,
+    duplicateRows: 0,
+    actionRequiredRows: 1,
+  },
+  items: [
+    {
+      rowIndex: 60,
+      description: "Receita para categorizar",
+      normalizedDescription: "receita para categorizar",
+      purchaseDescriptionBase: null,
+      normalizedPurchaseDescriptionBase: null,
+      amount: "1200.00",
+      normalizedAmount: "1200.00",
+      occurredOn: "2026-03-30",
+      normalizedOccurredOn: "2026-03-30",
+      purchaseOccurredOn: null,
+      isInstallment: false,
+      installmentIndex: null,
+      installmentCount: null,
+      generatedInstallmentCount: null,
+      type: "income",
+      importSource: "generic_transactions",
+      sourceKind: "generic_transactions",
+      bankConnectionId: 2,
+      bankConnectionName: "Caixa/Dinheiro",
+      suggestedCategoryId: null,
+      suggestedCategoryLabel: null,
+      suggestionSource: null,
+      matchedRuleId: null,
+      aiSuggestedType: null,
+      aiSuggestedCategoryId: null,
+      aiSuggestedCategoryLabel: null,
+      aiConfidence: null,
+      aiReason: null,
+      aiStatus: "idle",
+      possibleDuplicate: false,
+      duplicateReason: "",
+      canImport: false,
+      requiresCategorySelection: true,
+      requiresUserAction: true,
+      defaultExclude: false,
+      warnings: ["Selecione uma categoria antes de importar."],
+      errors: [],
+      issues: [{ level: "warning", message: "Selecione uma categoria antes de importar." }],
+      confidence: 0.9,
+      externalId: null,
+      rawMetadata: null,
+    },
+  ],
+};
+
+function hasChip(label: string, value: number) {
+  return screen.queryByText((_, node) => node?.textContent === `${value}${label}`) !== null;
+}
 
 describe("ImportTransactionsModal", () => {
   beforeEach(() => {
@@ -364,5 +602,92 @@ describe("ImportTransactionsModal", () => {
         ],
       }),
     );
+  });
+
+  it("does not count installment-only warnings as review rows", async () => {
+    previewMutateAsync.mockResolvedValueOnce(installmentPreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "fatura.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    expect(hasChip("Rev.", 1)).toBe(false);
+    expect(hasChip("OK", 1)).toBe(true);
+  });
+
+  it("keeps uncategorized expenses ready because they fallback to Compras", async () => {
+    previewMutateAsync.mockResolvedValueOnce(uncategorizedExpensePreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    expect(screen.getByTestId("row-review-status:preview-1:50")).toHaveTextContent("ready");
+    expect(hasChip("Rev.", 1)).toBe(false);
+    expect(hasChip("OK", 1)).toBe(true);
+  });
+
+  it("marks a categorized line as ready after the user resolves the category", async () => {
+    previewMutateAsync.mockResolvedValueOnce(categoryResolutionPreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    expect(screen.getByTestId("row-review-status:preview-1:60")).toHaveTextContent("error");
+    fireEvent.click(screen.getByRole("button", { name: "categorize-preview-1:60" }));
+    expect(screen.getByTestId("row-review-status:preview-1:60")).toHaveTextContent("ready");
+  });
+
+  it("removes ignored rows from the review count", async () => {
+    previewMutateAsync.mockResolvedValueOnce(reviewOnlyPreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    expect(hasChip("Rev.", 1)).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "ignore-preview-1:40" }));
+    expect(hasChip("Rev.", 1)).toBe(false);
   });
 });

@@ -303,7 +303,7 @@ function matchesFilter(row: ImportTransactionCardRow, filter: PreviewFilter, sea
     case "valid":
       return !row.isIgnored && !row.hasError && !row.hasWarning && !row.isDuplicate && !row.needsReview;
     case "warnings":
-      return !row.hasError && (row.hasWarning || row.needsReview);
+      return !row.isIgnored && !row.hasError && (row.hasWarning || row.needsReview);
     case "errors":
       return row.hasError;
     case "duplicates":
@@ -314,6 +314,18 @@ function matchesFilter(row: ImportTransactionCardRow, filter: PreviewFilter, sea
     default:
       return true;
   }
+}
+
+function isInformationalIssue(issue: ImportPreviewItem["issues"][number]) {
+  if (issue.level !== "warning") {
+    return false;
+  }
+
+  return (
+    issue.message.startsWith("Compra parcelada detectada:") ||
+    issue.message === "Se nenhuma categoria for escolhida, a despesa sera importada como Compras." ||
+    issue.message === "Selecione uma categoria antes de importar."
+  );
 }
 
 function PreviewCountChip({
@@ -401,11 +413,16 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
     return state.preview.items.map((item) => {
       const key = makeDraftKey(state.preview!.previewToken, item.rowIndex);
       const draft = state.drafts[key];
+      const hasCategory = String(draft.categoryId ?? "").trim().length > 0;
       const frontendErrors = validateDraft(draft, item);
       const backendHasError = item.issues.some((issue) => issue.level === "error");
-      const backendHasWarning = item.issues.some((issue) => issue.level === "warning");
+      const backendHasWarning = item.issues.some((issue) => issue.level === "warning" && !isInformationalIssue(issue));
       const lowConfidence = (item.confidence ?? 1) < 0.75;
-      const needsReview = lowConfidence || draft.type === "unknown" || item.requiresUserAction || backendHasWarning;
+      const hasPendingCategorySelection =
+        item.requiresCategorySelection &&
+        draft.type !== "expense" &&
+        !hasCategory;
+      const needsReview = lowConfidence || draft.type === "unknown" || hasPendingCategorySelection || backendHasWarning;
 
       return {
         key,
@@ -425,13 +442,22 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
     () => rows.filter((row) => matchesFilter(row, state.filter, state.search)),
     [rows, state.filter, state.search],
   );
+  const rowCounts = useMemo(
+    () => ({
+      total: rows.length,
+      valid: rows.filter((row) => matchesFilter(row, "valid", "")).length,
+      warnings: rows.filter((row) => matchesFilter(row, "warnings", "")).length,
+      errors: rows.filter((row) => matchesFilter(row, "errors", "")).length,
+      duplicates: rows.filter((row) => matchesFilter(row, "duplicates", "")).length,
+      ignored: rows.filter((row) => matchesFilter(row, "ignored", "")).length,
+    }),
+    [rows],
+  );
 
   const selectedRows = visibleRows.filter((row) => row.draft.selected);
   const selectedCount = selectedRows.length;
   const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((row) => row.draft.selected);
   const showPasswordField = state.passwordRequired || isPdfFile(state.selectedFile);
-
-  const summary = state.preview?.fileSummary;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     dispatch({ type: "set-file", file: event.target.files?.[0] ?? null });
@@ -814,18 +840,18 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
                   <Badge variant="secondary" className="shrink-0 text-xs">
                     {getSourceKindLabel(state.preview.detectedSourceKind)}
                   </Badge>
-                  {summary ? (
+                  {state.preview ? (
                     <div className="flex flex-wrap gap-1.5">
-                      <PreviewCountChip label="Total" value={summary.totalRows} onClick={() => dispatch({ type: "set-filter", value: "all" })} />
-                      <PreviewCountChip label="OK" value={summary.importableRows} onClick={() => dispatch({ type: "set-filter", value: "valid" })} />
-                      {summary.warningRows > 0 ? (
-                        <PreviewCountChip label="Rev." value={summary.warningRows} variant="warning" onClick={() => dispatch({ type: "set-filter", value: "warnings" })} />
+                      <PreviewCountChip label="Total" value={rowCounts.total} onClick={() => dispatch({ type: "set-filter", value: "all" })} />
+                      <PreviewCountChip label="OK" value={rowCounts.valid} onClick={() => dispatch({ type: "set-filter", value: "valid" })} />
+                      {rowCounts.warnings > 0 ? (
+                        <PreviewCountChip label="Rev." value={rowCounts.warnings} variant="warning" onClick={() => dispatch({ type: "set-filter", value: "warnings" })} />
                       ) : null}
-                      {summary.errorRows > 0 ? (
-                        <PreviewCountChip label="Erros" value={summary.errorRows} variant="error" onClick={() => dispatch({ type: "set-filter", value: "errors" })} />
+                      {rowCounts.errors > 0 ? (
+                        <PreviewCountChip label="Erros" value={rowCounts.errors} variant="error" onClick={() => dispatch({ type: "set-filter", value: "errors" })} />
                       ) : null}
-                      {summary.duplicateRows > 0 ? (
-                        <PreviewCountChip label="Dup." value={summary.duplicateRows} onClick={() => dispatch({ type: "set-filter", value: "duplicates" })} />
+                      {rowCounts.duplicates > 0 ? (
+                        <PreviewCountChip label="Dup." value={rowCounts.duplicates} onClick={() => dispatch({ type: "set-filter", value: "duplicates" })} />
                       ) : null}
                     </div>
                   ) : null}
@@ -1134,7 +1160,7 @@ export default function ImportTransactionsModal({ open, onOpenChange, categories
           </div>
 
           <DialogFooter className="justify-between sm:justify-between">
-            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+            <Button variant="secondary" onClick={() => setCategoryDialogOpen(false)}>
               Cancelar
             </Button>
             <Button onClick={() => void handleCreateCategory()} disabled={createCategory.isPending}>

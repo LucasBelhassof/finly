@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, Bell, CalendarDays, ChevronDown, CreditCard, Search, Settings2 } from "lucide-react";
+import { AlertTriangle, Bell, CalendarDays, CheckCircle2, ChevronDown, CreditCard, Search, Settings2 } from "lucide-react";
 
 import AppShell from "@/components/AppShell";
 import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
-import { useInvoices, useUpdateInvoiceSettings } from "@/hooks/use-invoices";
+import { useInvoices, useMarkInvoicePaid, useUnmarkInvoicePaid, useUpdateInvoiceSettings } from "@/hooks/use-invoices";
 import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { getCurrentMonthSelection, resolveMonthYearRange } from "@/lib/transactions-date-filter";
 import { cn } from "@/lib/utils";
@@ -88,7 +88,11 @@ function getStatusBadgeClassName(status: InvoiceStatus) {
   return "border-primary/30 bg-primary/10 text-primary";
 }
 
-function getInvoiceCardClassName(status: InvoiceStatus) {
+function getInvoiceCardClassName(status: InvoiceStatus, isPaid?: boolean) {
+  if (isPaid) {
+    return "border-success/30 bg-success/5";
+  }
+
   if (status === "overdue") {
     return "border-destructive/30 bg-destructive/5";
   }
@@ -280,9 +284,27 @@ export default function CreditCardInvoicesPage() {
   );
   const { data, isLoading, isError, refetch } = useInvoices(filters);
   const updateSettings = useUpdateInvoiceSettings();
+  const markPaid = useMarkInvoicePaid();
+  const unmarkPaid = useUnmarkInvoicePaid();
   const [openInvoiceIds, setOpenInvoiceIds] = useState<Set<string>>(new Set());
   const [settingsInvoice, setSettingsInvoice] = useState<InvoiceItem | null>(null);
   const invoices = data?.invoices ?? [];
+
+  const handleTogglePaid = async (invoice: InvoiceItem) => {
+    try {
+      if (invoice.isPaid) {
+        await unmarkPaid.mutateAsync({ cardId: invoice.card.id, periodEnd: invoice.periodEnd });
+        toast.success("Fatura desmarcada como paga.");
+      } else {
+        await markPaid.mutateAsync({ cardId: invoice.card.id, periodEnd: invoice.periodEnd });
+        toast.success("Fatura marcada como paga.");
+      }
+    } catch (error) {
+      toast.error("Não foi possível atualizar o pagamento.", {
+        description: error instanceof Error ? error.message : "Tente novamente em instantes.",
+      });
+    }
+  };
 
   const handleResetFilters = () => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -483,7 +505,7 @@ export default function CreditCardInvoicesPage() {
                     })
                   }
                 >
-                  <div className={cn("rounded-lg border transition-colors", getInvoiceCardClassName(invoice.status))}>
+                  <div className={cn("rounded-lg border transition-colors", getInvoiceCardClassName(invoice.status, invoice.isPaid))}>
                     <div className="flex items-center gap-3 px-3 py-2">
                       <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-foreground", invoice.card.color)}>
                         <CreditCard size={16} />
@@ -493,13 +515,20 @@ export default function CreditCardInvoicesPage() {
                         <button type="button" className="group min-w-0 flex-1 cursor-pointer text-left">
                           <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                             <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">{invoice.card.name}</p>
-                            <Badge variant="outline" className={cn("w-fit text-[11px]", getStatusBadgeClassName(invoice.status))}>
-                              {getStatusLabel(invoice.status)}
-                            </Badge>
+                            {invoice.isPaid ? (
+                              <Badge variant="outline" className="w-fit text-[11px] border-success/30 bg-success/10 text-success">
+                                <CheckCircle2 size={10} className="mr-1" />
+                                Paga
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className={cn("w-fit text-[11px]", getStatusBadgeClassName(invoice.status))}>
+                                {getStatusLabel(invoice.status)}
+                              </Badge>
+                            )}
                             <span className="hidden text-xs text-muted-foreground sm:inline">{invoice.referenceMonthLabel}</span>
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
-                            {formatDate(invoice.periodStart)} a {formatDate(invoice.periodEnd)} · Fecha {formatDate(invoice.closingDate)} · Vence {formatDate(invoice.dueDate)}
+                            Fecha {formatDate(invoice.closingDate)} · Vence {formatDate(invoice.dueDate)}
                           </p>
                         </button>
                       </CollapsibleTrigger>
@@ -508,6 +537,25 @@ export default function CreditCardInvoicesPage() {
                         <p className="text-sm font-semibold text-foreground tabular-nums">{invoice.formattedTotalAmount}</p>
                         <p className="text-xs text-muted-foreground">{invoice.transactionCount} despesa(s)</p>
                       </div>
+
+                      {(invoice.status === "closed" || invoice.status === "overdue") && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-8 shrink-0 gap-1.5 rounded-lg px-2 text-xs",
+                            invoice.isPaid
+                              ? "text-success hover:bg-success/10 hover:text-success"
+                              : "text-muted-foreground hover:bg-success/10 hover:text-success",
+                          )}
+                          disabled={markPaid.isPending || unmarkPaid.isPending}
+                          onClick={() => void handleTogglePaid(invoice)}
+                          aria-label={invoice.isPaid ? "Desmarcar fatura como paga" : "Marcar fatura como paga"}
+                        >
+                          <CheckCircle2 size={14} />
+                          <span className="hidden sm:inline">{invoice.isPaid ? "Paga" : "Marcar paga"}</span>
+                        </Button>
+                      )}
 
                       <CollapsibleTrigger asChild>
                         <button
@@ -526,13 +574,6 @@ export default function CreditCardInvoicesPage() {
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <CalendarDays size={11} />
                             {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            · Fecha dia {invoice.card.statementCloseDay ?? "--"}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Bell size={11} />
-                            Vence dia {invoice.card.statementDueDay ?? "--"}
                           </span>
                           <Button
                             variant="ghost"

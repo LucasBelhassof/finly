@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { BadRequestError } from "../../shared/errors.js";
-import { listInvoicesForUser, updateInvoiceSettingsForCard } from "./service.js";
+import { listInvoicesForUser, markInvoicePaid, unmarkInvoicePaid, updateInvoiceSettingsForCard } from "./service.js";
 
 function parseIntegerRouteParam(value: string | undefined, code: string) {
   const parsed = Number(value);
@@ -31,6 +31,51 @@ export function createInvoicesRouter() {
     });
 
     response.json(result);
+  });
+
+  router.post("/payments", async (request, response) => {
+    if (!request.auth) {
+      throw new BadRequestError("missing_auth_context", "Authentication context is missing.");
+    }
+
+    const { cardId, periodEnd } = request.body ?? {};
+    const parsedCardId = parseIntegerRouteParam(String(cardId ?? ""), "invalid_card_id");
+
+    if ("error" in parsedCardId) {
+      response.status(400).json(parsedCardId);
+      return;
+    }
+
+    if (!periodEnd || typeof periodEnd !== "string") {
+      response.status(400).json({ error: "invalid_period_end", message: "periodEnd is required." });
+      return;
+    }
+
+    await markInvoicePaid(request.auth.userId, parsedCardId.value, periodEnd);
+    response.json({ ok: true });
+  });
+
+  router.delete("/payments/:cardId/:periodEnd", async (request, response) => {
+    if (!request.auth) {
+      throw new BadRequestError("missing_auth_context", "Authentication context is missing.");
+    }
+
+    const cardId = parseIntegerRouteParam(request.params.cardId, "invalid_card_id");
+
+    if ("error" in cardId) {
+      response.status(400).json(cardId);
+      return;
+    }
+
+    const { periodEnd } = request.params;
+
+    if (!periodEnd) {
+      response.status(400).json({ error: "invalid_period_end", message: "periodEnd is required." });
+      return;
+    }
+
+    await unmarkInvoicePaid(request.auth.userId, cardId.value, periodEnd);
+    response.status(204).end();
   });
 
   router.patch("/cards/:id/settings", async (request, response) => {

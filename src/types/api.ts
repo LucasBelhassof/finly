@@ -141,6 +141,7 @@ export interface ApiInvoiceItem {
   closingDate?: string;
   dueDate?: string;
   status?: InvoiceStatus;
+  isPaid?: boolean;
   totalAmount?: number;
   formattedTotalAmount?: string;
   transactionCount?: number;
@@ -990,6 +991,7 @@ export interface InvoiceItem {
   closingDate: string;
   dueDate: string;
   status: InvoiceStatus;
+  isPaid: boolean;
   totalAmount: number;
   formattedTotalAmount: string;
   transactionCount: number;

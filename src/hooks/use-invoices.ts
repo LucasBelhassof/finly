@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getInvoices, updateInvoiceSettings } from "@/lib/api";
+import { getInvoices, markInvoicePaid, unmarkInvoicePaid, updateInvoiceSettings } from "@/lib/api";
 import { banksQueryKey } from "@/hooks/use-banks";
 import type { InvoiceFilters, InvoiceSettingsInput } from "@/types/api";
 
@@ -31,6 +31,30 @@ export function useUpdateInvoiceSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: banksQueryKey });
+    },
+  });
+}
+
+export function useMarkInvoicePaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ cardId, periodEnd }: { cardId: number | string; periodEnd: string }) =>
+      markInvoicePaid(cardId, periodEnd),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    },
+  });
+}
+
+export function useUnmarkInvoicePaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ cardId, periodEnd }: { cardId: number | string; periodEnd: string }) =>
+      unmarkInvoicePaid(cardId, periodEnd),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
     },
   });
 }

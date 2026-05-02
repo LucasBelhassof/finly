@@ -229,6 +229,47 @@ async function listUserCreditCards(userId: number, client: Queryable = db) {
   return result.rows.map(mapCreditCardRow);
 }
 
+async function listAllUserCreditCards(userId: number, client: Queryable = db) {
+  const result = await client.query(
+    `
+      SELECT
+        id,
+        slug,
+        name,
+        color,
+        statement_close_day,
+        statement_due_day,
+        notify_invoice_closed,
+        notify_invoice_due_soon,
+        invoice_due_reminder_days
+      FROM bank_connections
+      WHERE user_id = $1
+        AND account_type = 'credit_card'
+      ORDER BY name ASC, id ASC
+    `,
+    [userId],
+  );
+
+  return result.rows.map(mapCreditCardRow);
+}
+
+async function listPaidInvoiceKeys(userId: number, client: Queryable = db): Promise<Set<string>> {
+  const result = await client.query(
+    `
+      SELECT bank_connection_id, invoice_period_end::text AS invoice_period_end
+      FROM invoice_payments
+      WHERE user_id = $1
+    `,
+    [userId],
+  );
+
+  const keys = result.rows.map(
+    (row) => `${row.bank_connection_id}:${String(row.invoice_period_end).slice(0, 10)}`,
+  );
+
+  return new Set(keys);
+}
+
 async function listInvoiceTransactionRows(userId: number, client: Queryable = db) {
   const result = await client.query(
     `
@@ -333,7 +374,7 @@ function matchesTransactionFilters(row: TransactionRow, filters: NormalizedInvoi
   return true;
 }
 
-function buildFilterOptions(rows: TransactionRow[], cards: CreditCardRow[]) {
+function buildFilterOptions(rows: TransactionRow[], cards: CreditCardRow[], allCards: CreditCardRow[]) {
   const categories = Array.from(
     new Map(
       rows.map((row) => [
@@ -346,8 +387,12 @@ function buildFilterOptions(rows: TransactionRow[], cards: CreditCardRow[]) {
     ).values(),
   ).sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
 
+  // Use allCards for the filter dropdown so every registered credit card appears,
+  // even ones without transactions in the current period.
+  const filterCards = allCards.length > 0 ? allCards : cards;
+
   return {
-    cards: cards.map((card) => ({ id: card.id, name: card.name })),
+    cards: filterCards.map((card) => ({ id: card.id, name: card.name })),
     categories,
     statuses: ["open", "closed", "due_soon", "overdue"] as InvoiceStatus[],
   };
@@ -358,6 +403,8 @@ export function buildInvoicesResponse(
   cards: CreditCardRow[],
   rawFilters: InvoiceFilters = {},
   today: unknown = new Date(),
+  paidKeys: Set<string> = new Set(),
+  allCards: CreditCardRow[] = [],
 ) {
   const filters = normalizeFilters(rawFilters);
   const grouped = new Map<string, {
@@ -432,6 +479,7 @@ export function buildInvoicesResponse(
     .map((invoice) => {
       const filteredRows = invoice.rows.filter((row) => matchesTransactionFilters(row, filters));
       const totalAmount = roundCurrency(filteredRows.reduce((sum, row) => sum + Math.abs(row.amount), 0));
+      const paidKey = `${invoice.card.id}:${invoice.periodEnd}`;
 
       return {
         id: `${invoice.card.id}-${invoice.periodEnd}`,
@@ -453,6 +501,7 @@ export function buildInvoicesResponse(
         closingDate: invoice.closingDate,
         dueDate: invoice.dueDate,
         status: invoice.status,
+        isPaid: paidKeys.has(paidKey),
         totalAmount,
         formattedTotalAmount: formatCurrency(totalAmount),
         transactionCount: filteredRows.length,
@@ -490,15 +539,17 @@ export function buildInvoicesResponse(
       activeCardsCount: activeCards.size,
       invoiceCount: invoices.length,
     },
-    filterOptions: buildFilterOptions(rows, cards),
+    filterOptions: buildFilterOptions(rows, cards, allCards),
     invoices,
   };
 }
 
 export async function listInvoicesForUser(userId: number, filters: InvoiceFilters = {}, today: unknown = new Date()) {
-  const [cards, rows] = await Promise.all([
+  const [cards, allCards, rows, paidKeys] = await Promise.all([
     listUserCreditCards(userId),
+    listAllUserCreditCards(userId),
     listInvoiceTransactionRows(userId),
+    listPaidInvoiceKeys(userId),
   ]);
 
   try {
@@ -507,7 +558,46 @@ export async function listInvoicesForUser(userId: number, filters: InvoiceFilter
     console.error("failed to generate invoice notifications", error);
   }
 
-  return buildInvoicesResponse(rows, cards, filters, today);
+  return buildInvoicesResponse(rows, cards, filters, today, paidKeys, allCards);
+}
+
+export async function markInvoicePaid(userId: number, cardId: number, periodEnd: string) {
+  const normalized = normalizeDateOnly(periodEnd);
+
+  if (!normalized) {
+    throw new BadRequestError("invalid_period_end", "periodEnd must be a valid date (YYYY-MM-DD).");
+  }
+
+  const cardCheck = await db.query(
+    `SELECT id FROM bank_connections WHERE id = $1 AND user_id = $2 AND account_type = 'credit_card' LIMIT 1`,
+    [cardId, userId],
+  );
+
+  if (!cardCheck.rows[0]) {
+    throw new HttpError(404, "card_not_found", "The credit card was not found.");
+  }
+
+  await db.query(
+    `
+      INSERT INTO invoice_payments (user_id, bank_connection_id, invoice_period_end)
+      VALUES ($1, $2, $3::date)
+      ON CONFLICT (user_id, bank_connection_id, invoice_period_end) DO NOTHING
+    `,
+    [userId, cardId, normalized],
+  );
+}
+
+export async function unmarkInvoicePaid(userId: number, cardId: number, periodEnd: string) {
+  const normalized = normalizeDateOnly(periodEnd);
+
+  if (!normalized) {
+    throw new BadRequestError("invalid_period_end", "periodEnd must be a valid date (YYYY-MM-DD).");
+  }
+
+  await db.query(
+    `DELETE FROM invoice_payments WHERE user_id = $1 AND bank_connection_id = $2 AND invoice_period_end = $3::date`,
+    [userId, cardId, normalized],
+  );
 }
 
 function parseRequiredStatementDay(value: unknown, fieldName: "statementCloseDay" | "statementDueDay") {

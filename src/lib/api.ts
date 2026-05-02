@@ -839,6 +839,7 @@ export function mapInvoiceItem(invoice: ApiInvoiceItem): InvoiceItem {
     totalAmount,
     formattedTotalAmount: safeString(invoice.formattedTotalAmount, formatCurrency(totalAmount)),
     transactionCount: safeNumber(invoice.transactionCount),
+    isPaid: Boolean(invoice.isPaid),
     transactions: (invoice.transactions ?? []).map(mapTransaction),
   };
 }
@@ -2006,6 +2007,19 @@ export async function updateInvoiceSettings(input: InvoiceSettingsInput) {
   });
 
   return mapInvoiceCard(response.card);
+}
+
+export async function markInvoicePaid(cardId: number | string, periodEnd: string) {
+  await request<{ ok: boolean }>("/api/invoices/payments", {
+    method: "POST",
+    body: JSON.stringify({ cardId, periodEnd }),
+  });
+}
+
+export async function unmarkInvoicePaid(cardId: number | string, periodEnd: string) {
+  await request<unknown>(`/api/invoices/payments/${cardId}/${periodEnd}`, {
+    method: "DELETE",
+  });
 }
 
 export async function deleteBank(id: number | string) {

@@ -74,6 +74,10 @@ function buildCalendarClassNames() {
   };
 }
 
+function resolveInitialVisibleMonth(startValue: string | null | undefined, endValue?: string | null | undefined) {
+  return parseDateOnly(startValue ?? undefined) ?? parseDateOnly(endValue ?? undefined) ?? new Date();
+}
+
 interface DatePickerInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -91,10 +95,12 @@ export function DatePickerInput({
 }: DatePickerInputProps) {
   const [open, setOpen] = useState(false);
   const [draftValue, setDraftValue] = useState<string>(value);
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => resolveInitialVisibleMonth(value));
 
   useEffect(() => {
     if (!open) {
       setDraftValue(value);
+      setVisibleMonth(resolveInitialVisibleMonth(value));
     }
   }, [open, value]);
 
@@ -128,10 +134,12 @@ export function DatePickerInput({
             <Calendar
               mode="single"
               selected={parseDateOnly(draftValue)}
-              defaultMonth={parseDateOnly(draftValue || value)}
+              month={visibleMonth}
+              onMonthChange={setVisibleMonth}
               onSelect={(date) => {
                 if (date) {
                   setDraftValue(toDateKey(date));
+                  setVisibleMonth(date);
                 }
               }}
               initialFocus
@@ -204,14 +212,16 @@ export function DateRangePickerInput({
   const [draftAnchorDate, setDraftAnchorDate] = useState<Date | undefined>();
   const [draftHoverDate, setDraftHoverDate] = useState<Date | undefined>();
   const [draftCommittedRange, setDraftCommittedRange] = useState<DateRange | undefined>(initialRange);
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => resolveInitialVisibleMonth(startValue, endValue));
 
   useEffect(() => {
     if (!open) {
       setDraftAnchorDate(undefined);
       setDraftHoverDate(undefined);
       setDraftCommittedRange(initialRange);
+      setVisibleMonth(resolveInitialVisibleMonth(startValue, endValue));
     }
-  }, [initialRange, open]);
+  }, [endValue, initialRange, open, startValue]);
 
   const previewRange = useMemo(() => {
     if (draftCommittedRange?.from && draftCommittedRange?.to) {
@@ -233,6 +243,8 @@ export function DateRangePickerInput({
   }, [draftAnchorDate, draftCommittedRange, draftHoverDate]);
 
   const handleDayClick = (day: Date) => {
+    setVisibleMonth(day);
+
     if (draftCommittedRange?.from && draftCommittedRange?.to) {
       setDraftCommittedRange(undefined);
       setDraftAnchorDate(day);
@@ -286,7 +298,8 @@ export function DateRangePickerInput({
             <Calendar
               mode="range"
               selected={previewRange}
-              defaultMonth={draftCommittedRange?.from ?? parseDateOnly(startValue ?? undefined)}
+              month={visibleMonth}
+              onMonthChange={setVisibleMonth}
               onDayClick={handleDayClick}
               onDayMouseEnter={(day) => {
                 if (draftAnchorDate && !draftCommittedRange) {

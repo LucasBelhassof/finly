@@ -56,6 +56,10 @@ function dateRangeToFilterRange(range: DateRange | undefined): TransactionsDateR
   };
 }
 
+function resolveInitialVisibleMonth(range: TransactionsDateRange) {
+  return parseLocalDateKey(range.startDate);
+}
+
 export default function TransactionsDateFilter({
   preset,
   range,
@@ -67,12 +71,14 @@ export default function TransactionsDateFilter({
   const [draftAnchorDate, setDraftAnchorDate] = useState<Date | undefined>();
   const [draftHoverDate, setDraftHoverDate] = useState<Date | undefined>();
   const [draftCommittedRange, setDraftCommittedRange] = useState<DateRange | undefined>(rangeToCalendarValue(range));
+  const [visibleMonth, setVisibleMonth] = useState<Date>(() => resolveInitialVisibleMonth(range));
 
   useEffect(() => {
     if (!open) {
       setDraftAnchorDate(undefined);
       setDraftHoverDate(undefined);
       setDraftCommittedRange(rangeToCalendarValue(range));
+      setVisibleMonth(resolveInitialVisibleMonth(range));
     }
   }, [open, range]);
 
@@ -100,6 +106,8 @@ export default function TransactionsDateFilter({
   const isValidRange = draftRange ? isValidCustomRange(draftRange) : false;
 
   const handleDayClick = (day: Date) => {
+    setVisibleMonth(day);
+
     if (draftCommittedRange?.from && draftCommittedRange?.to) {
       setDraftCommittedRange(undefined);
       setDraftAnchorDate(day);
@@ -168,7 +176,8 @@ export default function TransactionsDateFilter({
               <Calendar
                 mode="range"
                 selected={previewRange}
-                defaultMonth={draftCommittedRange?.from ?? parseLocalDateKey(range.startDate)}
+                month={visibleMonth}
+                onMonthChange={setVisibleMonth}
                 onDayClick={(day) => handleDayClick(day)}
                 onDayMouseEnter={(day) => {
                   if (draftAnchorDate && !draftCommittedRange) {

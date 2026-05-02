@@ -7,15 +7,25 @@ vi.mock("@/components/ui/calendar", () => ({
   Calendar: ({
     onDayClick,
     onDayMouseEnter,
+    onMonthChange,
+    month,
     selected,
   }: {
     onDayClick?: (day: Date) => void;
     onDayMouseEnter?: (day: Date) => void;
+    onMonthChange?: (month: Date) => void;
+    month?: Date;
     selected?: { from?: Date; to?: Date };
   }) => (
     <div>
+      <button type="button" onClick={() => onMonthChange?.(new Date(2026, 4, 1, 12, 0, 0))}>
+        Go May
+      </button>
       <button type="button" onClick={() => onDayClick?.(new Date(2026, 3, 2, 12, 0, 0))}>
         Click Apr 2
+      </button>
+      <button type="button" onClick={() => onDayClick?.(new Date(2026, 4, 5, 12, 0, 0))}>
+        Click May 5
       </button>
       <button type="button" onMouseEnter={() => onDayMouseEnter?.(new Date(2026, 3, 8, 12, 0, 0))}>
         Hover Apr 8
@@ -26,6 +36,7 @@ vi.mock("@/components/ui/calendar", () => ({
       <div data-testid="calendar-selected">
         {selected?.from ? `${selected.from.getDate()}` : "-"}-{selected?.to ? `${selected.to.getDate()}` : "-"}
       </div>
+      <div data-testid="calendar-month">{month ? `${month.getFullYear()}-${month.getMonth() + 1}` : "-"}</div>
     </div>
   ),
 }));
@@ -103,5 +114,26 @@ describe("TransactionsDateFilter", () => {
       startDate: "2026-04-02",
       endDate: "2026-04-08",
     });
+  });
+
+  it("keeps the navigated month visible when restarting a custom range", () => {
+    render(
+      <TransactionsDateFilter
+        preset="custom"
+        range={{ startDate: "2026-04-01", endDate: "2026-04-06" }}
+        onSelectPreset={vi.fn()}
+        onApplyCustomRange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /01\/04\/2026 - 06\/04\/2026/i }));
+    expect(screen.getByTestId("calendar-month").textContent).toBe("2026-4");
+
+    fireEvent.click(screen.getByRole("button", { name: "Go May" }));
+    expect(screen.getByTestId("calendar-month").textContent).toBe("2026-5");
+
+    fireEvent.click(screen.getByRole("button", { name: "Click May 5" }));
+    expect(screen.getByTestId("calendar-month").textContent).toBe("2026-5");
+    expect(screen.getByText("Selecione a data final.")).toBeInTheDocument();
   });
 });

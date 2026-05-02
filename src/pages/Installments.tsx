@@ -82,25 +82,6 @@ function updateUrlFilterParams(
   setSearchParams(nextSearchParams, { replace: true });
 }
 
-function mergeImmediateFilters(
-  filters: InstallmentsOverviewFilters,
-  immediateFilters: Pick<InstallmentsOverviewFilters, "categoryId" | "search" | "purchaseStart" | "purchaseEnd">,
-) {
-  if (
-    filters.categoryId === immediateFilters.categoryId &&
-    filters.search === immediateFilters.search &&
-    filters.purchaseStart === immediateFilters.purchaseStart &&
-    filters.purchaseEnd === immediateFilters.purchaseEnd
-  ) {
-    return filters;
-  }
-
-  return {
-    ...filters,
-    ...immediateFilters,
-  };
-}
-
 function parseNumberParam(value: string | null) {
   if (!value) {
     return null;
@@ -221,7 +202,10 @@ function buildCsv(filters: InstallmentsOverviewFilters, items: InstallmentOvervi
 
 export default function InstallmentsPage() {
   const currentSelection = getCurrentMonthSelection();
-  const defaultDateRange = resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year);
+  const defaultDateRange = useMemo(
+    () => resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+    [currentSelection.monthIndex, currentSelection.year],
+  );
   const defaultFilters = useMemo(() => createDefaultFilters(defaultDateRange), [defaultDateRange.endDate, defaultDateRange.startDate]);
   const [searchParams, setSearchParams] = useSearchParams();
   const {
@@ -260,7 +244,7 @@ export default function InstallmentsPage() {
 
   useEffect(() => {
     setFilters(readFiltersFromSearchParams(searchParams, createDefaultFilters(defaultDateRange), immediateFilters));
-  }, [defaultDateRange, immediateFilters, searchParams]);
+  }, [defaultDateRange.endDate, defaultDateRange.startDate, immediateFilters, searchParams]);
 
   const handleFiltersChange = (nextFilters: InstallmentsOverviewFilters) => {
     setFilters(nextFilters);

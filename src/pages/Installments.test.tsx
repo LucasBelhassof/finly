@@ -520,7 +520,7 @@ describe("InstallmentsPage", () => {
     });
 
     expect(screen.getByPlaceholderText(/Buscar compra/)).toHaveValue("");
-    expect(screen.getByText("Nenhum parcelamento encontrado")).toBeInTheDocument();
+    expect(screen.getByText("Notebook")).toBeInTheDocument();
   });
 
   it("does not render an apply button for advanced filters", () => {

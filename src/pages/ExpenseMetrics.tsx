@@ -1,12 +1,12 @@
 import { ArrowDownRight, ArrowUpRight, CalendarRange, Landmark, Scale, TrendingDown, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { useSearchParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import CategoryPieChart, { type CategoryPieChartItem } from "@/components/CategoryPieChart";
 import MetricInfoTooltip from "@/components/MetricInfoTooltip";
-import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
-import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
+import PageFiltersPanel from "@/components/PageFiltersPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,9 +16,8 @@ import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { resolveCategoryColorPresentation } from "@/lib/category-colors";
 import {
-  formatDateRangeLabel,
   getCurrentMonthSelection,
-  resolvePresetRange,
+  resolveMonthYearRange,
   type TransactionsDateFilterPreset,
 } from "@/lib/transactions-date-filter";
 import { cn } from "@/lib/utils";
@@ -205,6 +204,11 @@ export default function ExpenseMetricsPage() {
   const { data: transactions = [], isLoading: isTransactionsLoading, isError: isTransactionsError } = useTransactions();
   const { data: banks = [], isLoading: isBanksLoading } = useBanks();
   const currentSelection = getCurrentMonthSelection();
+  const defaultDateRange = useMemo(
+    () => resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+    [currentSelection.monthIndex, currentSelection.year],
+  );
+  const [, setSearchParams] = useSearchParams();
   const {
     selectedMonthIndex,
     selectedYear,
@@ -218,10 +222,12 @@ export default function ExpenseMetricsPage() {
     selectedMonthIndex: currentSelection.monthIndex,
     selectedYear: currentSelection.year,
     datePreset: "month",
-    dateRange: resolvePresetRange("month"),
+    dateRange: defaultDateRange,
   });
 
   const [selectedAccountId, setSelectedAccountId] = useState("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<MetricTypeFilter>("all");
 
   const visibleTransactions = useMemo(
@@ -235,6 +241,47 @@ export default function ExpenseMetricsPage() {
       ),
     [transactions],
   );
+  const transactionsForSelectedType = useMemo(
+    () =>
+      visibleTransactions.filter((transaction) => {
+        if (typeFilter === "income") {
+          return transaction.amount > 0;
+        }
+
+        if (typeFilter === "expense") {
+          return transaction.amount < 0;
+        }
+
+        return true;
+      }),
+    [typeFilter, visibleTransactions],
+  );
+  const categoryOptions = useMemo(() => {
+    const grouped = new Map<string, { value: string; label: string }>();
+
+    transactionsForSelectedType.forEach((transaction) => {
+      const value = transaction.category.groupSlug || transaction.category.slug || String(transaction.category.id);
+      const label = transaction.category.groupLabel || transaction.category.label;
+
+      if (!grouped.has(value)) {
+        grouped.set(value, { value, label });
+      }
+    });
+
+    return Array.from(grouped.values()).sort((left, right) => left.label.localeCompare(right.label, "pt-BR"));
+  }, [transactionsForSelectedType]);
+
+  useEffect(() => {
+    if (selectedCategoryId === "all") {
+      return;
+    }
+
+    const categoryStillAvailable = categoryOptions.some((option) => option.value === selectedCategoryId);
+
+    if (!categoryStillAvailable) {
+      setSelectedCategoryId("all");
+    }
+  }, [categoryOptions, selectedCategoryId]);
 
   const filteredTransactions = useMemo(
     () =>
@@ -242,12 +289,21 @@ export default function ExpenseMetricsPage() {
         const matchesAccount = selectedAccountId === "all" || String(transaction.account.id) === selectedAccountId;
         const matchesType =
           typeFilter === "all" || (typeFilter === "income" ? transaction.amount > 0 : transaction.amount < 0);
+        const categoryKey = transaction.category.groupSlug || transaction.category.slug || String(transaction.category.id);
+        const matchesCategory = selectedCategoryId === "all" || categoryKey === selectedCategoryId;
+        const normalizedSearch = search.trim().toLowerCase();
+        const matchesSearch =
+          !normalizedSearch ||
+          transaction.description.toLowerCase().includes(normalizedSearch) ||
+          transaction.account.name.toLowerCase().includes(normalizedSearch) ||
+          transaction.category.label.toLowerCase().includes(normalizedSearch) ||
+          (transaction.category.groupLabel?.toLowerCase().includes(normalizedSearch) ?? false);
         const matchesDate =
           transaction.occurredOn >= dateRange.startDate && transaction.occurredOn <= dateRange.endDate;
 
-        return matchesAccount && matchesType && matchesDate;
+        return matchesAccount && matchesType && matchesCategory && matchesSearch && matchesDate;
       }),
-    [dateRange.endDate, dateRange.startDate, selectedAccountId, typeFilter, visibleTransactions],
+    [dateRange.endDate, dateRange.startDate, search, selectedAccountId, selectedCategoryId, typeFilter, visibleTransactions],
   );
 
   const expenseTransactions = useMemo(
@@ -343,6 +399,19 @@ export default function ExpenseMetricsPage() {
       ),
     [banks],
   );
+  const handleResetFilters = () => {
+    const nextSearchParams = new URLSearchParams();
+    nextSearchParams.set("month", String(currentSelection.monthIndex));
+    nextSearchParams.set("year", String(currentSelection.year));
+    nextSearchParams.set("preset", "month");
+    nextSearchParams.set("startDate", defaultDateRange.startDate);
+    nextSearchParams.set("endDate", defaultDateRange.endDate);
+    setSearchParams(nextSearchParams, { replace: true });
+    setSelectedAccountId("all");
+    setSelectedCategoryId("all");
+    setSearch("");
+    setTypeFilter("all");
+  };
 
   if (isTransactionsLoading || isBanksLoading) {
     return (
@@ -363,61 +432,61 @@ export default function ExpenseMetricsPage() {
 
   return (
     <AppShell title="Métricas" description="Leitura operacional das despesas, receitas e concentração por conta">
-      <section data-tour-id="expense-metrics-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-          <TransactionsMonthYearFilter
-            selectedMonthIndex={selectedMonthIndex}
-            selectedYear={selectedYear}
-            onMonthChange={handleMonthChange}
-            onYearChange={handleYearChange}
-          />
-
-          <TransactionsDateFilter
-            preset={datePreset}
-            range={dateRange}
-            onSelectPreset={handlePresetChange}
-            onApplyCustomRange={handleCustomRangeApply}
-            showPresetButtons={false}
-          />
-
-          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-            <SelectTrigger className="h-11 w-full rounded-2xl border-border/60 bg-secondary/30 xl:flex-1">
-              <SelectValue placeholder="Todas as contas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as contas</SelectItem>
-              {accountOptions.map((bank) => (
-                <SelectItem key={bank.id} value={String(bank.id)}>
-                  {bank.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center justify-between">
-          <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-            {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
-          </div>
-          <div className="grid grid-cols-3 gap-2 xl:flex xl:flex-wrap">
-            {typeFilters.map((filter) => (
-              <button
-                key={filter.value}
-                type="button"
-                onClick={() => setTypeFilter(filter.value)}
-                className={cn(
-                  "min-h-11 rounded-2xl px-4 py-2.5 text-sm transition-colors sm:min-h-0",
-                  typeFilter === filter.value
-                    ? "bg-primary/15 text-primary"
-                    : "bg-secondary/50 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PageFiltersPanel
+        dataTourId="expense-metrics-filters"
+        selectedMonthIndex={selectedMonthIndex}
+        selectedYear={selectedYear}
+        datePreset={datePreset}
+        dateRange={dateRange}
+        onMonthChange={handleMonthChange}
+        onYearChange={handleYearChange}
+        onSelectPreset={handlePresetChange}
+        onApplyCustomRange={handleCustomRangeApply}
+        accountFilter={{
+          value: selectedAccountId,
+          placeholder: "Todas as contas",
+          options: [
+            { value: "all", label: "Todas as contas" },
+            ...accountOptions.map((bank) => ({
+              value: String(bank.id),
+              label: bank.name,
+            })),
+          ],
+          onChange: setSelectedAccountId,
+        }}
+        categoryFilter={{
+          value: selectedCategoryId,
+          placeholder: "Todas as categorias",
+          options: [{ value: "all", label: "Todas as categorias" }, ...categoryOptions],
+          onChange: setSelectedCategoryId,
+        }}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar descrição, categoria ou conta..."
+        advancedFilters={
+          <label className="space-y-1 text-sm text-muted-foreground">
+            <span>Tipo</span>
+            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as MetricTypeFilter)}>
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                {typeFilters.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+        }
+        activeAdvancedCount={typeFilter === "all" ? 0 : 1}
+        onResetFilters={handleResetFilters}
+        periodLabel={`${dateRange.startDate.split("-").reverse().join("/")} - ${dateRange.endDate
+          .split("-")
+          .reverse()
+          .join("/")}`}
+      />
 
       <section data-tour-id="expense-metrics-summary" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">

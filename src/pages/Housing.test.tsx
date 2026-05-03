@@ -232,11 +232,10 @@ describe("HousingPage", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /nova despesa recorrente/i }));
+    const modalComboboxes = screen.getAllByRole("combobox");
+
     fireEvent.change(screen.getByPlaceholderText(/financiamento do apartamento/i), {
       target: { value: "Aluguel" },
-    });
-    fireEvent.change(screen.getAllByRole("combobox")[0], {
-      target: { value: "rent" },
     });
     fireEvent.change(screen.getByPlaceholderText(/valor mensal/i), {
       target: { value: "2000,00" },
@@ -244,7 +243,7 @@ describe("HousingPage", () => {
     fireEvent.change(screen.getByLabelText(/selecione a data da cobranca/i), {
       target: { value: "2026-04-05" },
     });
-    fireEvent.change(screen.getAllByRole("combobox")[1], {
+    fireEvent.change(modalComboboxes[1]!, {
       target: { value: "10" },
     });
     fireEvent.click(screen.getByRole("button", { name: /adicionar despesa/i }));
@@ -269,10 +268,12 @@ describe("HousingPage", () => {
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /nova despesa recorrente/i }));
+    const modalComboboxes = screen.getAllByRole("combobox");
+
     fireEvent.change(screen.getByPlaceholderText(/financiamento do apartamento/i), {
       target: { value: "Financiamento do carro" },
     });
-    fireEvent.change(screen.getAllByRole("combobox")[0], {
+    fireEvent.change(modalComboboxes[0]!, {
       target: { value: "vehicle_financing" },
     });
     fireEvent.change(screen.getByPlaceholderText(/valor mensal/i), {
@@ -281,7 +282,7 @@ describe("HousingPage", () => {
     fireEvent.change(screen.getByLabelText(/selecione a data da cobranca/i), {
       target: { value: "2026-04-10" },
     });
-    fireEvent.change(screen.getAllByRole("combobox")[1], {
+    fireEvent.change(modalComboboxes[1]!, {
       target: { value: "10" },
     });
     fireEvent.click(screen.getByRole("button", { name: /adicionar despesa/i }));

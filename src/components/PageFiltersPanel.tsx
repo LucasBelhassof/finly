@@ -28,21 +28,23 @@ interface PageFiltersPanelProps {
   selectedYear: number;
   datePreset: TransactionsDateFilterPreset;
   dateRange: TransactionsDateRange;
-  accountFilter: FilterSelectConfig;
-  categoryFilter: FilterSelectConfig;
-  searchValue: string;
+  accountFilter?: FilterSelectConfig;
+  categoryFilter?: FilterSelectConfig;
+  searchValue?: string;
   onMonthChange: (monthIndex: number) => void;
   onYearChange: (year: number) => void;
   onSelectPreset: (preset: Exclude<TransactionsDateFilterPreset, "custom">) => void;
   onApplyCustomRange: (range: TransactionsDateRange) => void;
-  onSearchChange: (value: string) => void;
-  onResetFilters: () => void;
+  onSearchChange?: (value: string) => void;
+  onResetFilters?: () => void;
+  primaryFilters?: ReactNode;
   inlineFilters?: ReactNode;
   searchPlaceholder?: string;
   searchActions?: ReactNode;
   periodLabel?: string;
   advancedFilters?: ReactNode;
   activeAdvancedCount?: number;
+  footerActions?: ReactNode;
   className?: string;
   dataTourId?: string;
 }
@@ -61,16 +63,20 @@ export default function PageFiltersPanel({
   onApplyCustomRange,
   onSearchChange,
   onResetFilters,
+  primaryFilters,
   inlineFilters,
   searchPlaceholder = "Buscar...",
   searchActions,
   periodLabel,
   advancedFilters,
   activeAdvancedCount = 0,
+  footerActions,
   className,
   dataTourId,
 }: PageFiltersPanelProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const shouldRenderSearch = typeof searchValue === "string" && typeof onSearchChange === "function";
+  const shouldRenderDefaultPrimaryFilters = !primaryFilters && (accountFilter || categoryFilter);
 
   return (
     <section
@@ -94,56 +100,62 @@ export default function PageFiltersPanel({
             showPresetButtons={false}
           />
 
-          <Select value={accountFilter.value} onValueChange={accountFilter.onChange}>
-            <SelectTrigger
-              data-testid={accountFilter.triggerTestId}
-              className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1"
-            >
-              <SelectValue placeholder={accountFilter.placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {accountFilter.options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {primaryFilters}
 
-          <Select value={categoryFilter.value} onValueChange={categoryFilter.onChange}>
-            <SelectTrigger
-              data-testid={categoryFilter.triggerTestId}
-              className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1"
-            >
-              <SelectValue placeholder={categoryFilter.placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {categoryFilter.options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {shouldRenderDefaultPrimaryFilters && accountFilter ? (
+            <Select value={accountFilter.value} onValueChange={accountFilter.onChange}>
+              <SelectTrigger
+                data-testid={accountFilter.triggerTestId}
+                className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1"
+              >
+                <SelectValue placeholder={accountFilter.placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {accountFilter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
+          {shouldRenderDefaultPrimaryFilters && categoryFilter ? (
+            <Select value={categoryFilter.value} onValueChange={categoryFilter.onChange}>
+              <SelectTrigger
+                data-testid={categoryFilter.triggerTestId}
+                className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1"
+              >
+                <SelectValue placeholder={categoryFilter.placeholder} />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryFilter.options.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="relative flex-1">
-            <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchValue}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={searchPlaceholder}
-              className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
-            />
-          </div>
+          {shouldRenderSearch ? (
+            <div className="relative flex-1">
+              <Search size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={searchPlaceholder}
+                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
+              />
+            </div>
+          ) : null}
           {inlineFilters}
           {searchActions ? <div className="grid grid-cols-3 gap-2 xl:flex xl:flex-wrap">{searchActions}</div> : null}
         </div>
 
-        {advancedFilters && isAdvancedOpen ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{advancedFilters}</div>
-        ) : null}
+        {advancedFilters && isAdvancedOpen ? <div className="w-full">{advancedFilters}</div> : null}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           {periodLabel ? (
@@ -152,14 +164,17 @@ export default function PageFiltersPanel({
             <div />
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              className="rounded-xl px-3 text-destructive hover:bg-transparent hover:text-destructive/80"
-              onClick={onResetFilters}
-            >
-              <RotateCcw size={14} />
-              Limpar filtros
-            </Button>
+            {footerActions}
+            {onResetFilters ? (
+              <Button
+                variant="ghost"
+                className="rounded-xl px-3 text-destructive hover:bg-transparent hover:text-destructive/80"
+                onClick={onResetFilters}
+              >
+                <RotateCcw size={14} />
+                Limpar filtros
+              </Button>
+            ) : null}
 
             {advancedFilters ? (
               <Button

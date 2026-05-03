@@ -1,12 +1,12 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { CalendarRange, Pencil, Plus, Repeat, Search, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { CalendarRange, Pencil, Plus, Repeat, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import CategoryPieChart, { type CategoryPieChartItem } from "@/components/CategoryPieChart";
 import MetricInfoTooltip from "@/components/MetricInfoTooltip";
-import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
-import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
+import PageFiltersPanel from "@/components/PageFiltersPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -239,6 +239,7 @@ function RecurringIncomeSkeleton() {
 }
 
 export default function RecurringIncomePage() {
+  const [, setSearchParams] = useSearchParams();
   const { data: transactions = [], isLoading, isError } = useTransactions();
   const { data: categories = [] } = useCategories();
   const { data: banks = [], isLoading: isBanksLoading } = useBanks();
@@ -246,6 +247,10 @@ export default function RecurringIncomePage() {
   const updateTransaction = useUpdateTransaction();
   const removeTransaction = useDeleteTransaction();
   const currentSelection = getCurrentMonthSelection();
+  const defaultDateRange = useMemo(
+    () => resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+    [currentSelection.monthIndex, currentSelection.year],
+  );
   const {
     selectedMonthIndex,
     selectedYear,
@@ -259,7 +264,7 @@ export default function RecurringIncomePage() {
     selectedMonthIndex: currentSelection.monthIndex,
     selectedYear: currentSelection.year,
     datePreset: currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
-    dateRange: resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
+    dateRange: defaultDateRange,
   });
 
   const [search, setSearch] = useState("");
@@ -422,6 +427,23 @@ export default function RecurringIncomePage() {
             occurredOn: resolveDefaultOccurredOn(selectedMonthIndex, year),
           },
     );
+  };
+
+  const handleResetFilters = () => {
+    setSearchParams(
+      {
+        month: String(currentSelection.monthIndex),
+        year: String(currentSelection.year),
+        preset: currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month",
+        startDate: defaultDateRange.startDate,
+        endDate: defaultDateRange.endDate,
+      },
+      { replace: true },
+    );
+
+    setSearch("");
+    setSelectedAccountId("all");
+    setSelectedCategoryId("all");
   };
 
   const openCreate = () => {
@@ -622,82 +644,57 @@ export default function RecurringIncomePage() {
         </DialogContent>
       </Dialog>
 
-      <div data-tour-id="recurring-income-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <TransactionsMonthYearFilter
-              selectedMonthIndex={selectedMonthIndex}
-              selectedYear={selectedYear}
-              onMonthChange={handleMonthChange}
-              onYearChange={handleYearChange}
-            />
-
-            <TransactionsDateFilter
-              preset={datePreset}
-              range={dateRange}
-              onSelectPreset={handlePresetChange}
-              onApplyCustomRange={handleCustomRangeApply}
-              showPresetButtons={false}
-            />
-
-            <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
-                <SelectValue placeholder="Todas as contas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as contas</SelectItem>
-                {accountOptions.map((bank) => (
-                  <SelectItem key={bank.id} value={String(bank.id)}>
-                    {bank.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
-                <SelectValue placeholder="Todas as categorias" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as categorias</SelectItem>
-                {incomeCategories.map((category) => (
-                  <SelectItem key={category.id} value={String(category.id)}>
-                    {category.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="relative flex-1">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar descrição, categoria ou conta..."
-                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
-              />
-            </div>
-            <Button
-              className="w-full rounded-xl bg-income text-background hover:bg-income/90 xl:w-auto"
-              onClick={openCreate}
-            >
-              <Plus size={14} />
-              Nova recorrencia
-            </Button>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageFiltersPanel
+        dataTourId="recurring-income-filters"
+        selectedMonthIndex={selectedMonthIndex}
+        selectedYear={selectedYear}
+        datePreset={datePreset}
+        dateRange={dateRange}
+        onMonthChange={handleMonthChange}
+        onYearChange={handleYearChange}
+        onSelectPreset={handlePresetChange}
+        onApplyCustomRange={handleCustomRangeApply}
+        accountFilter={{
+          value: selectedAccountId,
+          placeholder: "Todas as contas",
+          options: [
+            { value: "all", label: "Todas as contas" },
+            ...accountOptions.map((bank) => ({
+              value: String(bank.id),
+              label: bank.name,
+            })),
+          ],
+          onChange: setSelectedAccountId,
+        }}
+        categoryFilter={{
+          value: selectedCategoryId,
+          placeholder: "Todas as categorias",
+          options: [
+            { value: "all", label: "Todas as categorias" },
+            ...incomeCategories.map((category) => ({
+              value: String(category.id),
+              label: category.label,
+            })),
+          ],
+          onChange: setSelectedCategoryId,
+        }}
+        searchValue={search}
+        searchPlaceholder="Buscar descrição, categoria ou conta..."
+        onSearchChange={setSearch}
+        searchActions={
+          <Button
+            className="w-full rounded-xl bg-income text-background hover:bg-income/90 xl:w-auto"
+            onClick={openCreate}
+          >
+            <Plus size={14} />
+            Nova recorrencia
+          </Button>
+        }
+        periodLabel={`${dateRange.startDate.split("-").reverse().join("/")} - ${dateRange.endDate
+          .split("-")
+          .reverse()
+          .join("/")}`}
+      />
 
       <section data-tour-id="recurring-income-summary" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">

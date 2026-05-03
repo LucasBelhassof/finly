@@ -10,17 +10,16 @@ import {
   Pencil,
   Plus,
   Plug,
-  Search,
   Trash2,
   Wallet,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import CategoryPieChart, { type CategoryPieChartItem } from "@/components/CategoryPieChart";
 import MetricInfoTooltip from "@/components/MetricInfoTooltip";
-import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
-import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
+import PageFiltersPanel from "@/components/PageFiltersPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -345,6 +344,7 @@ function HousingSkeleton() {
 }
 
 export default function HousingPage() {
+  const [, setSearchParams] = useSearchParams();
   const { data: banks = [], isLoading: banksLoading } = useBanks();
   const { data: categories = [] } = useCategories();
   const { data: expenses = [], isLoading: housingLoading, isError: housingError } = useHousing();
@@ -485,6 +485,20 @@ export default function HousingPage() {
 
   const handleYearChange = (year: number) => {
     updateYearFilter(year);
+  };
+
+  const handleResetFilters = () => {
+    const defaultDateRange = resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year);
+    const nextSearchParams = new URLSearchParams();
+    nextSearchParams.set("month", String(currentSelection.monthIndex));
+    nextSearchParams.set("year", String(currentSelection.year));
+    nextSearchParams.set("preset", currentSelection.monthIndex === TRANSACTIONS_YEAR_SELECTION ? "year" : "month");
+    nextSearchParams.set("startDate", defaultDateRange.startDate);
+    nextSearchParams.set("endDate", defaultDateRange.endDate);
+    setSearchParams(nextSearchParams, { replace: true });
+    setSearch("");
+    setSelectedAccountId("all");
+    setSelectedType("all");
   };
 
   const startEditExpense = (expense: HousingItem) => {
@@ -750,26 +764,20 @@ export default function HousingPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="glass-card rounded-[28px] border border-border/40 p-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
-            <TransactionsMonthYearFilter
-              selectedMonthIndex={selectedMonthIndex}
-              selectedYear={selectedYear}
-              onMonthChange={handleMonthChange}
-              onYearChange={handleYearChange}
-            />
-
-            <TransactionsDateFilter
-              preset={datePreset}
-              range={dateRange}
-              onSelectPreset={handlePresetChange}
-              onApplyCustomRange={handleCustomRangeApply}
-              showPresetButtons={false}
-            />
-
+      <PageFiltersPanel
+        dataTourId="housing-filters"
+        selectedMonthIndex={selectedMonthIndex}
+        selectedYear={selectedYear}
+        datePreset={datePreset}
+        dateRange={dateRange}
+        onMonthChange={handleMonthChange}
+        onYearChange={handleYearChange}
+        onSelectPreset={handlePresetChange}
+        onApplyCustomRange={handleCustomRangeApply}
+        primaryFilters={
+          <>
             <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
                 <SelectValue placeholder="Todas as contas" />
               </SelectTrigger>
               <SelectContent>
@@ -783,7 +791,7 @@ export default function HousingPage() {
             </Select>
 
             <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:flex-1">
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
                 <SelectValue placeholder="Todos os tipos" />
               </SelectTrigger>
               <SelectContent>
@@ -795,35 +803,23 @@ export default function HousingPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="relative flex-1">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar descrição, tipo ou conta..."
-                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
-              />
-            </div>
-
-            <Button className="w-full rounded-xl xl:w-auto" onClick={openCreate}>
-              <Plus size={14} />
-              Nova despesa recorrente
-            </Button>
-          </div>
-
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              {dateRange.startDate.split("-").reverse().join("/")} - {dateRange.endDate.split("-").reverse().join("/")}
-            </div>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar descrição, tipo ou conta..."
+        searchActions={
+          <Button className="w-full rounded-xl xl:w-auto" onClick={openCreate}>
+            <Plus size={14} />
+            Nova despesa recorrente
+          </Button>
+        }
+        onResetFilters={handleResetFilters}
+        periodLabel={`${dateRange.startDate.split("-").reverse().join("/")} - ${dateRange.endDate
+          .split("-")
+          .reverse()
+          .join("/")}`}
+      />
 
       <section data-tour-id="housing-summary" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="glass-card rounded-[28px] border border-border/40 p-4 sm:p-5">

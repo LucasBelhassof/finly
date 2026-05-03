@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowDownCircle, ArrowUpCircle } from "lucide-react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +26,10 @@ vi.mock("@/components/AppShell", () => ({
       {children}
     </div>
   ),
+}));
+
+vi.mock("@/components/transactions/TransactionsMonthYearFilter", () => ({
+  default: () => <div>mock-month-year-filter</div>,
 }));
 
 vi.mock("@/components/transactions/TransactionsDateFilter", () => ({
@@ -60,6 +64,28 @@ vi.mock("@/components/ui/chart", () => ({
   ChartContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   ChartTooltip: () => null,
   ChartTooltipContent: () => null,
+}));
+
+vi.mock("@/components/ui/select", () => ({
+  Select: ({
+    children,
+    value,
+    onValueChange,
+  }: {
+    children: ReactNode;
+    value: string;
+    onValueChange: (value: string) => void;
+  }) => (
+    <select value={value} onChange={(event) => onValueChange(event.target.value)}>
+      {children}
+    </select>
+  ),
+  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectItem: ({ children, value }: { children: ReactNode; value: string }) => (
+    <option value={value}>{children}</option>
+  ),
+  SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
 }));
 
 const banks: BankItem[] = [
@@ -221,11 +247,47 @@ describe("ExpenseMetricsPage", () => {
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Métricas" })).toBeInTheDocument();
+    expect(screen.getByText("mock-month-year-filter")).toBeInTheDocument();
+    expect(screen.getByText("mock-date-filter")).toBeInTheDocument();
     expect(screen.getByText("R$ 500,00")).toBeInTheDocument();
     expect(screen.getByText("R$ 4.500,00")).toBeInTheDocument();
     expect(screen.getByText("R$ 250,00")).toBeInTheDocument();
     expect(screen.getByText("Alimentacao R$ 320,00")).toBeInTheDocument();
     expect(screen.getAllByText("Nubank").length).toBeGreaterThan(0);
     expect(screen.getByText("Supermercado")).toBeInTheDocument();
+  });
+
+  it("filters by search, category and advanced type", async () => {
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/Buscar descrição, categoria ou conta/i), {
+      target: { value: "combust" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("1 lançamentos filtrados")).toBeInTheDocument();
+      expect(screen.getByText("-R$ 180,00")).toBeInTheDocument();
+      expect(screen.getByText("Receitas: R$ 0,00")).toBeInTheDocument();
+      expect(screen.getByText("Transporte R$ 180,00")).toBeInTheDocument();
+      expect(screen.queryByText("Alimentacao R$ 320,00")).not.toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getAllByRole("combobox")[1]!, {
+      target: { value: "transporte" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Combustivel")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Opções avançadas/i }));
+    fireEvent.change(screen.getAllByRole("combobox")[2]!, {
+      target: { value: "expense" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Transporte R$ 180,00")).toBeInTheDocument();
+      expect(screen.queryByText("Alimentacao R$ 320,00")).not.toBeInTheDocument();
+    });
   });
 });

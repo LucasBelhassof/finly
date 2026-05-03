@@ -109,34 +109,24 @@ vi.mock("@/components/AppShell", () => ({
 vi.mock("@/components/installments/InstallmentsFilters", () => ({
   default: ({
     filters,
-    appliedRangeLabel,
     onChange,
-    onResetFilters,
   }: {
     filters: InstallmentsOverviewFilters;
-    appliedRangeLabel: string;
     onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-    onResetFilters: () => void;
   }) => (
     <MockInstallmentsFilters
       filters={filters}
-      appliedRangeLabel={appliedRangeLabel}
       onChange={onChange}
-      onResetFilters={onResetFilters}
     />
   ),
 }));
 
 function MockInstallmentsFilters({
   filters,
-  appliedRangeLabel,
   onChange,
-  onResetFilters,
 }: {
   filters: InstallmentsOverviewFilters;
-  appliedRangeLabel: string;
   onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-  onResetFilters: () => void;
 }) {
   const [draft, setDraft] = useState(filters);
 
@@ -146,7 +136,6 @@ function MockInstallmentsFilters({
 
   return (
     <div>
-      <span>{appliedRangeLabel}</span>
       <button
         type="button"
         onClick={() => {
@@ -159,9 +148,6 @@ function MockInstallmentsFilters({
         }}
       >
         Status quitados
-      </button>
-      <button type="button" onClick={onResetFilters}>
-        Limpar filtros
       </button>
     </div>
   );
@@ -459,6 +445,7 @@ describe("InstallmentsPage", () => {
 
     renderPage();
 
+    fireEvent.click(screen.getByRole("button", { name: /Opções avançadas/i }));
     fireEvent.click(screen.getByRole("button", { name: "Status quitados" }));
 
     await waitFor(() => {
@@ -490,6 +477,7 @@ describe("InstallmentsPage", () => {
     });
     fireEvent.click(screen.getAllByRole("combobox")[0]);
     fireEvent.click(screen.getByRole("option", { name: "Cursos" }));
+    fireEvent.click(screen.getByRole("button", { name: /Opções avançadas/i }));
     fireEvent.click(screen.getByRole("button", { name: "Status quitados" }));
 
     await waitFor(() => {

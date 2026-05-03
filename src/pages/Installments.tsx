@@ -1,19 +1,16 @@
-import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import MetricInfoTooltip from "@/components/MetricInfoTooltip";
+import PageFiltersPanel from "@/components/PageFiltersPanel";
 import InstallmentsCharts from "@/components/installments/InstallmentsCharts";
 import InstallmentsFilters from "@/components/installments/InstallmentsFilters";
 import { formatCurrency, formatMonthKey } from "@/components/installments/formatters";
 import InstallmentsInsights from "@/components/installments/InstallmentsInsights";
 import InstallmentsSummaryCards from "@/components/installments/InstallmentsSummaryCards";
 import InstallmentsTable from "@/components/installments/InstallmentsTable";
-import TransactionsDateFilter from "@/components/transactions/TransactionsDateFilter";
-import TransactionsMonthYearFilter from "@/components/transactions/TransactionsMonthYearFilter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useInstallmentsOverview } from "@/hooks/use-installments";
@@ -61,6 +58,17 @@ function formatAppliedRangeLabel(startDate: string | null, endDate: string | nul
   }
 
   return `${startDate.split("-").reverse().join("/")} - ${endDate.split("-").reverse().join("/")}`;
+}
+
+function countActiveAdvancedFilters(filters: InstallmentsOverviewFilters): number {
+  let count = 0;
+  if (filters.cardId !== "all") count++;
+  if (filters.status !== "all") count++;
+  if (filters.sortBy !== "smart" || filters.sortOrder !== "desc") count++;
+  if (filters.installmentCountMode !== "all") count++;
+  if (filters.installmentAmountMin !== null) count++;
+  if (filters.installmentAmountMax !== null) count++;
+  return count;
 }
 
 function updateUrlFilterParams(
@@ -247,6 +255,7 @@ export default function InstallmentsPage() {
   const overview = installmentsQuery.data;
   const next3Months = useMemo(() => overview?.charts.next3MonthsProjection ?? [], [overview]);
   const appliedRangeLabel = formatAppliedRangeLabel(filters.purchaseStart, filters.purchaseEnd);
+  const activeAdvancedCount = useMemo(() => countActiveAdvancedFilters(filters), [filters]);
 
   useEffect(() => {
     setFilters(readFiltersFromSearchParams(searchParams, createDefaultFilters(defaultDateRange), immediateFilters));
@@ -285,75 +294,61 @@ export default function InstallmentsPage() {
   };
 
   const filtersSection = (
-    <section data-tour-id="installments-filters" className="glass-card rounded-[28px] border border-border/40 p-4">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-          <TransactionsMonthYearFilter
-            selectedMonthIndex={selectedMonthIndex}
-            selectedYear={selectedYear}
-            onMonthChange={handleMonthChange}
-            onYearChange={handleYearChange}
-          />
-
-          <TransactionsDateFilter
-            preset={datePreset}
-            range={dateRange}
-            onSelectPreset={handlePresetChange}
-            onApplyCustomRange={handleCustomRangeApply}
-            showPresetButtons={false}
-          />
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-1 sm:flex-wrap sm:items-end">
-            <Select
-              value={selectedCategoryId}
-              onValueChange={(value) =>
-                updateUrlFilterParams(searchParams, setSearchParams, {
-                  [FILTER_QUERY_PARAM_KEYS.categoryId]: value === "all" ? null : value,
-                })
-              }
-            >
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 sm:flex-1">
-                <SelectValue placeholder="Todas as categorias" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as categorias</SelectItem>
-                {overview?.filterOptions.categories.map((category) => (
-                  <SelectItem key={category.id} value={String(category.id)}>
-                    {category.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="relative w-full sm:flex-1 sm:min-w-[180px]">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                value={search}
-                onChange={(event) =>
-                  updateUrlFilterParams(searchParams, setSearchParams, {
-                    [FILTER_QUERY_PARAM_KEYS.search]: event.target.value.trim() || null,
-                  })
-                }
-                placeholder="Buscar compra, cartões ou categoria..."
-                className="h-11 rounded-xl border-border/60 bg-secondary/35 pl-11"
-              />
-            </div>
-          </div>
-        </div>
-
-        <InstallmentsFilters
-          filters={filters}
-          appliedRangeLabel={appliedRangeLabel}
-          overview={overview}
-          onChange={handleFiltersChange}
-          onResetFilters={handleResetFilters}
-          onExportCsv={() => buildCsv(filters, overview?.items ?? [])}
-        />
-      </div>
-    </section>
+    <PageFiltersPanel
+      dataTourId="installments-filters"
+      selectedMonthIndex={selectedMonthIndex}
+      selectedYear={selectedYear}
+      datePreset={datePreset}
+      dateRange={dateRange}
+      onMonthChange={handleMonthChange}
+      onYearChange={handleYearChange}
+      onSelectPreset={handlePresetChange}
+      onApplyCustomRange={handleCustomRangeApply}
+      primaryFilters={
+        <Select
+          value={selectedCategoryId}
+          onValueChange={(value) =>
+            updateUrlFilterParams(searchParams, setSearchParams, {
+              [FILTER_QUERY_PARAM_KEYS.categoryId]: value === "all" ? null : value,
+            })
+          }
+        >
+          <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
+            <SelectValue placeholder="Todas as categorias" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as categorias</SelectItem>
+            {overview?.filterOptions.categories.map((category) => (
+              <SelectItem key={category.id} value={String(category.id)}>
+                {category.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      }
+      searchValue={search}
+      onSearchChange={(value) =>
+        updateUrlFilterParams(searchParams, setSearchParams, {
+          [FILTER_QUERY_PARAM_KEYS.search]: value.trim() || null,
+        })
+      }
+      searchPlaceholder="Buscar compra, cartões ou categoria..."
+      advancedFilters={
+        <InstallmentsFilters filters={filters} overview={overview} onChange={handleFiltersChange} />
+      }
+      activeAdvancedCount={activeAdvancedCount}
+      onResetFilters={handleResetFilters}
+      footerActions={
+        <Button
+          variant="ghost"
+          className="rounded-xl border-border/60 bg-secondary/35 px-3 hover:bg-primary/10 hover:text-primary"
+          onClick={() => buildCsv(filters, overview?.items ?? [])}
+        >
+          Exportar CSV
+        </Button>
+      }
+      periodLabel={appliedRangeLabel}
+    />
   );
 
   return (

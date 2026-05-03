@@ -74,7 +74,7 @@ vi.mock("@/components/AiChat", () => ({
     onInitialMessageHandled?: () => void;
     onOpenFullChat?: () => void;
     headerActions?: ReactNode;
-  }) => (
+  }) =>
     (() => {
       useEffect(() => {
         if (!chatId || !initialMessage) {
@@ -99,8 +99,7 @@ vi.mock("@/components/AiChat", () => ({
           </button>
         </div>
       );
-    })()
-  ),
+    })(),
 }));
 
 describe("DashboardChatCard", () => {

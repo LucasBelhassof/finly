@@ -92,10 +92,15 @@ const banks: BankItem[] = [
     parentAccountName: null,
     statementCloseDay: null,
     statementDueDay: null,
+    notifyInvoiceClosed: false,
+    notifyInvoiceDueSoon: false,
+    invoiceDueReminderDays: 3,
     connected: true,
     color: "bg-primary",
     currentBalance: 1000,
     formattedBalance: "R$ 1.000,00",
+    creditLimit: null,
+    formattedCreditLimit: null,
   },
   {
     id: 2,
@@ -106,6 +111,9 @@ const banks: BankItem[] = [
     parentAccountName: "Nubank",
     statementCloseDay: 25,
     statementDueDay: 1,
+    notifyInvoiceClosed: true,
+    notifyInvoiceDueSoon: true,
+    invoiceDueReminderDays: 3,
     connected: true,
     color: "bg-primary",
     currentBalance: -500,
@@ -373,7 +381,9 @@ describe("TransactionsPage", () => {
 
     expect(screen.getByText("Netflix")).toBeInTheDocument();
 
-    const accountTypeTrigger = screen.getAllByRole("combobox").find((element) => element.textContent?.includes("Todos"));
+    const accountTypeTrigger = screen
+      .getAllByRole("combobox")
+      .find((element) => element.textContent?.includes("Todos"));
 
     expect(accountTypeTrigger).toBeDefined();
 

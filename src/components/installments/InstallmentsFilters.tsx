@@ -14,11 +14,7 @@ interface InstallmentsFiltersProps {
   onChange: (nextFilters: InstallmentsOverviewFilters) => void;
 }
 
-export default function InstallmentsFilters({
-  filters,
-  overview,
-  onChange,
-}: InstallmentsFiltersProps) {
+export default function InstallmentsFilters({ filters, overview, onChange }: InstallmentsFiltersProps) {
   const amountRange = overview?.filterOptions.installmentAmountRange;
   const installmentCountOptions =
     filters.installmentCountMode === "remaining_installments"
@@ -90,7 +86,10 @@ export default function InstallmentsFilters({
               <SelectItem value="purchase_date">Data da compra</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filters.sortOrder} onValueChange={(value) => update("sortOrder", value as InstallmentSortOrder)}>
+          <Select
+            value={filters.sortOrder}
+            onValueChange={(value) => update("sortOrder", value as InstallmentSortOrder)}
+          >
             <SelectTrigger className="h-11 rounded-xl border-border/60 bg-secondary/35">
               <SelectValue placeholder="Desc" />
             </SelectTrigger>

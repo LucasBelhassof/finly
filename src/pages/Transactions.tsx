@@ -195,6 +195,7 @@ export default function TransactionsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedBankAccountId, setSelectedBankAccountId] = useState("all");
   const [selectedAccountType, setSelectedAccountType] = useState<"all" | "bank_account" | "credit_card">("all");
+  const [selectedCreditCardId, setSelectedCreditCardId] = useState("all");
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
@@ -245,6 +246,13 @@ export default function TransactionsPage() {
       ),
     [creditCards, selectedBankAccount],
   );
+  const availableCreditCards = useMemo(() => {
+    if (!selectedBankAccount) {
+      return creditCards;
+    }
+
+    return creditCards.filter((card) => String(card.parentBankConnectionId) === String(selectedBankAccount.id));
+  }, [creditCards, selectedBankAccount]);
 
   useEffect(() => {
     const isCurrentTypeAvailable =
@@ -255,6 +263,22 @@ export default function TransactionsPage() {
       setSelectedAccountType("all");
     }
   }, [availableAccountTypeOptions, selectedAccountType, selectedBankAccount]);
+
+  useEffect(() => {
+    if (selectedAccountType !== "credit_card") {
+      if (selectedCreditCardId !== "all") {
+        setSelectedCreditCardId("all");
+      }
+      return;
+    }
+
+    const isSelectedCardAvailable =
+      selectedCreditCardId === "all" || availableCreditCards.some((card) => String(card.id) === selectedCreditCardId);
+
+    if (!isSelectedCardAvailable) {
+      setSelectedCreditCardId("all");
+    }
+  }, [availableCreditCards, selectedAccountType, selectedCreditCardId]);
 
   const visibleTransactions = useMemo(
     () =>
@@ -268,19 +292,24 @@ export default function TransactionsPage() {
           return false;
         }
 
+        const transactionAccountId = String(transaction.account.id);
+
         if (!selectedBankAccount) {
           if (selectedAccountType === "bank_account") {
             return transaction.account.accountType === "bank_account";
           }
 
           if (selectedAccountType === "credit_card") {
+            if (selectedCreditCardId !== "all") {
+              return transactionAccountId === selectedCreditCardId;
+            }
+
             return transaction.account.accountType === "credit_card";
           }
 
           return true;
         }
 
-        const transactionAccountId = String(transaction.account.id);
         const isSelectedBankTransaction = transactionAccountId === String(selectedBankAccount.id);
         const isLinkedCardTransaction = selectedBankLinkedCardIds.has(transactionAccountId);
 
@@ -289,12 +318,16 @@ export default function TransactionsPage() {
         }
 
         if (selectedAccountType === "credit_card") {
+          if (selectedCreditCardId !== "all") {
+            return transactionAccountId === selectedCreditCardId;
+          }
+
           return isLinkedCardTransaction;
         }
 
         return isSelectedBankTransaction || isLinkedCardTransaction;
       }),
-    [selectedAccountType, selectedBankAccount, selectedBankLinkedCardIds, transactions],
+    [selectedAccountType, selectedBankAccount, selectedBankLinkedCardIds, selectedCreditCardId, transactions],
   );
   const { filteredTransactions, summaryCardsData, categoryBreakdown, breakdownTransactionType } =
     useFilteredTransactionsData(visibleTransactions, categories, {
@@ -340,6 +373,7 @@ export default function TransactionsPage() {
     setCategoryFilter("all");
     setSelectedBankAccountId("all");
     setSelectedAccountType("all");
+    setSelectedCreditCardId("all");
   };
 
   const deleteTarget = visibleTransactions.find((transaction) => String(transaction.id) === deleteTargetId) ?? null;
@@ -1020,22 +1054,40 @@ export default function TransactionsPage() {
         searchPlaceholder="Buscar transação..."
         onSearchChange={setSearch}
         inlineFilters={
-          <Select
-            value={selectedAccountType}
-            onValueChange={(value) => setSelectedAccountType(value as "all" | "bank_account" | "credit_card")}
-          >
-            <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
-              <SelectValue placeholder="Tipo da conta" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {availableAccountTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex w-full flex-col gap-3 xl:flex-1 xl:flex-row">
+            <Select
+              value={selectedAccountType}
+              onValueChange={(value) => setSelectedAccountType(value as "all" | "bank_account" | "credit_card")}
+            >
+              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
+                <SelectValue placeholder="Tipo da conta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {availableAccountTypeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedAccountType === "credit_card" ? (
+              <Select value={selectedCreditCardId} onValueChange={setSelectedCreditCardId}>
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35 xl:min-w-[220px] xl:flex-1">
+                  <SelectValue placeholder="Selecionar cartão" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os cartões</SelectItem>
+                  {availableCreditCards.map((card) => (
+                    <SelectItem key={card.id} value={String(card.id)}>
+                      {card.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+          </div>
         }
         searchActions={typeFilters.map((filter) => (
           <button

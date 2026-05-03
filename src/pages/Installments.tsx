@@ -333,9 +333,7 @@ export default function InstallmentsPage() {
         })
       }
       searchPlaceholder="Buscar compra, cartões ou categoria..."
-      advancedFilters={
-        <InstallmentsFilters filters={filters} overview={overview} onChange={handleFiltersChange} />
-      }
+      advancedFilters={<InstallmentsFilters filters={filters} overview={overview} onChange={handleFiltersChange} />}
       activeAdvancedCount={activeAdvancedCount}
       onResetFilters={handleResetFilters}
       footerActions={

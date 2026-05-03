@@ -444,6 +444,9 @@ Sempre informar:
 - resultado dos testes/checks
 - limitações conhecidas
 
+  ### 13.4 Formatação obrigatória
+  - Sempre que houver qualquer alteração em código, executar `npm run format` antes de concluir a tarefa.
+
 ---
 
 ## 14. Comandos úteis

@@ -24,6 +24,9 @@ import { cn } from "@/lib/utils";
 import type { BankItem, TransactionItem } from "@/types/api";
 
 type MetricTypeFilter = "all" | "income" | "expense";
+type MetricAccountNatureFilter = "all" | "bank_account" | "credit_card" | "cash";
+type MetricInstallmentFilter = "all" | "only_installments" | "only_non_installments";
+type MetricRecurringFilter = "all" | "only_recurring" | "only_non_recurring";
 
 type TrendPoint = {
   label: string;
@@ -39,6 +42,25 @@ const typeFilters: Array<{ label: string; value: MetricTypeFilter }> = [
   { label: "Todas", value: "all" },
   { label: "Receitas", value: "income" },
   { label: "Despesas", value: "expense" },
+];
+
+const accountNatureFilters: Array<{ label: string; value: MetricAccountNatureFilter }> = [
+  { label: "Todas", value: "all" },
+  { label: "Conta bancária", value: "bank_account" },
+  { label: "Cartão de crédito", value: "credit_card" },
+  { label: "Caixa", value: "cash" },
+];
+
+const installmentFilters: Array<{ label: string; value: MetricInstallmentFilter }> = [
+  { label: "Todos", value: "all" },
+  { label: "Somente parceladas", value: "only_installments" },
+  { label: "Somente não parceladas", value: "only_non_installments" },
+];
+
+const recurringFilters: Array<{ label: string; value: MetricRecurringFilter }> = [
+  { label: "Todas", value: "all" },
+  { label: "Somente recorrentes", value: "only_recurring" },
+  { label: "Somente não recorrentes", value: "only_non_recurring" },
 ];
 
 function formatCurrency(value: number) {
@@ -229,6 +251,9 @@ export default function ExpenseMetricsPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<MetricTypeFilter>("all");
+  const [accountNatureFilter, setAccountNatureFilter] = useState<MetricAccountNatureFilter>("all");
+  const [installmentFilter, setInstallmentFilter] = useState<MetricInstallmentFilter>("all");
+  const [recurringFilter, setRecurringFilter] = useState<MetricRecurringFilter>("all");
 
   const visibleTransactions = useMemo(
     () =>
@@ -289,8 +314,18 @@ export default function ExpenseMetricsPage() {
         const matchesAccount = selectedAccountId === "all" || String(transaction.account.id) === selectedAccountId;
         const matchesType =
           typeFilter === "all" || (typeFilter === "income" ? transaction.amount > 0 : transaction.amount < 0);
-        const categoryKey = transaction.category.groupSlug || transaction.category.slug || String(transaction.category.id);
+        const matchesAccountNature =
+          accountNatureFilter === "all" || transaction.account.accountType === accountNatureFilter;
+        const categoryKey =
+          transaction.category.groupSlug || transaction.category.slug || String(transaction.category.id);
         const matchesCategory = selectedCategoryId === "all" || categoryKey === selectedCategoryId;
+        const matchesInstallment =
+          installmentFilter === "all" ||
+          (installmentFilter === "only_installments" ? transaction.isInstallment : !transaction.isInstallment);
+        const isRecurringTransaction = Boolean(transaction.isRecurring || transaction.isRecurringProjection);
+        const matchesRecurring =
+          recurringFilter === "all" ||
+          (recurringFilter === "only_recurring" ? isRecurringTransaction : !isRecurringTransaction);
         const normalizedSearch = search.trim().toLowerCase();
         const matchesSearch =
           !normalizedSearch ||
@@ -301,9 +336,29 @@ export default function ExpenseMetricsPage() {
         const matchesDate =
           transaction.occurredOn >= dateRange.startDate && transaction.occurredOn <= dateRange.endDate;
 
-        return matchesAccount && matchesType && matchesCategory && matchesSearch && matchesDate;
+        return (
+          matchesAccount &&
+          matchesType &&
+          matchesAccountNature &&
+          matchesCategory &&
+          matchesInstallment &&
+          matchesRecurring &&
+          matchesSearch &&
+          matchesDate
+        );
       }),
-    [dateRange.endDate, dateRange.startDate, search, selectedAccountId, selectedCategoryId, typeFilter, visibleTransactions],
+    [
+      accountNatureFilter,
+      dateRange.endDate,
+      dateRange.startDate,
+      installmentFilter,
+      recurringFilter,
+      search,
+      selectedAccountId,
+      selectedCategoryId,
+      typeFilter,
+      visibleTransactions,
+    ],
   );
 
   const expenseTransactions = useMemo(
@@ -399,6 +454,27 @@ export default function ExpenseMetricsPage() {
       ),
     [banks],
   );
+  const activeAdvancedCount = useMemo(() => {
+    let count = 0;
+
+    if (typeFilter !== "all") {
+      count += 1;
+    }
+
+    if (accountNatureFilter !== "all") {
+      count += 1;
+    }
+
+    if (installmentFilter !== "all") {
+      count += 1;
+    }
+
+    if (recurringFilter !== "all") {
+      count += 1;
+    }
+
+    return count;
+  }, [accountNatureFilter, installmentFilter, recurringFilter, typeFilter]);
   const handleResetFilters = () => {
     const nextSearchParams = new URLSearchParams();
     nextSearchParams.set("month", String(currentSelection.monthIndex));
@@ -411,6 +487,9 @@ export default function ExpenseMetricsPage() {
     setSelectedCategoryId("all");
     setSearch("");
     setTypeFilter("all");
+    setAccountNatureFilter("all");
+    setInstallmentFilter("all");
+    setRecurringFilter("all");
   };
 
   if (isTransactionsLoading || isBanksLoading) {
@@ -464,23 +543,82 @@ export default function ExpenseMetricsPage() {
         onSearchChange={setSearch}
         searchPlaceholder="Buscar descrição, categoria ou conta..."
         advancedFilters={
-          <label className="space-y-1 text-sm text-muted-foreground">
-            <span>Tipo</span>
-            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as MetricTypeFilter)}>
-              <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                {typeFilters.map((filter) => (
-                  <SelectItem key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Tipo</span>
+              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as MetricTypeFilter)}>
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeFilters.map((filter) => (
+                    <SelectItem key={filter.value} value={filter.value}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Natureza da conta</span>
+              <Select
+                value={accountNatureFilter}
+                onValueChange={(value) => setAccountNatureFilter(value as MetricAccountNatureFilter)}
+              >
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {accountNatureFilters.map((filter) => (
+                    <SelectItem key={filter.value} value={filter.value}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Parcelamento</span>
+              <Select
+                value={installmentFilter}
+                onValueChange={(value) => setInstallmentFilter(value as MetricInstallmentFilter)}
+              >
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  {installmentFilters.map((filter) => (
+                    <SelectItem key={filter.value} value={filter.value}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="space-y-1 text-sm text-muted-foreground">
+              <span>Recorrência</span>
+              <Select
+                value={recurringFilter}
+                onValueChange={(value) => setRecurringFilter(value as MetricRecurringFilter)}
+              >
+                <SelectTrigger className="h-11 w-full min-w-0 rounded-xl border-border/60 bg-secondary/35">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {recurringFilters.map((filter) => (
+                    <SelectItem key={filter.value} value={filter.value}>
+                      {filter.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
         }
-        activeAdvancedCount={typeFilter === "all" ? 0 : 1}
+        activeAdvancedCount={activeAdvancedCount}
         onResetFilters={handleResetFilters}
         periodLabel={`${dateRange.startDate.split("-").reverse().join("/")} - ${dateRange.endDate
           .split("-")

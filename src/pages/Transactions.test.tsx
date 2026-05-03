@@ -121,6 +121,25 @@ const banks: BankItem[] = [
     creditLimit: 10000,
     formattedCreditLimit: "R$ 10.000,00",
   },
+  {
+    id: 3,
+    slug: "inter-black",
+    name: "Inter Black",
+    accountType: "credit_card",
+    parentBankConnectionId: null,
+    parentAccountName: null,
+    statementCloseDay: 20,
+    statementDueDay: 27,
+    notifyInvoiceClosed: true,
+    notifyInvoiceDueSoon: true,
+    invoiceDueReminderDays: 3,
+    connected: true,
+    color: "bg-info",
+    currentBalance: -700,
+    formattedBalance: "-R$ 700,00",
+    creditLimit: 12000,
+    formattedCreditLimit: "R$ 12.000,00",
+  },
 ];
 
 const categories: CategoryItem[] = [
@@ -263,6 +282,38 @@ const transactions: TransactionItem[] = [
     },
   },
   {
+    id: 15,
+    description: "Passagem aérea",
+    amount: -420,
+    formattedAmount: "-R$ 420,00",
+    occurredOn: "2026-04-02",
+    relativeDate: "02 Abr",
+    housingId: null,
+    isInstallment: false,
+    installmentPurchaseId: null,
+    installmentNumber: null,
+    installmentCount: null,
+    purchaseOccurredOn: null,
+    category: {
+      id: 2,
+      slug: "transporte",
+      label: "Transporte",
+      iconName: "ArrowDownCircle",
+      icon: ArrowDownCircle,
+      color: "text-info",
+      groupSlug: "transporte",
+      groupLabel: "Transporte",
+      groupColor: "bg-info",
+    },
+    account: {
+      id: 3,
+      slug: "inter-black",
+      name: "Inter Black",
+      accountType: "credit_card",
+      color: "bg-info",
+    },
+  },
+  {
     id: "recurring:13:2026-04-10",
     sourceTransactionId: 13,
     description: "Salario",
@@ -376,10 +427,11 @@ describe("TransactionsPage", () => {
     });
   });
 
-  it("keeps the account type filter visible and filters all accounts by account type", async () => {
+  it("shows a card selector next to account type and filters by the chosen credit card", async () => {
     renderPage();
 
     expect(screen.getByText("Netflix")).toBeInTheDocument();
+    expect(screen.getByText("Passagem aérea")).toBeInTheDocument();
 
     const accountTypeTrigger = screen
       .getAllByRole("combobox")
@@ -392,6 +444,21 @@ describe("TransactionsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Netflix")).toBeInTheDocument();
+      expect(screen.getByText("Passagem aérea")).toBeInTheDocument();
+      expect(screen.queryByText("iFood")).not.toBeInTheDocument();
+      expect(screen.queryByText("Uber")).not.toBeInTheDocument();
+    });
+
+    const creditCardTrigger = screen.getAllByRole("combobox")[3]!;
+    expect(creditCardTrigger).toBeInTheDocument();
+    expect(creditCardTrigger.textContent).toMatch(/todos os cartões/i);
+
+    fireEvent.click(creditCardTrigger);
+    fireEvent.click((await screen.findAllByRole("option", { name: "Nubank Ultravioleta" }))[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByText("Netflix")).toBeInTheDocument();
+      expect(screen.queryByText("Passagem aérea")).not.toBeInTheDocument();
       expect(screen.queryByText("iFood")).not.toBeInTheDocument();
       expect(screen.queryByText("Uber")).not.toBeInTheDocument();
     });

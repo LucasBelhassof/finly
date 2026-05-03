@@ -113,12 +113,7 @@ vi.mock("@/components/installments/InstallmentsFilters", () => ({
   }: {
     filters: InstallmentsOverviewFilters;
     onChange: (nextFilters: InstallmentsOverviewFilters) => void;
-  }) => (
-    <MockInstallmentsFilters
-      filters={filters}
-      onChange={onChange}
-    />
-  ),
+  }) => <MockInstallmentsFilters filters={filters} onChange={onChange} />,
 }));
 
 function MockInstallmentsFilters({

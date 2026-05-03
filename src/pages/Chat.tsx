@@ -72,15 +72,15 @@ import {
 import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
+import { PlanFormFields } from "@/pages/Plans";
 import {
   applyCreatedInvestmentToPlanForm,
   buildInvestmentInitialValues,
   createPlanFormFromDraft,
   getPlanFormValidationError,
   normalizePlanForm,
-  PlanFormFields,
   type PlanFormState,
-} from "@/pages/Plans";
+} from "@/pages/plans/shared";
 import type { ChatConversation, InvestmentItem, PlanDraft } from "@/types/api";
 
 const EMPTY_SELECT_VALUE = "__empty__";

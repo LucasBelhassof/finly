@@ -61,7 +61,6 @@ import { appRoutes } from "@/lib/routes";
 import {
   applyCreatedInvestmentToPlanForm,
   buildInvestmentInitialValues,
-  PlanFormFields,
   createPlanFormFromPlan,
   formatDate,
   getErrorMessage,
@@ -72,6 +71,9 @@ import {
   getPriorityLabel,
   normalizePlanForm,
   type PlanFormState,
+} from "@/pages/plans/shared";
+import {
+  PlanFormFields,
 } from "@/pages/Plans";
 import type { ChatConversation, ChatMessage, InvestmentItem, PlanItem, PlanPriority } from "@/types/api";
 

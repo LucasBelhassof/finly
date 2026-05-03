@@ -72,9 +72,7 @@ import {
   normalizePlanForm,
   type PlanFormState,
 } from "@/pages/plans/shared";
-import {
-  PlanFormFields,
-} from "@/pages/Plans";
+import { PlanFormFields } from "@/pages/Plans";
 import type { ChatConversation, ChatMessage, InvestmentItem, PlanItem, PlanPriority } from "@/types/api";
 
 const EMPTY_SELECT_VALUE = "__empty__";

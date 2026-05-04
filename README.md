@@ -1,79 +1,85 @@
-# Finance
+# Finly
 
-Projeto full-stack com frontend Vite/React e backend Express/Postgres.
-Os dados do dashboard e do chat agora saem do banco, e o bootstrap do banco foi movido para migrations SQL versionadas.
+Aplicação full-stack de finanças pessoais com frontend React/Vite e backend Express/PostgreSQL.
 
-## O que existe agora
+## MVP em produção
 
-- Frontend Vite/React mantido sem alteracoes visuais.
-- Backend local em `server/` com leitura de `DATABASE_URL`.
-- Migrations SQL em `server/migrations/` para schema e carga inicial.
-- Endpoints REST para dashboard, transacoes, bancos, insights e chat.
-
-## Requisitos
+Requisitos:
 
 - Node.js 22+
-- Postgres acessivel no `DATABASE_URL`
+- PostgreSQL acessível no `DATABASE_URL`
 
-## Como rodar
-
-1. Instale as dependencias:
+Subida local:
 
 ```bash
 npm install
-```
-
-2. Aplique as migrations:
-
-```bash
 npm run db:migrate
-```
-
-Se quiser carregar o seed financeiro deterministico, rode explicitamente:
-
-```bash
-npm run db:seed
-```
-
-Para trocar a sequencia gerada, defina `FINANCE_SEED` antes do comando:
-
-```powershell
-$env:FINANCE_SEED="qa-2026-04"; npm run db:seed
-```
-
-Se quiser recriar o schema `public` do banco e reaplicar apenas as migrations:
-
-```bash
-npm run db:fresh
-```
-
-3. Suba o backend em um terminal:
-
-```bash
 npm run server:dev
 ```
 
-4. Suba o frontend em outro terminal:
+Em outro terminal:
 
 ```bash
 npm run dev
 ```
 
-## Qualidade e CI
+Build de produção:
 
-- `npm run lint`: valida o código com ESLint
-- `npm run test`: executa a suíte Vitest do frontend e backend
-- `npm run build`: gera o build do frontend e compila o backend
+```bash
+npm run build
+npm run server:start
+```
 
-O repositório agora inclui um workflow em `.github/workflows/ci.yml` que roda esses três gates em `pull_request`, `push` para `main` e execução manual. A primeira etapa de automação foca em **segurança de deploy via CI**; deploy automático pode ser adicionado depois, quando houver provedor e segredos definidos no repositório.
+## Docker
 
-## Endpoints principais
+Build:
 
-- `GET /api/health`
-- `GET /api/dashboard`
-- `GET /api/transactions`
-- `GET /api/spending`
-- `GET /api/insights`
-- `GET /api/banks`
-- `GET /api/chat/messages`
-- `POST /api/chat/messages`
+```bash
+docker build -t finly:latest .
+```
+
+Run:
+
+```bash
+docker run --rm -p 3001:3001 --env-file .env finly:latest
+```
+
+O container sobe com:
+
+- `NODE_ENV=production`
+- usuário não-root
+- `HEALTHCHECK` em `GET /api/health`
+- runtime sem `devDependencies`
+
+## Qualidade
+
+```bash
+npm run format
+npm run lint
+npm run test
+npm run build
+```
+
+## Endpoints operacionais
+
+- `GET /api/health`: liveness leve, sem validar banco
+- `GET /api/ready`: readiness com validação de banco
+
+## Variáveis críticas
+
+- `DATABASE_URL`
+- `APP_ORIGIN`
+- `JWT_ACCESS_SECRET`
+- `JWT_REFRESH_SECRET`
+
+IA fica desligada por padrão. Para habilitar:
+
+- `CHAT_AI_ENABLED=true`
+- `IMPORT_AI_ENABLED=true`
+
+## Documentação
+
+- [Deploy](docs/deploy.md)
+- [Variáveis de ambiente](docs/env.md)
+- [Segurança operacional](docs/security.md)
+- [Banco e migrations](docs/database.md)

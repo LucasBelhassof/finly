@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,7 +71,9 @@ import { createInvoicesRouter } from "./modules/invoices/routes.js";
 import { createNotificationsRouter } from "./modules/notifications/routes.js";
 import { env } from "./shared/env.js";
 import { isHttpError, toHttpError } from "./shared/errors.js";
+import { logger } from "./shared/logger.js";
 import { normalizePaginationParams } from "./shared/pagination.js";
+import { createApiRateLimiter } from "./shared/rate-limit.js";
 import { MAX_IMPORT_BYTES } from "./transaction-import.js";
 import { parseMultipartUpload } from "./import/index.js";
 
@@ -103,11 +106,26 @@ function parseChatRequestMessages(body: unknown) {
   return rawMessages.map((message) => (typeof message === "string" ? message.trim() : "")).filter(Boolean);
 }
 
+function resolveIncomingRequestId(request: Request) {
+  const headerValue = request.get("x-request-id");
+
+  if (typeof headerValue === "string" && headerValue.trim()) {
+    return headerValue.trim().slice(0, 120);
+  }
+
+  return randomUUID();
+}
+
 export function createApp() {
   const app = express();
   const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
   const clientDistDirectory = path.resolve(serverDirectory, "../dist");
   const clientIndexPath = path.join(clientDistDirectory, "index.html");
+  const importRateLimiter = createApiRateLimiter("import", 20);
+  const chatRateLimiter = createApiRateLimiter("chat", 60);
+  const aiRateLimiter = createApiRateLimiter("ai", 30);
+
+  app.set("trust proxy", 1);
 
   app.use(
     cors({
@@ -116,13 +134,26 @@ export function createApp() {
     }),
   );
   app.use(cookieParser());
-  app.use(express.json());
+  app.use((request, response, next) => {
+    const requestId = resolveIncomingRequestId(request);
+    request.requestId = requestId;
+    response.setHeader("x-request-id", requestId);
+    next();
+  });
+  app.use(express.json({ limit: "1mb" }));
 
-  app.get("/api/health", async (_request, response) => {
+  app.get("/api/health", (_request, response) => {
+    response.json({
+      status: "ok",
+      serverTime: new Date().toISOString(),
+    });
+  });
+
+  app.get("/api/ready", async (_request, response) => {
     const database = await pingDatabase();
 
     response.json({
-      status: "ok",
+      status: "ready",
       database: "connected",
       serverTime: database.server_time,
     });
@@ -306,6 +337,7 @@ export function createApp() {
 
   app.post(
     "/api/transactions/import/preview",
+    importRateLimiter,
     express.raw({ type: "multipart/form-data", limit: `${MAX_IMPORT_BYTES}b` }),
     async (request, response) => {
       const upload = parseMultipartUpload(request.headers["content-type"], request.body);
@@ -327,6 +359,7 @@ export function createApp() {
 
   app.post(
     "/api/transactions/import/universal-preview",
+    importRateLimiter,
     express.raw({ type: "multipart/form-data", limit: `${MAX_IMPORT_BYTES}b` }),
     async (request, response) => {
       const upload = parseMultipartUpload(request.headers["content-type"], request.body);
@@ -350,12 +383,12 @@ export function createApp() {
     },
   );
 
-  app.post("/api/transactions/import/commit", async (request, response) => {
+  app.post("/api/transactions/import/commit", importRateLimiter, async (request, response) => {
     const result = await commitTransactionImport(getAuthenticatedUserId(request), request.body ?? {});
     response.status(201).json(result);
   });
 
-  app.post("/api/transactions/import/ai-suggestions", async (request, response) => {
+  app.post("/api/transactions/import/ai-suggestions", aiRateLimiter, async (request, response) => {
     const result = await getTransactionImportAiSuggestions(getAuthenticatedUserId(request), request.body ?? {});
     response.status(201).json(result);
   });
@@ -518,7 +551,7 @@ export function createApp() {
     response.status(201).json({ plan });
   });
 
-  app.post("/api/plans/ai/draft", async (request, response) => {
+  app.post("/api/plans/ai/draft", aiRateLimiter, async (request, response) => {
     const chatId = request.body?.chatId;
 
     if (typeof chatId !== "string" || !chatId.trim()) {
@@ -532,7 +565,7 @@ export function createApp() {
     response.json({ draft });
   });
 
-  app.post("/api/plans/ai/draft-session", async (request, response) => {
+  app.post("/api/plans/ai/draft-session", aiRateLimiter, async (request, response) => {
     const chatId = request.body?.chatId;
 
     if (typeof chatId !== "string" || !chatId.trim()) {
@@ -563,7 +596,7 @@ export function createApp() {
     response.json({ draftSession });
   });
 
-  app.post("/api/plan-drafts/:draftId/revise", async (request, response) => {
+  app.post("/api/plan-drafts/:draftId/revise", aiRateLimiter, async (request, response) => {
     const correction = request.body?.correction;
 
     if (typeof correction !== "string" || !correction.trim()) {
@@ -589,7 +622,7 @@ export function createApp() {
     response.json({ draftSession });
   });
 
-  app.post("/api/plans/ai/revise-draft", async (request, response) => {
+  app.post("/api/plans/ai/revise-draft", aiRateLimiter, async (request, response) => {
     const chatId = request.body?.chatId;
     const draft = request.body?.draft;
     const correction = request.body?.correction;
@@ -637,7 +670,7 @@ export function createApp() {
     response.json({ plan });
   });
 
-  app.post("/api/plans/:planId/ai/evaluate", async (request, response) => {
+  app.post("/api/plans/:planId/ai/evaluate", aiRateLimiter, async (request, response) => {
     const plan = await evaluatePlanWithAi(getAuthenticatedUserId(request), request.params.planId, {
       type: "manual_evaluation",
     });
@@ -755,12 +788,12 @@ export function createApp() {
     response.json({ summary });
   });
 
-  app.post("/api/chats/:chatId/summary", async (request, response) => {
+  app.post("/api/chats/:chatId/summary", aiRateLimiter, async (request, response) => {
     const summary = await generatePlanChatSummary(getAuthenticatedUserId(request), request.params.chatId);
     response.status(201).json({ summary });
   });
 
-  app.post("/api/chats/:chatId/messages", async (request, response) => {
+  app.post("/api/chats/:chatId/messages", chatRateLimiter, async (request, response) => {
     const messages = parseChatRequestMessages(request.body);
 
     if (!messages.length) {
@@ -785,7 +818,7 @@ export function createApp() {
     response.json({ messages });
   });
 
-  app.post("/api/chat/messages", async (request, response) => {
+  app.post("/api/chat/messages", chatRateLimiter, async (request, response) => {
     const messages = parseChatRequestMessages(request.body);
 
     if (!messages.length) {
@@ -812,11 +845,18 @@ export function createApp() {
     const normalizedError = isHttpError(error) ? error : toHttpError(error);
 
     if (normalizedError.status >= 500) {
-      console.error(error);
+      logger.error("Unhandled request error", {
+        requestId: _request.requestId,
+        method: _request.method,
+        path: _request.originalUrl,
+        userId: _request.auth?.userId ?? null,
+        error,
+      });
     }
 
     response.status(normalizedError.status).json({
       error: normalizedError.code,
+      requestId: _request.requestId,
       message:
         normalizedError.status >= 500 && env.nodeEnv !== "development"
           ? "The backend failed while processing the request."

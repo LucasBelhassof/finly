@@ -40,6 +40,7 @@ import {
   shouldSplitRecurringTransaction,
   shouldTruncateRecurringTransaction,
 } from "./recurring-income.js";
+import { logger } from "./shared/logger.js";
 import { normalizeLimit, normalizePaginationParams, paginateCollection } from "./shared/pagination.js";
 
 dotenv.config();
@@ -4408,7 +4409,7 @@ async function reevaluateAffectedPlansForTransactions(userId, transactions, trig
       });
     }
   } catch (error) {
-    console.error("plan automation failed", error);
+    logger.error("plan automation failed", { userId, triggerType, error });
   }
 }
 

@@ -1,5 +1,6 @@
 import { db } from "../../shared/db.js";
 import { BadRequestError, HttpError } from "../../shared/errors.js";
+import { logger } from "../../shared/logger.js";
 import { createSystemNotificationForUser } from "../notifications/service.js";
 import {
   addDays,
@@ -559,7 +560,7 @@ export async function listInvoicesForUser(userId: number, filters: InvoiceFilter
   try {
     await generateInvoiceNotificationsForUser(userId, today, { cards, rows });
   } catch (error) {
-    console.error("failed to generate invoice notifications", error);
+    logger.error("failed to generate invoice notifications", { userId, error });
   }
 
   return buildInvoicesResponse(rows, cards, filters, today, paidKeys, allCards);

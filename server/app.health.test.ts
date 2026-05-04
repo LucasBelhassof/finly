@@ -80,18 +80,32 @@ describe("app health route", () => {
     });
   });
 
-  it("returns the server status and database timestamp without authentication", async () => {
+  it("returns the lightweight liveness status without authentication", async () => {
     const { createApp } = await import("./app.js");
     const app = createApp();
 
     const response = await request(app).get("/api/health");
 
     expect(response.status).toBe(200);
+    expect(response.body.status).toBe("ok");
+    expect(typeof response.body.serverTime).toBe("string");
+    expect(response.headers["x-request-id"]).toBeTruthy();
+    expect(pingDatabaseMock).not.toHaveBeenCalled();
+  });
+
+  it("returns database readiness status without authentication", async () => {
+    const { createApp } = await import("./app.js");
+    const app = createApp();
+
+    const response = await request(app).get("/api/ready");
+
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      status: "ok",
+      status: "ready",
       database: "connected",
       serverTime: "2026-04-26T15:00:00.000Z",
     });
+    expect(response.headers["x-request-id"]).toBeTruthy();
     expect(pingDatabaseMock).toHaveBeenCalledTimes(1);
   });
 });

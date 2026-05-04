@@ -12,6 +12,7 @@ const IMPORT_FINGERPRINT_VERSION = "v1";
 const PDF_PAGE_JOINER = "\n-- page_number of total_number --\n";
 
 // TODO: Persist preview sessions in Postgres or Redis before running multiple backend instances.
+// This in-memory store is lost on restart and is not safe for multi-instance production.
 const previewSessions = new Map();
 
 class ImportBadRequestError extends Error {
@@ -2107,6 +2108,10 @@ function ensureCommitItemShape(item) {
 export function validateCommitItemsShape(items, session) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new Error("Nenhuma linha foi enviada para importacao.");
+  }
+
+  if (items.length > MAX_IMPORT_ROWS) {
+    throw new Error(`O commit permite no maximo ${MAX_IMPORT_ROWS} linhas por chamada.`);
   }
 
   const sessionIndexes = new Set(session.items.map((item) => item.rowIndex));

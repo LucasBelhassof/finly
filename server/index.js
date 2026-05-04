@@ -3,6 +3,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { logger } from "./shared/logger.js";
 
 import {
   commitTransactionImport,
@@ -391,7 +392,11 @@ if (fs.existsSync(clientIndexPath)) {
 }
 
 app.use((error, _request, response, _next) => {
-  console.error(error);
+  logger.error("Unhandled legacy request error", {
+    method: _request.method,
+    path: _request.originalUrl,
+    error,
+  });
 
   const message = error?.message ?? "The backend failed while processing the request.";
   const lowerMessage = String(message).toLowerCase();
@@ -414,7 +419,7 @@ app.use((error, _request, response, _next) => {
 });
 
 const server = app.listen(port, () => {
-  console.log(`Finance backend listening on http://localhost:${port}`);
+  logger.info("Legacy finance backend listening", { port });
 });
 
 async function start() {
@@ -422,7 +427,7 @@ async function start() {
 }
 
 function shutdown(signal) {
-  console.log(`Received ${signal}. Shutting down...`);
+  logger.info("Shutting down legacy backend", { signal });
   server.close(() => {
     process.exit(0);
   });
@@ -437,6 +442,6 @@ process.on("SIGTERM", () => {
 });
 
 start().catch((error) => {
-  console.error("Failed to start backend", error);
+  logger.error("Failed to start legacy backend", { error });
   process.exit(1);
 });

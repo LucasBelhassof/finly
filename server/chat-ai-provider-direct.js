@@ -16,6 +16,14 @@ function parseMaxResponseTokens(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_RESPONSE_TOKENS;
 }
 
+function parseBooleanFlag(value) {
+  return (
+    String(value ?? "")
+      .trim()
+      .toLowerCase() === "true"
+  );
+}
+
 function appendContinuation(previousText, nextText) {
   const left = String(previousText ?? "").trimEnd();
   const right = String(nextText ?? "").trimStart();
@@ -78,10 +86,7 @@ export function getDirectChatProviderConfig() {
   const provider = configuredProvider === "openai" ? "openai" : "gemini";
 
   return {
-    enabled:
-      String(process.env.CHAT_AI_ENABLED ?? "")
-        .trim()
-        .toLowerCase() === "true" || Boolean(openAiApiKey || geminiApiKey),
+    enabled: parseBooleanFlag(process.env.CHAT_AI_ENABLED),
     provider,
     fallbackProvider: provider === "gemini" ? "openai" : null,
     model: process.env.CHAT_AI_MODEL?.trim() || "",

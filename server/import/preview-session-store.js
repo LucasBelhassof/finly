@@ -1,6 +1,7 @@
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 
 // TODO: Persist preview sessions in Postgres or Redis before running multiple backend instances.
+// This in-memory store is lost on restart and is not safe for multi-instance production.
 const previewStore = new Map();
 
 class PreviewStoreHttpError extends Error {

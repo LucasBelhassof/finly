@@ -134,6 +134,41 @@ describe("auth category seeding", () => {
     expect(createSessionMock).toHaveBeenCalledTimes(1);
   });
 
+  it("fails signup before issuing a session when category seeding fails", async () => {
+    createUserMock.mockResolvedValue({
+      id: 18,
+      name: "Falha Seed",
+      email: "seed@example.com",
+      onboardingProgress: null,
+      onboardingCompletedAt: null,
+      emailVerifiedAt: null,
+      role: "user",
+      status: "active",
+      isPremium: false,
+      premiumSince: null,
+    });
+    seedDefaultCategoriesForUserMock.mockRejectedValue(new Error("seed failed"));
+
+    const { signup } = await import("./service.js");
+
+    await expect(
+      signup(
+        {
+          name: "Falha Seed",
+          email: "seed@example.com",
+          password: "Password123!",
+          rememberMe: false,
+        },
+        {
+          ipAddress: "127.0.0.1",
+          userAgent: "Vitest",
+        },
+      ),
+    ).rejects.toThrow("seed failed");
+
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
   it("seeds default categories when bootstrap creates a brand-new user row", async () => {
     createUserMock.mockResolvedValue({
       id: 21,

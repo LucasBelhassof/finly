@@ -357,6 +357,16 @@ function createDbState() {
       }
 
       if (
+        normalizedSql.includes("SELECT id, public_id, title, description, source, goal_type") &&
+        normalizedSql.includes("FROM plans") &&
+        normalizedSql.includes("WHERE user_id = $1") &&
+        normalizedSql.includes("goal_type = 'transaction_sum'") &&
+        normalizedSql.includes("goal_target_model = 'category'")
+      ) {
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      }
+
+      if (
         normalizedSql.includes("SELECT t.id, t.description, t.amount, t.occurred_on") &&
         normalizedSql.includes("FROM transactions t") &&
         normalizedSql.includes("WHERE t.user_id = $1") &&
@@ -458,6 +468,30 @@ describe("database category user scope", () => {
       status: 404,
       code: "category_not_found",
     });
+  });
+
+  it("allows using a custom category from the same user in a transaction", async () => {
+    const { createCategory, createTransaction } = await loadDatabaseModule();
+
+    const category = await createCategory(1, {
+      label: "Viagens",
+      transactionType: "expense",
+      icon: "Plane",
+      color: "#38bdf8",
+      groupLabel: "Lazer",
+      groupColor: "#38bdf8",
+    });
+
+    const transaction = await createTransaction(1, {
+      description: "Hotel",
+      amount: -450,
+      occurredOn: "2026-05-04",
+      bankConnectionId: 100,
+      categoryId: category.id,
+    });
+
+    expect(transaction.category.id).toBe(category.id);
+    expect(transaction.category.label).toBe("Viagens");
   });
 
   it("treats transactions from another user as not found during updates", async () => {

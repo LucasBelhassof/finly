@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { SignJWT, jwtVerify } from "jose";
 
+import { seedDefaultCategoriesForUser } from "../../default-categories.js";
 import { env } from "../../shared/env.js";
 import { BadRequestError, HttpError, UnauthorizedError } from "../../shared/errors.js";
 import {
@@ -465,6 +466,7 @@ export async function signup(
       },
       client,
     );
+    await seedDefaultCategoriesForUser(user.id, client);
 
     const authUser = await toAuthUser(user);
     const refreshToken = buildRefreshToken();
@@ -1027,6 +1029,7 @@ export async function bootstrapUserCredentials(input: {
         },
         client,
       );
+      await seedDefaultCategoriesForUser(createdUser.id, client);
 
       return {
         action: "created" as const,

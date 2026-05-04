@@ -51,6 +51,7 @@ import {
   getCurrentMonthSelection,
   resolveMonthYearRange,
 } from "@/lib/transactions-date-filter";
+import { ApiError } from "@/lib/api";
 import { DEFAULT_CATEGORY_COLOR, resolveCategoryColorPresentation } from "@/lib/category-colors";
 import { cn } from "@/lib/utils";
 import type { CreateCategoryInput, CreateTransactionInput, TransactionItem, UpdateTransactionInput } from "@/types/api";
@@ -90,6 +91,18 @@ function formatCurrency(value: number) {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function getDeleteCategoryErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.code === "default_category_cannot_be_deleted") {
+    return "Categorias padrao nao podem ser excluidas.";
+  }
+
+  if (error instanceof ApiError && error.code === "category_in_use") {
+    return "Essa categoria esta em uso e nao pode ser excluida.";
+  }
+
+  return getErrorMessage(error, "Tente novamente em instantes.");
 }
 
 function emptyTransactionForm(type: "income" | "expense" = "expense"): TransactionFormState {
@@ -561,7 +574,7 @@ export default function TransactionsPage() {
       toast.success("Categoria removida.");
     } catch (error) {
       toast.error("Não foi possível remover a categoria.", {
-        description: getErrorMessage(error, "Tente novamente em instantes."),
+        description: getDeleteCategoryErrorMessage(error),
       });
     }
   };
@@ -784,8 +797,8 @@ export default function TransactionsPage() {
             <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteCategoryTarget
-                ? `A categoria "${deleteCategoryTarget.label}" será excluída e as referências vinculadas serão movidas para ${deleteCategoryTarget.transactionType === "income" ? '"Salário"' : '"Compras"'}.`
-                : "A categoria será excluída e as referências vinculadas serão movidas para uma categoria padrão."}
+                ? `A categoria "${deleteCategoryTarget.label}" sera excluida apenas se nao estiver em uso.`
+                : "A categoria sera excluida apenas se nao estiver em uso."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -331,13 +331,13 @@ export function createApp() {
     response.status(204).send();
   });
 
-  app.get("/api/categories", async (_request, response) => {
-    const categories = await listCategories();
+  app.get("/api/categories", async (request, response) => {
+    const categories = await listCategories(getAuthenticatedUserId(request));
     response.json({ categories });
   });
 
   app.post("/api/categories", async (request, response) => {
-    const category = await createCategory(request.body ?? {});
+    const category = await createCategory(getAuthenticatedUserId(request), request.body ?? {});
     response.status(201).json(category);
   });
 
@@ -349,7 +349,7 @@ export function createApp() {
       return;
     }
 
-    const category = await updateCategory(categoryId.value, request.body ?? {});
+    const category = await updateCategory(getAuthenticatedUserId(request), categoryId.value, request.body ?? {});
     response.json(category);
   });
 
@@ -361,7 +361,7 @@ export function createApp() {
       return;
     }
 
-    await deleteCategory(categoryId.value);
+    await deleteCategory(getAuthenticatedUserId(request), categoryId.value);
     response.status(204).send();
   });
 

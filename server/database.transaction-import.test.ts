@@ -51,6 +51,7 @@ function createDbState() {
   const categories = [
     {
       id: 1,
+      user_id: 7,
       slug: "restaurantes",
       label: "Restaurantes",
       transaction_type: "expense",
@@ -63,6 +64,7 @@ function createDbState() {
     },
     {
       id: 3,
+      user_id: 7,
       slug: "salario",
       label: "Salario",
       transaction_type: "income",
@@ -75,6 +77,7 @@ function createDbState() {
     },
     {
       id: 4,
+      user_id: 7,
       slug: "outros-despesas",
       label: "Outros",
       transaction_type: "expense",
@@ -144,10 +147,12 @@ function createDbState() {
 
       if (
         normalizedSql.includes(
-          "SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system FROM categories",
+          "SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system FROM categories WHERE user_id = $1",
         )
       ) {
-        return Promise.resolve({ rows: categories, rowCount: categories.length });
+        const userId = Number(params[0]);
+        const rows = categories.filter((row) => row.user_id === userId);
+        return Promise.resolve({ rows, rowCount: rows.length });
       }
 
       if (

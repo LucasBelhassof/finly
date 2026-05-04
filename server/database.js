@@ -62,6 +62,22 @@ const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Se
 
 let initializationPromise;
 
+class DatabaseHttpError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+class DatabaseBadRequestError extends DatabaseHttpError {
+  constructor(code, message, details) {
+    super(400, code, message, details);
+  }
+}
+
 function parseNumeric(value) {
   return Number.parseFloat(value ?? 0);
 }
@@ -1266,11 +1282,11 @@ export async function createHousing(userId, input) {
 
     const [bankConnection, category] = await Promise.all([
       getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client),
-      resolveCategoryForTransactionInput(input.categoryId, -Math.abs(normalized.amount), client),
+      resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, -Math.abs(normalized.amount), client),
     ]);
 
     if (!bankConnection) {
-      throw new Error("bank connection not found");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
     }
 
     const result = await client.query(
@@ -1333,11 +1349,11 @@ export async function updateHousing(userId, housingId, input) {
 
     const [bankConnection, category] = await Promise.all([
       getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client),
-      resolveCategoryForTransactionInput(input.categoryId, -Math.abs(normalized.amount), client),
+      resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, -Math.abs(normalized.amount), client),
     ]);
 
     if (!bankConnection) {
-      throw new Error("bank connection not found");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
     }
 
     const result = await client.query(
@@ -1735,20 +1751,24 @@ export async function deleteInvestment(userId, investmentId) {
   }
 }
 
-export async function listCategories() {
+export async function listCategories(userId, client = pool) {
+  const resolvedUserId = await requireUserId(userId);
   await initializeDatabase();
-  const result = await pool.query(
+  const result = await client.query(
     `
       SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
+      WHERE user_id = $1
       ORDER BY sort_order ASC, label ASC, id ASC
     `,
+    [resolvedUserId],
   );
 
   return result.rows.map(mapCategoryRow);
 }
 
-export async function createCategory(input) {
+export async function createCategory(userId, input) {
+  const resolvedUserId = await requireUserId(userId);
   const label = String(input.label ?? "").trim();
   const transactionType =
     input.transactionType === "income" ? "income" : input.transactionType === "expense" ? "expense" : null;
@@ -1772,24 +1792,39 @@ export async function createCategory(input) {
     `
       SELECT COUNT(*)::INT AS total
       FROM categories
-      WHERE slug = $1 OR slug LIKE $2
+      WHERE user_id = $1
+        AND (slug = $2 OR slug LIKE $3)
     `,
-    [slugBase, `${slugBase}-%`],
+    [resolvedUserId, slugBase, `${slugBase}-%`],
   );
 
   const total = Number(slugResult.rows[0]?.total ?? 0);
   const slug = total === 0 ? slugBase : `${slugBase}-${total + 1}`;
   const sortOrderResult = await pool.query(
-    `SELECT COALESCE(MAX(sort_order), 0) + 10 AS next_sort_order FROM categories`,
+    `SELECT COALESCE(MAX(sort_order), 0) + 10 AS next_sort_order FROM categories WHERE user_id = $1`,
+    [resolvedUserId],
   );
 
   const result = await pool.query(
     `
-      INSERT INTO categories (slug, label, transaction_type, icon, color, group_slug, group_label, group_color, sort_order, is_system)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE)
+      INSERT INTO categories (
+        user_id,
+        slug,
+        label,
+        transaction_type,
+        icon,
+        color,
+        group_slug,
+        group_label,
+        group_color,
+        sort_order,
+        is_system
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE)
       RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
     `,
     [
+      resolvedUserId,
       slug,
       label,
       transactionType,
@@ -1805,7 +1840,8 @@ export async function createCategory(input) {
   return mapCategoryRow(result.rows[0]);
 }
 
-export async function updateCategory(categoryId, input) {
+export async function updateCategory(userId, categoryId, input) {
+  const resolvedUserId = await requireUserId(userId);
   const label = String(input.label ?? "").trim();
   const icon = String(input.icon ?? "").trim();
   const color = String(input.color ?? "").trim();
@@ -1822,10 +1858,10 @@ export async function updateCategory(categoryId, input) {
     throw new Error("invalid category label");
   }
 
-  const existing = await getCategoryById(categoryId);
+  const existing = await getCategoryById(resolvedUserId, categoryId);
 
   if (!existing) {
-    throw new Error("category not found");
+    throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
   }
 
   const result = await pool.query(
@@ -1838,92 +1874,149 @@ export async function updateCategory(categoryId, input) {
           group_label = $6,
           group_color = $7
       WHERE id = $1
+        AND user_id = $8
       RETURNING id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
     `,
-    [categoryId, label, icon, color, groupSlug, groupLabel, groupColor],
+    [categoryId, label, icon, color, groupSlug, groupLabel, groupColor, resolvedUserId],
   );
 
   return mapCategoryRow(result.rows[0]);
 }
 
-async function getCategoryById(categoryId, client = pool) {
+async function getCategoryById(userId, categoryId, client = pool) {
   const result = await client.query(
     `
       SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
-      WHERE id = $1
+      WHERE user_id = $1
+        AND id = $2
       LIMIT 1
     `,
-    [categoryId],
+    [userId, categoryId],
   );
 
   return result.rows[0] ?? null;
 }
 
-async function getCategoryBySlugAndType(slug, transactionType, client = pool) {
+async function getCategoryBySlugAndType(userId, slug, transactionType, client = pool) {
   const result = await client.query(
     `
       SELECT id, slug, label, transaction_type, icon, color, group_slug, group_label, group_color, is_system
       FROM categories
-      WHERE slug = $1
-        AND transaction_type = $2
+      WHERE user_id = $1
+        AND slug = $2
+        AND transaction_type = $3
       LIMIT 1
     `,
-    [slug, transactionType],
+    [userId, slug, transactionType],
   );
 
   return result.rows[0] ?? null;
 }
 
-async function getDefaultExpenseCategory(client = pool) {
-  return getCategoryBySlugAndType("compras", "expense", client);
+async function getDefaultExpenseCategory(userId, client = pool) {
+  return getCategoryBySlugAndType(userId, "compras", "expense", client);
 }
 
-async function getFallbackCategoryForDeletion(category, client = pool) {
-  if (category.transaction_type === "income") {
-    return getCategoryBySlugAndType("salario", "income", client);
-  }
+async function isCategoryInUse(userId, categoryId, client = pool) {
+  const result = await client.query(
+    `
+      SELECT EXISTS (
+        SELECT 1
+        FROM transactions
+        WHERE user_id = $1
+          AND category_id = $2
+      ) OR EXISTS (
+        SELECT 1
+        FROM housing
+        WHERE user_id = $1
+          AND category_id = $2
+      ) OR EXISTS (
+        SELECT 1
+        FROM installment_purchases
+        WHERE user_id = $1
+          AND category_id = $2
+      ) OR EXISTS (
+        SELECT 1
+        FROM transaction_categorization_rules
+        WHERE user_id = $1
+          AND category_id = $2
+      ) OR EXISTS (
+        SELECT 1
+        FROM plans
+        WHERE user_id = $1
+          AND $2 = ANY(goal_category_ids)
+      ) OR EXISTS (
+        SELECT 1
+        FROM plan_ai_drafts
+        WHERE user_id = $1
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements_text(COALESCE(draft #> '{goal,categoryIds}', '[]'::jsonb)) AS value(item)
+              WHERE item ~ '^[0-9]+$'
+                AND item::INT = $2
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements_text(COALESCE(draft #> '{goal,category_ids}', '[]'::jsonb)) AS value(item)
+              WHERE item ~ '^[0-9]+$'
+                AND item::INT = $2
+            )
+          )
+      ) OR EXISTS (
+        SELECT 1
+        FROM plan_recommendations
+        WHERE user_id = $1
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements_text(COALESCE(proposed_plan #> '{goal,categoryIds}', '[]'::jsonb)) AS value(item)
+              WHERE item ~ '^[0-9]+$'
+                AND item::INT = $2
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements_text(COALESCE(proposed_plan #> '{goal,category_ids}', '[]'::jsonb)) AS value(item)
+              WHERE item ~ '^[0-9]+$'
+                AND item::INT = $2
+            )
+          )
+      ) AS in_use
+    `,
+    [userId, categoryId],
+  );
 
-  return getDefaultExpenseCategory(client);
+  return Boolean(result.rows[0]?.in_use);
 }
 
-export async function deleteCategory(categoryId) {
+export async function deleteCategory(userId, categoryId) {
+  const resolvedUserId = await requireUserId(userId);
   await initializeDatabase();
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    const category = await getCategoryById(categoryId, client);
+    const category = await getCategoryById(resolvedUserId, categoryId, client);
 
     if (!category) {
-      throw new Error("category not found");
+      throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
     }
 
     if (category.is_system) {
-      throw new Error("system categories cannot be deleted");
+      throw new DatabaseHttpError(
+        409,
+        "default_category_cannot_be_deleted",
+        "Categorias padrao nao podem ser excluidas.",
+      );
     }
 
-    const fallbackCategory = await getFallbackCategoryForDeletion(category, client);
-
-    if (!fallbackCategory) {
-      throw new Error("fallback category not found");
+    if (await isCategoryInUse(resolvedUserId, categoryId, client)) {
+      throw new DatabaseHttpError(409, "category_in_use", "Essa categoria esta em uso e nao pode ser excluida.");
     }
 
-    await client.query(`UPDATE transactions SET category_id = $2 WHERE category_id = $1`, [
-      categoryId,
-      fallbackCategory.id,
-    ]);
-    await client.query(`UPDATE housing SET category_id = $2 WHERE category_id = $1`, [categoryId, fallbackCategory.id]);
-    await client.query(`UPDATE installment_purchases SET category_id = $2 WHERE category_id = $1`, [
-      categoryId,
-      fallbackCategory.id,
-    ]);
-    await client.query(`UPDATE transaction_categorization_rules SET category_id = $2 WHERE category_id = $1`, [
-      categoryId,
-      fallbackCategory.id,
-    ]);
-    await client.query(`DELETE FROM categories WHERE id = $1`, [categoryId]);
+    await client.query(`DELETE FROM categories WHERE user_id = $1 AND id = $2`, [resolvedUserId, categoryId]);
 
     await client.query("COMMIT");
   } catch (error) {
@@ -1934,37 +2027,37 @@ export async function deleteCategory(categoryId) {
   }
 }
 
-async function resolveCategoryForTransactionInput(rawCategoryId, amount, client = pool) {
+async function resolveCategoryForTransactionInput(userId, rawCategoryId, amount, client = pool) {
   const transactionType = getTransactionTypeFromAmount(amount);
   const categoryId =
     rawCategoryId === undefined || rawCategoryId === null || rawCategoryId === "" ? null : Number(rawCategoryId);
 
   if (categoryId === null) {
     if (transactionType === "income") {
-      throw new Error("categoryId is required for income transactions");
+      throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
     }
 
-    const defaultExpenseCategory = await getDefaultExpenseCategory(client);
+    const defaultExpenseCategory = await getDefaultExpenseCategory(userId, client);
 
     if (!defaultExpenseCategory) {
-      throw new Error("default expense category not found");
+      throw new DatabaseHttpError(404, "category_not_found", "Categoria padrao nao encontrada.");
     }
 
     return defaultExpenseCategory;
   }
 
   if (!Number.isInteger(categoryId)) {
-    throw new Error("category not found");
+    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
   }
 
-  const category = await getCategoryById(categoryId);
+  const category = await getCategoryById(userId, categoryId, client);
 
   if (!category) {
-    throw new Error("category not found");
+    throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
   }
 
   if (category.transaction_type !== transactionType) {
-    throw new Error("category does not match transaction type");
+    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
   }
 
   return category;
@@ -2482,12 +2575,12 @@ export async function createTransaction(userId, input) {
     throw new Error("description, amount, occurredOn and bankConnectionId are required");
   }
 
-  const category = await resolveCategoryForTransactionInput(input.categoryId, amount);
+  const category = await resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, amount);
 
   const bankConnection = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!bankConnection) {
-    throw new Error("bank connection not found");
+    throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
   }
 
   if (amount > 0 && bankConnection.account_type === "credit_card") {
@@ -2545,14 +2638,14 @@ export async function updateTransaction(userId, transactionId, input) {
     const existingTransaction = await getTransactionById(resolvedUserId, transactionId, client);
 
     if (!existingTransaction) {
-      throw new Error("transaction not found");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
     }
 
-    const category = await resolveCategoryForTransactionInput(input.categoryId, amount, client);
+    const category = await resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, amount, client);
     const bankConnection = await getBankConnectionById(resolvedUserId, bankConnectionId, client);
 
     if (!bankConnection) {
-      throw new Error("bank connection not found");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
     }
 
     if (amount > 0 && bankConnection.account_type === "credit_card") {
@@ -2617,7 +2710,7 @@ export async function updateTransaction(userId, transactionId, input) {
       );
 
       if (!nextTransactionId) {
-        throw new Error("transaction not found");
+        throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
       }
 
       const row = await getTransactionById(resolvedUserId, nextTransactionId, client);
@@ -2649,7 +2742,7 @@ export async function updateTransaction(userId, transactionId, input) {
     );
 
     if (!result.rowCount) {
-      throw new Error("transaction not found");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
     }
 
     const row = await getTransactionById(resolvedUserId, transactionId, client);
@@ -2680,7 +2773,7 @@ export async function deleteTransaction(userId, transactionId, input = {}) {
     const existingTransaction = await getTransactionById(resolvedUserId, transactionId, client);
 
     if (!existingTransaction) {
-      throw new Error("transaction not found");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
     }
 
     if (
@@ -2719,7 +2812,7 @@ export async function deleteTransaction(userId, transactionId, input = {}) {
     );
 
     if (!result.rowCount) {
-      throw new Error("transaction not found");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
     }
 
     await client.query("COMMIT");
@@ -2756,7 +2849,7 @@ export async function previewTransactionImport(
     bankConnection = await getBankConnectionById(resolvedUserId, parsedBankConnectionId);
 
     if (!bankConnection) {
-      throw new Error("bank connection not found");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
     }
 
     if (
@@ -2773,7 +2866,7 @@ export async function previewTransactionImport(
   }
 
   const [categories, fingerprintRows, historicalRows, recurringRules] = await Promise.all([
-    listCategories(),
+    listCategories(resolvedUserId),
     listTransactionFingerprintRows(resolvedUserId),
     listHistoricalCategorizationRows(resolvedUserId),
     listRecurringCategorizationRules(resolvedUserId),
@@ -2931,7 +3024,7 @@ export async function getTransactionImportAiSuggestions(userId, input) {
   const session =
     resolveUniversalCommitSession(input.previewToken, resolvedUserId) ??
     getPreviewSession(input.previewToken, resolvedUserId);
-  const categories = await listCategories();
+  const categories = await listCategories(resolvedUserId);
   const config = getImportAiConfig();
 
   if (!config.enabled) {
@@ -3008,7 +3101,7 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
   const sessionItemsByRowIndex = new Map(session.items.map((item) => [item.rowIndex, item.original]));
 
   const [categories, fingerprintRows] = await Promise.all([
-    listCategories(),
+    listCategories(resolvedUserId),
     listTransactionFingerprintRows(resolvedUserId),
   ]);
   const existingFingerprints = new Set(
@@ -3266,7 +3359,7 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
     session.items.map((item) => [item.rowIndex, { ...(item.original ?? {}), ...(item.commitData ?? {}) }]),
   );
   const [categories, fingerprintRows] = await Promise.all([
-    listCategories(),
+    listCategories(resolvedUserId),
     listTransactionFingerprintRows(resolvedUserId),
   ]);
   const existingFingerprints = new Set(
@@ -4810,7 +4903,7 @@ async function buildPlanAiChatPayload(userId, chatPublicId) {
   const [messages, context, categories, investments] = await Promise.all([
     listChatMessages(resolvedUserId, chatPublicId, 30),
     buildChatAdvisorContext(resolvedUserId, []),
-    listCategories(),
+    listCategories(resolvedUserId),
     listInvestments(resolvedUserId),
   ]);
 

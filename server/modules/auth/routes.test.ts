@@ -4,7 +4,7 @@ import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { env } from "../../shared/env.js";
-import { isHttpError, toHttpError } from "../../shared/errors.js";
+import { ForbiddenError, isHttpError, toHttpError } from "../../shared/errors.js";
 import { createAuthRouter } from "./routes.js";
 
 const {
@@ -285,5 +285,50 @@ describe("auth routes", () => {
     expect(response.status).toBe(204);
     expect(response.headers["set-cookie"]?.[0]).toContain(`${env.auth.refreshCookieName}=`);
     expect(response.headers["set-cookie"]?.[0]).toContain("Max-Age=0");
+  });
+
+  it("returns 403 when login is blocked for an inactive user", async () => {
+    loginMock.mockRejectedValue(new ForbiddenError("user_inactive", "This account is inactive."));
+    const app = createTestApp();
+
+    const response = await request(app).post("/api/auth/login").send({
+      email: "inactive@finance.test",
+      password: "Password123!",
+      rememberMe: false,
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      error: "user_inactive",
+      message: "This account is inactive.",
+    });
+  });
+
+  it("returns 403 when refresh is blocked for a suspended user", async () => {
+    refreshSessionMock.mockRejectedValue(new ForbiddenError("user_suspended", "This account is suspended."));
+    const app = createTestApp();
+
+    const response = await request(app)
+      .post("/api/auth/refresh")
+      .set("Cookie", `${env.auth.refreshCookieName}=refresh-token`);
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      error: "user_suspended",
+      message: "This account is suspended.",
+    });
+  });
+
+  it("returns 403 on /me when the access token belongs to a suspended user", async () => {
+    verifyAccessTokenMock.mockRejectedValue(new ForbiddenError("user_suspended", "This account is suspended."));
+    const app = createTestApp();
+
+    const response = await request(app).get("/api/auth/me").set("Authorization", "Bearer access-token");
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      error: "user_suspended",
+      message: "This account is suspended.",
+    });
   });
 });

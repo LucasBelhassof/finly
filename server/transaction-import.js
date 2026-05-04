@@ -11,6 +11,7 @@ const DEFAULT_EXPENSE_CATEGORY_SLUG = "compras";
 const IMPORT_FINGERPRINT_VERSION = "v1";
 const PDF_PAGE_JOINER = "\n-- page_number of total_number --\n";
 
+// TODO: Persist preview sessions in Postgres or Redis before running multiple backend instances.
 const previewSessions = new Map();
 
 class ImportBadRequestError extends Error {
@@ -18,6 +19,16 @@ class ImportBadRequestError extends Error {
     super(message);
     this.name = "HttpError";
     this.status = 400;
+    this.code = code;
+    this.details = details;
+  }
+}
+
+class ImportHttpError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
     this.code = code;
     this.details = details;
   }
@@ -2058,12 +2069,16 @@ export function getPreviewSession(previewToken, userId) {
   const session = previewSessions.get(String(previewToken));
 
   if (!session || session.userId !== String(userId)) {
-    throw new Error("Preview invalido ou expirado.");
+    throw new ImportHttpError(404, "import_preview_not_found", "Preview invalido ou expirado.");
   }
 
   if (session.expiresAtMs <= Date.now()) {
     previewSessions.delete(String(previewToken));
-    throw new Error("A previa expirou. Gere a previa novamente para continuar.");
+    throw new ImportHttpError(
+      400,
+      "import_preview_expired",
+      "A previa expirou. Gere a previa novamente para continuar.",
+    );
   }
 
   return session;

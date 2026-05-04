@@ -1,6 +1,17 @@
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 
+// TODO: Persist preview sessions in Postgres or Redis before running multiple backend instances.
 const previewStore = new Map();
+
+class PreviewStoreHttpError extends Error {
+  constructor(status, code, message, details) {
+    super(message);
+    this.name = "HttpError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
 
 function cleanupExpiredEntries() {
   const now = Date.now();
@@ -56,12 +67,16 @@ export function getUniversalPreviewSession(previewToken, userId) {
   const session = previewStore.get(key)?.session ?? null;
 
   if (!session || session.userId !== String(userId)) {
-    throw new Error("Preview invalido ou expirado.");
+    throw new PreviewStoreHttpError(404, "import_preview_not_found", "Preview invalido ou expirado.");
   }
 
   if (session.expiresAtMs <= Date.now()) {
     previewStore.delete(key);
-    throw new Error("A previa expirou. Gere a previa novamente para continuar.");
+    throw new PreviewStoreHttpError(
+      400,
+      "import_preview_expired",
+      "A previa expirou. Gere a previa novamente para continuar.",
+    );
   }
 
   return session;

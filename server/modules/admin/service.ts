@@ -1,4 +1,5 @@
 import { db } from "../../shared/db.js";
+import { normalizeLimit, normalizePaginationParams } from "../../shared/pagination.js";
 
 function parseNumeric(value: unknown) {
   const parsed = Number.parseFloat(String(value ?? 0));
@@ -261,7 +262,7 @@ export async function getAdminSubscriptionMetrics(input: AdminDateRangeInput = {
 }
 
 export async function getAdminActivity(input: { limit?: number | string } = {}) {
-  const limit = Math.min(Math.max(Number(input.limit ?? 20), 1), 100);
+  const limit = normalizeLimit(input.limit, 20);
 
   const result = await db.query(
     `
@@ -283,6 +284,10 @@ export async function getAdminActivity(input: { limit?: number | string } = {}) 
   );
 
   return {
+    pagination: {
+      page: 1,
+      pageSize: limit,
+    },
     events: result.rows.map((row) => ({
       id: Number(row.id),
       eventType: String(row.event_type),
@@ -600,9 +605,13 @@ export async function getAdminUsers(input: {
   premium?: string;
   recentActivity?: string;
 }) {
-  const page = Math.max(Number(input.page ?? 1), 1);
-  const pageSize = Math.min(Math.max(Number(input.pageSize ?? 20), 1), 100);
-  const offset = (page - 1) * pageSize;
+  const pagination = normalizePaginationParams({
+    page: input.page,
+    pageSize: input.pageSize,
+  });
+  const page = pagination.page;
+  const pageSize = pagination.pageSize;
+  const offset = pagination.offset;
   const values: Array<string | number | boolean> = [];
   const filters: string[] = [];
 

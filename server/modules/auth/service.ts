@@ -5,7 +5,7 @@ import { SignJWT, jwtVerify } from "jose";
 
 import { seedDefaultCategoriesForUser } from "../../default-categories.js";
 import { env } from "../../shared/env.js";
-import { BadRequestError, HttpError, UnauthorizedError } from "../../shared/errors.js";
+import { BadRequestError, ForbiddenError, HttpError, UnauthorizedError } from "../../shared/errors.js";
 import {
   attachCredentialsToUser,
   createPasswordResetToken,
@@ -313,6 +313,16 @@ async function createAccessToken(user: AuthUser) {
   };
 }
 
+function assertUserIsActive(user: { status?: "active" | "inactive" | "suspended" }) {
+  if (user.status === "inactive") {
+    throw new ForbiddenError("user_inactive", "This account is inactive.");
+  }
+
+  if (user.status === "suspended") {
+    throw new ForbiddenError("user_suspended", "This account is suspended.");
+  }
+}
+
 export function getRefreshCookieOptions(rememberMe: boolean) {
   return {
     httpOnly: true,
@@ -382,6 +392,7 @@ export async function login(
     throw new UnauthorizedError("invalid_credentials", "Invalid email or password.");
   }
 
+  assertUserIsActive(user);
   const authUser = await toAuthUser(user);
   const refreshToken = buildRefreshToken();
   const refreshTokenHash = sha256(refreshToken);
@@ -576,6 +587,16 @@ export async function refreshSession(refreshToken: string | undefined, metadata:
         client,
       );
       throw new UnauthorizedError("refresh_token_expired", "Refresh token expired.");
+    }
+
+    try {
+      assertUserIsActive(session.user);
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        await revokeSessionFamily(session.sessionFamilyId, client);
+      }
+
+      throw error;
     }
 
     const nextRefreshToken = buildRefreshToken();
@@ -777,6 +798,7 @@ export async function getCurrentUser(userId: number) {
     throw new UnauthorizedError("user_not_found", "The authenticated user was not found.");
   }
 
+  assertUserIsActive(user);
   return await toAuthUser(user);
 }
 
@@ -974,6 +996,10 @@ export async function verifyAccessToken(accessToken: string) {
       user,
     };
   } catch (error) {
+    if (error instanceof HttpError) {
+      throw error;
+    }
+
     throw new UnauthorizedError(
       "access_token_invalid",
       error instanceof Error ? error.message : "Invalid access token.",

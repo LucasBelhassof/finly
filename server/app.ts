@@ -70,6 +70,7 @@ import { createInvoicesRouter } from "./modules/invoices/routes.js";
 import { createNotificationsRouter } from "./modules/notifications/routes.js";
 import { env } from "./shared/env.js";
 import { isHttpError, toHttpError } from "./shared/errors.js";
+import { normalizePaginationParams } from "./shared/pagination.js";
 import { MAX_IMPORT_BYTES } from "./transaction-import.js";
 import { parseMultipartUpload } from "./import/index.js";
 
@@ -145,19 +146,56 @@ export function createApp() {
   });
 
   app.get("/api/transactions", async (request, response) => {
-    const limitValue = request.query.limit;
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
+    const limitValue = request.query.limit as string | undefined;
     const limit = limitValue === undefined ? undefined : Number.parseInt(String(limitValue), 10);
-    const transactions =
-      limitValue === undefined
-        ? await listTransactions(getAuthenticatedUserId(request))
-        : await listTransactions(getAuthenticatedUserId(request), Number.isNaN(limit) ? 8 : limit);
+    const result = await listTransactions(
+      getAuthenticatedUserId(request),
+      pagination.isPaginated
+        ? {
+            page: request.query.page as string | undefined,
+            pageSize: request.query.pageSize as string | undefined,
+          }
+        : limitValue === undefined
+          ? undefined
+          : Number.isNaN(limit)
+            ? 8
+            : limit,
+    );
 
-    response.json({ transactions });
+    if (pagination.isPaginated) {
+      response.json(result);
+      return;
+    }
+
+    response.json({ transactions: result });
   });
 
   app.get("/api/housing", async (request, response) => {
     const housing = await listHousing(getAuthenticatedUserId(request));
-    response.json({ housing });
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
+
+    if (!pagination.isPaginated) {
+      response.json({ housing });
+      return;
+    }
+
+    const start = pagination.offset;
+    const end = start + pagination.pageSize;
+    response.json({
+      housing: housing.slice(start, end),
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: housing.length,
+      },
+    });
   });
 
   app.post("/api/housing", async (request, response) => {
@@ -191,7 +229,26 @@ export function createApp() {
 
   app.get("/api/investments", async (request, response) => {
     const investments = await listInvestments(getAuthenticatedUserId(request));
-    response.json({ investments });
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
+
+    if (!pagination.isPaginated) {
+      response.json({ investments });
+      return;
+    }
+
+    const start = pagination.offset;
+    const end = start + pagination.pageSize;
+    response.json({
+      investments: investments.slice(start, end),
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: investments.length,
+      },
+    });
   });
 
   app.post("/api/investments", async (request, response) => {
@@ -377,7 +434,26 @@ export function createApp() {
 
   app.get("/api/banks", async (request, response) => {
     const banks = await listBanks(getAuthenticatedUserId(request));
-    response.json({ banks });
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
+
+    if (!pagination.isPaginated) {
+      response.json({ banks });
+      return;
+    }
+
+    const start = pagination.offset;
+    const end = start + pagination.pageSize;
+    response.json({
+      banks: banks.slice(start, end),
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: banks.length,
+      },
+    });
   });
 
   app.post("/api/banks", async (request, response) => {
@@ -415,7 +491,26 @@ export function createApp() {
 
   app.get("/api/plans", async (request, response) => {
     const plans = await listPlans(getAuthenticatedUserId(request));
-    response.json({ plans });
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
+
+    if (!pagination.isPaginated) {
+      response.json({ plans });
+      return;
+    }
+
+    const start = pagination.offset;
+    const end = start + pagination.pageSize;
+    response.json({
+      plans: plans.slice(start, end),
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: plans.length,
+      },
+    });
   });
 
   app.post("/api/plans", async (request, response) => {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { BadRequestError } from "../../shared/errors.js";
+import { normalizePaginationParams } from "../../shared/pagination.js";
 import { listInvoicesForUser, markInvoicePaid, unmarkInvoicePaid, updateInvoiceSettingsForCard } from "./service.js";
 
 function parseIntegerRouteParam(value: string | undefined, code: string) {
@@ -29,8 +30,27 @@ export function createInvoicesRouter() {
       categoryId: request.query.categoryId,
       search: request.query.search,
     });
+    const pagination = normalizePaginationParams({
+      page: request.query.page as string | undefined,
+      pageSize: request.query.pageSize as string | undefined,
+    });
 
-    response.json(result);
+    if (!pagination.isPaginated) {
+      response.json(result);
+      return;
+    }
+
+    const start = pagination.offset;
+    const end = start + pagination.pageSize;
+    response.json({
+      ...result,
+      invoices: result.invoices.slice(start, end),
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: result.invoices.length,
+      },
+    });
   });
 
   router.post("/payments", async (request, response) => {

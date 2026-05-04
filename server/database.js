@@ -40,6 +40,7 @@ import {
   shouldSplitRecurringTransaction,
   shouldTruncateRecurringTransaction,
 } from "./recurring-income.js";
+import { normalizeLimit, normalizePaginationParams, paginateCollection } from "./shared/pagination.js";
 
 dotenv.config();
 
@@ -75,6 +76,16 @@ class DatabaseHttpError extends Error {
 class DatabaseBadRequestError extends DatabaseHttpError {
   constructor(code, message, details) {
     super(400, code, message, details);
+  }
+}
+
+function createDatabaseNotFoundError(code, message) {
+  return new DatabaseHttpError(404, code, message);
+}
+
+function assertDatabaseCondition(condition, code, message) {
+  if (!condition) {
+    throw new DatabaseBadRequestError(code, message);
   }
 }
 
@@ -674,7 +685,7 @@ export async function createBankConnection(userId, input) {
   const bank = created.find((item) => String(item.id) === String(result.rows[0].id));
 
   if (!bank) {
-    throw new Error("bank connection not found after creation");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
   }
 
   return bank;
@@ -685,7 +696,7 @@ export async function updateBankConnection(userId, bankConnectionId, input) {
   const existing = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!existing) {
-    throw new Error("bank connection not found");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
   }
 
   const normalized = await validateBankConnectionInput(resolvedUserId, input, bankConnectionId, existing);
@@ -736,7 +747,7 @@ export async function updateBankConnection(userId, bankConnectionId, input) {
   const bank = updated.find((item) => String(item.id) === String(bankConnectionId));
 
   if (!bank) {
-    throw new Error("bank connection not found after update");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
   }
 
   return bank;
@@ -747,19 +758,27 @@ export async function deleteBankConnection(userId, bankConnectionId) {
   const existing = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!existing) {
-    throw new Error("bank connection not found");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
   }
 
   if (await hasChildBankConnections(resolvedUserId, bankConnectionId)) {
-    throw new Error("delete linked cards before deleting the parent bank account");
+    throw new DatabaseHttpError(
+      409,
+      "linked_cards_exist",
+      "Exclua os cartoes vinculados antes de excluir a conta principal.",
+    );
   }
 
   if (await hasTransactionsForBankConnection(resolvedUserId, bankConnectionId)) {
-    throw new Error("cannot delete a bank connection already used by transactions");
+    throw new DatabaseHttpError(
+      409,
+      "bank_connection_in_use",
+      "Nao e possivel excluir uma conta ou cartao ja usado em transacoes.",
+    );
   }
 
   if (existing.account_type === "cash" && (await countCashBankConnections(resolvedUserId)) <= 1) {
-    throw new Error("at least one cash account must remain");
+    throw new DatabaseHttpError(409, "last_cash_account", "Pelo menos uma conta caixa precisa permanecer.");
   }
 
   const result = await pool.query(
@@ -880,9 +899,18 @@ export async function listRecentTransactions(userId, limit = 8, filters = {}) {
   );
 }
 
-export async function listTransactions(userId, limit) {
+export async function listTransactions(userId, options = undefined) {
   const resolvedUserId = await requireUserId(userId);
-  const hasLimit = Number.isInteger(limit) && limit > 0;
+  const input =
+    typeof options === "number" ? { limit: options } : options && typeof options === "object" ? options : {};
+  const pagination = normalizePaginationParams(input);
+  const hasLegacyLimit = Object.prototype.hasOwnProperty.call(input, "limit");
+  const legacyLimit = normalizeLimit(input.limit, 8);
+  const effectiveLimit = pagination.isPaginated
+    ? pagination.offset + pagination.pageSize
+    : hasLegacyLimit
+      ? legacyLimit
+      : 1000;
   const result = await pool.query(
     `
       SELECT
@@ -916,17 +944,27 @@ export async function listTransactions(userId, limit) {
       LEFT JOIN installment_purchases ip ON ip.id = t.installment_purchase_id
       WHERE t.user_id = $1
       ORDER BY t.occurred_on DESC, t.id DESC
-      LIMIT COALESCE($2, 1000)
+      LIMIT $2
     `,
-    [resolvedUserId, hasLimit ? limit : null],
+    [resolvedUserId, effectiveLimit],
   );
 
-  return mapTransactionRows(
+  const transactions = mapTransactionRows(
     buildTransactionRowsWithRecurringProjections(result.rows, {
       projectionEndDate: resolveRecurringProjectionHorizonEnd(),
-      projectionLimit: hasLimit ? limit : null,
+      projectionLimit: effectiveLimit,
     }),
   );
+
+  if (!pagination.isPaginated) {
+    return transactions;
+  }
+
+  const paged = paginateCollection(transactions, pagination);
+  return {
+    transactions: paged.items,
+    pagination: paged.pagination,
+  };
 }
 
 export async function getInstallmentsOverview(userId, filters = {}) {
@@ -1391,7 +1429,7 @@ export async function updateHousing(userId, housingId, input) {
     );
 
     if (!result.rowCount) {
-      throw new Error("housing expense not found");
+      throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitacao nao encontrada.");
     }
 
     await generateHousingTransactions(client, resolvedUserId, {
@@ -1423,7 +1461,7 @@ export async function deleteHousing(userId, housingId) {
   );
 
   if (!result.rowCount) {
-    throw new Error("housing expense not found");
+    throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitacao nao encontrada.");
   }
 }
 
@@ -1501,39 +1539,45 @@ function validateInvestmentInput(input = {}, options = {}) {
       : Number(bankConnectionValue);
 
   if (!name) {
-    throw new Error("investment name is required");
+    throw new DatabaseBadRequestError("invalid_investment_name", "investment name is required");
   }
 
   if (!investmentContributionModes.has(contributionMode)) {
-    throw new Error("valid contributionMode is required");
+    throw new DatabaseBadRequestError("invalid_investment_contribution_mode", "valid contributionMode is required");
   }
 
   if (contributionMode === "fixed_amount") {
     if (!Number.isFinite(fixedAmount) || fixedAmount < 0) {
-      throw new Error("fixedAmount must be zero or greater");
+      throw new DatabaseBadRequestError("invalid_investment_fixed_amount", "fixedAmount must be zero or greater");
     }
   }
 
   if (contributionMode === "income_percentage") {
     if (!Number.isFinite(incomePercentage) || incomePercentage < 0 || incomePercentage > 100) {
-      throw new Error("incomePercentage must be between 0 and 100");
+      throw new DatabaseBadRequestError(
+        "invalid_investment_income_percentage",
+        "incomePercentage must be between 0 and 100",
+      );
     }
   }
 
   if (!Number.isFinite(currentAmount) || currentAmount < 0) {
-    throw new Error("currentAmount must be zero or greater");
+    throw new DatabaseBadRequestError("invalid_investment_current_amount", "currentAmount must be zero or greater");
   }
 
   if (targetAmount !== null && (!Number.isFinite(targetAmount) || targetAmount < 0)) {
-    throw new Error("targetAmount must be zero or greater");
+    throw new DatabaseBadRequestError("invalid_investment_target_amount", "targetAmount must be zero or greater");
   }
 
   if (bankConnectionId !== null && !Number.isInteger(bankConnectionId)) {
-    throw new Error("bankConnectionId must be a valid integer");
+    throw new DatabaseBadRequestError(
+      "invalid_investment_bank_connection_id",
+      "bankConnectionId must be a valid integer",
+    );
   }
 
   if (!investmentStatuses.has(status)) {
-    throw new Error("valid investment status is required");
+    throw new DatabaseBadRequestError("invalid_investment_status", "valid investment status is required");
   }
 
   return {
@@ -1617,7 +1661,7 @@ export async function createInvestment(userId, input = {}) {
       const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
 
       if (!bankConnection) {
-        throw new Error("bank connection not found");
+        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
       }
     }
 
@@ -1678,14 +1722,14 @@ export async function updateInvestment(userId, investmentId, input = {}) {
     const existing = await getInvestmentRowById(resolvedUserId, investmentId, client);
 
     if (!existing) {
-      throw new Error("investment not found");
+      throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
     }
 
     if (normalized.bankConnectionId !== null) {
       const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
 
       if (!bankConnection) {
-        throw new Error("bank connection not found");
+        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
       }
     }
 
@@ -1747,7 +1791,7 @@ export async function deleteInvestment(userId, investmentId) {
   );
 
   if (!result.rowCount) {
-    throw new Error("investment not found");
+    throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
   }
 }
 
@@ -2153,7 +2197,7 @@ async function buildUniqueBankSlug(userId, name, client = pool) {
   const slugBase = slugify(name);
 
   if (!slugBase) {
-    throw new Error("invalid bank connection name");
+    throw new DatabaseBadRequestError("invalid_bank_connection_name", "invalid bank connection name");
   }
 
   const result = await client.query(
@@ -2185,7 +2229,7 @@ function validateStatementDay(value, fieldName) {
   }
 
   if (!Number.isInteger(value) || value < 1 || value > 31) {
-    throw new Error(`${fieldName} must be between 1 and 31`);
+    throw new DatabaseBadRequestError("invalid_bank_connection_statement_day", `${fieldName} must be between 1 and 31`);
   }
 
   return value;
@@ -2199,7 +2243,10 @@ function validateInvoiceDueReminderDays(value) {
   const parsed = value === undefined || value === null || value === "" ? 3 : Number(value);
 
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 15) {
-    throw new Error("invoiceDueReminderDays must be between 1 and 15");
+    throw new DatabaseBadRequestError(
+      "invalid_bank_connection_invoice_due_reminder_days",
+      "invoiceDueReminderDays must be between 1 and 15",
+    );
   }
 
   return parsed;
@@ -2233,47 +2280,73 @@ async function validateBankConnectionInput(userId, input, currentId = null, exis
     input.invoiceDueReminderDays === undefined ? existingInvoiceDueReminderDays : input.invoiceDueReminderDays,
   );
 
-  if (!name || !accountType || !Number.isFinite(currentBalance)) {
-    throw new Error("name, accountType and currentBalance are required");
-  }
+  assertDatabaseCondition(
+    Boolean(name) && Boolean(accountType) && Number.isFinite(currentBalance),
+    "invalid_bank_connection_payload",
+    "name, accountType and currentBalance are required",
+  );
 
   if (accountType === "credit_card") {
     if (!Number.isFinite(creditLimit) || Number(creditLimit) < 0) {
-      throw new Error("creditLimit is required for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_credit_limit",
+        "creditLimit is required for credit cards",
+      );
     }
 
     if (!Number.isInteger(parentBankConnectionId)) {
-      throw new Error("parentBankConnectionId is required for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_parent_bank_connection_id",
+        "parentBankConnectionId is required for credit cards",
+      );
     }
 
     if (statementCloseDay === null || statementDueDay === null) {
-      throw new Error("statementCloseDay and statementDueDay are required for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_statement_days",
+        "statementCloseDay and statementDueDay are required for credit cards",
+      );
     }
 
     const parentBankConnection = await getBankConnectionById(userId, parentBankConnectionId);
 
     if (!parentBankConnection) {
-      throw new Error("parent bank connection not found");
+      throw createDatabaseNotFoundError("parent_bank_connection_not_found", "Conta pai nao encontrada.");
     }
 
     if (parentBankConnection.account_type !== "bank_account") {
-      throw new Error("credit cards must be linked to a bank account");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_parent_type",
+        "credit cards must be linked to a bank account",
+      );
     }
 
     if (currentId !== null && Number(parentBankConnectionId) === Number(currentId)) {
-      throw new Error("a credit card cannot be linked to itself");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_parent_self_reference",
+        "a credit card cannot be linked to itself",
+      );
     }
   } else {
     if (creditLimit !== null) {
-      throw new Error("creditLimit is allowed only for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_credit_limit",
+        "creditLimit is allowed only for credit cards",
+      );
     }
 
     if (parentBankConnectionId !== null) {
-      throw new Error("parentBankConnectionId is allowed only for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_parent_bank_connection_id",
+        "parentBankConnectionId is allowed only for credit cards",
+      );
     }
 
     if (statementCloseDay !== null || statementDueDay !== null) {
-      throw new Error("statement days are allowed only for credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_statement_days",
+        "statement days are allowed only for credit cards",
+      );
     }
   }
 
@@ -2572,7 +2645,10 @@ export async function createTransaction(userId, input) {
   const isRecurring = Boolean(input.isRecurring) && amount > 0;
 
   if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(bankConnectionId)) {
-    throw new Error("description, amount, occurredOn and bankConnectionId are required");
+    throw new DatabaseBadRequestError(
+      "invalid_transaction_payload",
+      "description, amount, occurredOn and bankConnectionId are required",
+    );
   }
 
   const category = await resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, amount);
@@ -2584,7 +2660,10 @@ export async function createTransaction(userId, input) {
   }
 
   if (amount > 0 && bankConnection.account_type === "credit_card") {
-    throw new Error("income transactions cannot use credit cards");
+    throw new DatabaseBadRequestError(
+      "invalid_transaction_bank_connection",
+      "income transactions cannot use credit cards",
+    );
   }
 
   const result = await pool.query(
@@ -2627,7 +2706,10 @@ export async function updateTransaction(userId, transactionId, input) {
   const isRecurring = Boolean(input.isRecurring) && amount > 0;
 
   if (!description || !Number.isFinite(amount) || !occurredOn || !Number.isInteger(bankConnectionId)) {
-    throw new Error("description, amount, occurredOn and bankConnectionId are required");
+    throw new DatabaseBadRequestError(
+      "invalid_transaction_payload",
+      "description, amount, occurredOn and bankConnectionId are required",
+    );
   }
 
   const client = await pool.connect();
@@ -2649,7 +2731,10 @@ export async function updateTransaction(userId, transactionId, input) {
     }
 
     if (amount > 0 && bankConnection.account_type === "credit_card") {
-      throw new Error("income transactions cannot use credit cards");
+      throw new DatabaseBadRequestError(
+        "invalid_transaction_bank_connection",
+        "income transactions cannot use credit cards",
+      );
     }
 
     const syncPlan = buildTransactionCategorySyncPlan(existingTransaction, category.id);
@@ -2843,7 +2928,7 @@ export async function previewTransactionImport(
 
   if (parsedBankConnectionId !== null) {
     if (!Number.isInteger(parsedBankConnectionId)) {
-      throw new Error("bankConnectionId is invalid");
+      throw new DatabaseBadRequestError("invalid_bank_connection_id", "bankConnectionId is invalid");
     }
 
     bankConnection = await getBankConnectionById(resolvedUserId, parsedBankConnectionId);
@@ -2857,11 +2942,17 @@ export async function previewTransactionImport(
       importSource === "credit_card_statement" &&
       bankConnection.account_type !== "credit_card"
     ) {
-      throw new Error("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_for_import_source",
+        "A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.",
+      );
     }
 
     if (hasExplicitImportSource && importSource === "bank_statement" && bankConnection.account_type === "credit_card") {
-      throw new Error("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_for_import_source",
+        "O extrato bancario precisa ser vinculado a uma conta nao-cartao.",
+      );
     }
   }
 
@@ -2903,11 +2994,17 @@ export async function previewTransactionImport(
 
   if (bankConnection) {
     if (preview.detectedSourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
-      throw new Error("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_for_import_source",
+        "A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.",
+      );
     }
 
     if (preview.detectedSourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
-      throw new Error("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+      throw new DatabaseBadRequestError(
+        "invalid_bank_connection_for_import_source",
+        "O extrato bancario precisa ser vinculado a uma conta nao-cartao.",
+      );
     }
   }
 
@@ -3146,7 +3243,10 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
             : "bank_statement";
 
       if (!Number.isInteger(resolvedBankConnectionId)) {
-        throw new Error("Selecione a conta ou cartao desta linha antes de confirmar a importacao.");
+        throw new DatabaseBadRequestError(
+          "import_row_bank_connection_required",
+          "Selecione a conta ou cartao desta linha antes de confirmar a importacao.",
+        );
       }
 
       let bankConnection = bankConnectionCache.get(resolvedBankConnectionId);
@@ -3157,15 +3257,24 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
       }
 
       if (!bankConnection) {
-        throw new Error("Conta ou cartao nao encontrado para esta linha.");
+        throw createDatabaseNotFoundError(
+          "bank_connection_not_found",
+          "Conta ou cartao nao encontrado para esta linha.",
+        );
       }
 
       if (resolvedSourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
-        throw new Error("Linhas marcadas como fatura precisam usar um cartao.");
+        throw new DatabaseBadRequestError(
+          "invalid_import_row_bank_connection",
+          "Linhas marcadas como fatura precisam usar um cartao.",
+        );
       }
 
       if (resolvedSourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
-        throw new Error("Linhas marcadas como extrato precisam usar uma conta nao-cartao.");
+        throw new DatabaseBadRequestError(
+          "invalid_import_row_bank_connection",
+          "Linhas marcadas como extrato precisam usar uma conta nao-cartao.",
+        );
       }
 
       const entriesToImport = buildImportedTransactionEntries({
@@ -3409,7 +3518,10 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
       );
 
       if (!Number.isInteger(resolvedBankConnectionId)) {
-        throw new Error("Selecione a conta ou cartao desta linha antes de confirmar a importacao.");
+        throw new DatabaseBadRequestError(
+          "import_row_bank_connection_required",
+          "Selecione a conta ou cartao desta linha antes de confirmar a importacao.",
+        );
       }
 
       let bankConnection = bankConnectionCache.get(resolvedBankConnectionId);
@@ -3420,15 +3532,24 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
       }
 
       if (!bankConnection) {
-        throw new Error("Conta ou cartao nao encontrado para esta linha.");
+        throw createDatabaseNotFoundError(
+          "bank_connection_not_found",
+          "Conta ou cartao nao encontrado para esta linha.",
+        );
       }
 
       if (normalized.sourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
-        throw new Error("Linhas marcadas como fatura precisam usar um cartao.");
+        throw new DatabaseBadRequestError(
+          "invalid_import_row_bank_connection",
+          "Linhas marcadas como fatura precisam usar um cartao.",
+        );
       }
 
       if (normalized.sourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
-        throw new Error("Linhas marcadas como extrato precisam usar uma conta nao-cartao.");
+        throw new DatabaseBadRequestError(
+          "invalid_import_row_bank_connection",
+          "Linhas marcadas como extrato precisam usar uma conta nao-cartao.",
+        );
       }
 
       const entriesToImport = buildImportedTransactionEntries({
@@ -4483,8 +4604,8 @@ async function getPlanRowByPublicId(userId, publicId) {
         p.created_at,
         p.updated_at
       FROM plans p
-      LEFT JOIN investments gi ON gi.id = p.goal_investment_id
-      LEFT JOIN bank_connections gb ON gb.id = gi.bank_connection_id
+      LEFT JOIN investments gi ON gi.id = p.goal_investment_id AND gi.user_id = p.user_id
+      LEFT JOIN bank_connections gb ON gb.id = gi.bank_connection_id AND gb.user_id = p.user_id
       WHERE p.user_id = $1 AND p.public_id = $2
     `,
     [userId, publicId],
@@ -4612,7 +4733,7 @@ async function createPlanGoalInvestment(client, userId, investmentInput) {
     const bankConnection = await getBankConnectionById(userId, investmentInput.bankConnectionId, client);
 
     if (!bankConnection) {
-      throw new Error("bank connection not found");
+      throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
     }
   }
 
@@ -4665,7 +4786,7 @@ async function resolvePlanGoalInvestmentIds(client, userId, goal) {
     const existingInvestment = await getInvestmentRowById(userId, investmentId, client);
 
     if (!existingInvestment) {
-      throw new Error("investment not found");
+      throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
     }
 
     investmentIds.push(investmentId);
@@ -4747,7 +4868,7 @@ export async function updatePlan(userId, publicId, input = {}) {
   const planRow = await getPlanRowByPublicId(resolvedUserId, publicId);
 
   if (!planRow) {
-    throw new Error("plan not found");
+    throw createDatabaseNotFoundError("plan_not_found", "Plano nao encontrado.");
   }
 
   const hasTitle = Object.prototype.hasOwnProperty.call(input, "title");
@@ -4761,7 +4882,7 @@ export async function updatePlan(userId, publicId, input = {}) {
     : planRow.title;
 
   if (hasTitle && !title) {
-    throw new Error("plan title is required");
+    throw new DatabaseBadRequestError("invalid_plan_title", "plan title is required");
   }
 
   const description = hasDescription ? String(input.description ?? "").trim() : planRow.description;
@@ -4838,7 +4959,7 @@ export async function deletePlan(userId, publicId) {
   );
 
   if (!result.rowCount) {
-    throw new Error("plan not found");
+    throw createDatabaseNotFoundError("plan_not_found", "Plano nao encontrado.");
   }
 }
 

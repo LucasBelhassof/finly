@@ -92,6 +92,10 @@ function normalizeEntry(row) {
   };
 }
 
+function isEntryUsable(entry) {
+  return Boolean(entry && !entry.committedAt && Number.isFinite(entry.expiresAtMs) && entry.expiresAtMs > Date.now());
+}
+
 async function getPreviewEntry(previewToken) {
   const key = normalizePreviewToken(previewToken);
 
@@ -150,7 +154,6 @@ async function savePreviewEntry({ previewToken, userId, metadata, session, expir
         kind = EXCLUDED.kind,
         payload = EXCLUDED.payload,
         expires_at = EXCLUDED.expires_at,
-        committed_at = NULL,
         updated_at = NOW()
     `,
     [
@@ -322,7 +325,7 @@ export async function setUniversalPreviewSession(previewToken, session, ttlMs = 
 export async function getUniversalPreviewMetadata(previewToken) {
   const entry = await getPreviewEntry(previewToken);
 
-  if (!entry || entry.committedAt || !Number.isFinite(entry.expiresAtMs) || entry.expiresAtMs <= Date.now()) {
+  if (!isEntryUsable(entry)) {
     return null;
   }
 
@@ -331,7 +334,7 @@ export async function getUniversalPreviewMetadata(previewToken) {
 
 export async function hasUniversalPreviewSession(previewToken) {
   const entry = await getPreviewEntry(previewToken);
-  return entry?.payload?.session?.kind === "universal";
+  return isEntryUsable(entry) && entry?.payload?.session?.kind === "universal";
 }
 
 export async function getUniversalPreviewSession(previewToken, userId) {

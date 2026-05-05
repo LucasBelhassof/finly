@@ -192,6 +192,7 @@ function createDbState() {
 
       if (normalizedSql.includes("INSERT INTO import_preview_sessions (")) {
         const id = String(params[0]);
+        const existing = previewSessions.get(id);
         const entry = {
           id,
           user_id: Number(params[1]),
@@ -201,7 +202,7 @@ function createDbState() {
             session: JSON.parse(String(params[4])),
           },
           expires_at: new Date(Number(params[5])).toISOString(),
-          committed_at: null,
+          committed_at: existing?.committed_at ?? null,
         };
         previewSessions.set(id, entry);
         return Promise.resolve({ rows: [], rowCount: 1 });
@@ -627,7 +628,7 @@ describe("transaction import commit dispatcher", () => {
   });
 
   it("rejects expired universal previews", async () => {
-    const { getUniversalPreviewSession, setUniversalPreviewSession } =
+    const { getUniversalPreviewSession, hasUniversalPreviewSession, setUniversalPreviewSession } =
       await import("./import/preview-session-store.js");
 
     await setUniversalPreviewSession("preview-store-expired", {
@@ -645,6 +646,7 @@ describe("transaction import commit dispatcher", () => {
       expiredEntry.expires_at = new Date(Date.now() - 60_000).toISOString();
     }
 
+    await expect(hasUniversalPreviewSession("preview-store-expired")).resolves.toBe(false);
     await expect(getUniversalPreviewSession("preview-store-expired", 7)).rejects.toThrow(
       "A previa expirou. Gere a previa novamente para continuar.",
     );
@@ -722,6 +724,44 @@ describe("transaction import commit dispatcher", () => {
 
     expect(pgState.current?.previewSessions.has("preview-store-committed-old")).toBe(false);
     expect(pgState.current?.previewSessions.has("preview-store-committed-recent")).toBe(true);
+  });
+
+  it("does not revive a committed universal preview on upsert and hides it from dispatcher checks", async () => {
+    const {
+      getUniversalPreviewSession,
+      hasUniversalPreviewSession,
+      markImportPreviewSessionCommitted,
+      setUniversalPreviewSession,
+    } = await import("./import/preview-session-store.js");
+
+    await setUniversalPreviewSession("preview-store-committed-locked", {
+      kind: "universal",
+      previewToken: "preview-store-committed-locked",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 10,
+      items: [buildUniversalSessionRow()],
+    });
+    await markImportPreviewSessionCommitted("preview-store-committed-locked");
+
+    await setUniversalPreviewSession("preview-store-committed-locked", {
+      kind: "universal",
+      previewToken: "preview-store-committed-locked",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 10,
+      items: [buildUniversalSessionRow({ original: { description: "Nao deve reabrir" } })],
+    });
+
+    await expect(hasUniversalPreviewSession("preview-store-committed-locked")).resolves.toBe(false);
+    await expect(getUniversalPreviewSession("preview-store-committed-locked", 7)).rejects.toThrow(
+      "Esta previa ja foi utilizada.",
+    );
+    expect(pgState.current?.previewSessions.get("preview-store-committed-locked")?.committed_at).toBeTruthy();
   });
 
   it("supports a per-row account override for universal previews", async () => {

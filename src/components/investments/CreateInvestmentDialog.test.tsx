@@ -139,7 +139,7 @@ describe("CreateInvestmentDialog", () => {
     );
 
     expect(screen.getByLabelText("Nome")).toHaveValue("Viagem 2027");
-    expect(screen.getByLabelText("Descricao")).toHaveValue("Meta sugerida pelo planejamento");
+    expect(screen.getByLabelText("Descrição")).toHaveValue("Meta sugerida pelo planejamento");
     expect(screen.getByLabelText("Valor do aporte")).toHaveValue("300,00");
     expect(screen.getByLabelText("Saldo atual")).toHaveValue("50,00");
     expect(screen.getByLabelText("Meta da caixinha")).toHaveValue("1200,00");

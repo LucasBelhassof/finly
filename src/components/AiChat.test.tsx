@@ -45,7 +45,7 @@ describe("AiChat", () => {
 
     const { container } = render(<AiChat chatId="chat-1" />);
 
-    expect(screen.getByPlaceholderText("Pergunte sobre suas financas...")).not.toBeDisabled();
+    expect(screen.getByPlaceholderText("Pergunte sobre suas finanças...")).not.toBeDisabled();
     expect(document.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(container.firstChild).toHaveClass("overflow-hidden");
     expect(container.querySelector(".overflow-y-auto")).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe("AiChat", () => {
 
     render(<AiChat onStartConversation={onStartConversation} />);
 
-    const input = screen.getByPlaceholderText("Pergunte sobre suas financas...");
+    const input = screen.getByPlaceholderText("Pergunte sobre suas finanças...");
     fireEvent.change(input, { target: { value: "Quero organizar minhas contas" } });
     fireEvent.submit(input.closest("form")!);
 

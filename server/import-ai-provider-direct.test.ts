@@ -244,7 +244,7 @@ describe("import-ai-provider-direct", () => {
 
   it("throws a controlled error when the structured body is missing", () => {
     expect(() => extractStructuredBody("openai", { choices: [{ message: { content: "" } }] })).toThrow(
-      "A OpenAI nao retornou conteudo estruturado.",
+      "A OpenAI não retornou conteúdo estruturado.",
     );
   });
 });

@@ -76,21 +76,22 @@ export function useChatMessages(limit = DEFAULT_CHAT_LIMIT, initialData?: ChatMe
   });
 }
 
-export function useChatConversations() {
+export function useChatConversations(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: chatConversationsQueryKey,
     queryFn: getChatConversations,
+    enabled: options.enabled ?? true,
     staleTime: 10_000,
   });
 }
 
-export function useSearchChatConversations(query: string) {
+export function useSearchChatConversations(query: string, options: { enabled?: boolean } = {}) {
   const normalizedQuery = query.trim();
 
   return useQuery({
     queryKey: chatSearchQueryKey(normalizedQuery),
     queryFn: () => searchChatConversations(normalizedQuery),
-    enabled: Boolean(normalizedQuery),
+    enabled: Boolean(normalizedQuery) && (options.enabled ?? true),
     staleTime: 10_000,
   });
 }
@@ -144,11 +145,15 @@ export function useDeleteChatConversation() {
   });
 }
 
-export function useChatConversationMessages(chatId: string | undefined, limit = DEFAULT_CHAT_LIMIT) {
+export function useChatConversationMessages(
+  chatId: string | undefined,
+  limit = DEFAULT_CHAT_LIMIT,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: chatConversationMessagesQueryKey(chatId ?? "", limit),
     queryFn: () => getChatConversationMessages(chatId ?? "", limit),
-    enabled: Boolean(chatId),
+    enabled: Boolean(chatId) && (options.enabled ?? true),
     staleTime: 10_000,
   });
 }

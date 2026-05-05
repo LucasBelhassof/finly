@@ -16,6 +16,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
+import { PremiumGate } from "@/components/premium/PremiumGate";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,7 @@ import {
   useUpdatePlan,
 } from "@/hooks/use-plans";
 import { appRoutes } from "@/lib/routes";
+import { useAuthContext } from "@/modules/auth/components/AuthProvider";
 import {
   applyCreatedInvestmentToPlanForm,
   buildInvestmentInitialValues,
@@ -233,10 +235,12 @@ function ChatSummaryPanel({
 }
 
 export default function PlanDetailPage() {
+  const { user } = useAuthContext();
+  const isPremiumUser = Boolean(user?.isPremium);
   const { planId } = useParams();
   const navigate = useNavigate();
   const { data: plan, isLoading, isError } = usePlan(planId);
-  const { data: chats = [] } = useChatConversations();
+  const { data: chats = [] } = useChatConversations({ enabled: isPremiumUser });
   const { data: categories = [] } = useCategories();
   const { data: investments = [] } = useInvestments();
   const updatePlan = useUpdatePlan();
@@ -260,10 +264,12 @@ export default function PlanDetailPage() {
   } | null>(null);
   const [activeChatId, setActiveChatId] = useState("");
   const activeChat = plan?.chats.find((chat) => chat.id === activeChatId) ?? plan?.chats[0] ?? null;
-  const { data: activeMessages = [], isLoading: isLoadingMessages } = useChatConversationMessages(activeChat?.id, 100);
-  const { data: chatSummary, isLoading: isLoadingSummary } = useChatSummary(activeChat?.id);
+  const { data: activeMessages = [], isLoading: isLoadingMessages } = useChatConversationMessages(activeChat?.id, 100, {
+    enabled: isPremiumUser,
+  });
+  const { data: chatSummary, isLoading: isLoadingSummary } = useChatSummary(activeChat?.id, { enabled: isPremiumUser });
   const generateChatSummary = useGenerateChatSummary();
-  const { data: recommendations = [] } = usePlanRecommendations(plan?.id);
+  const { data: recommendations = [] } = usePlanRecommendations(plan?.id, { enabled: isPremiumUser });
   const unlinkedChats = useMemo(() => chats.filter((chat) => chat.planId !== plan?.id), [chats, plan?.id]);
   const createInvestmentInitialValues = useMemo(() => buildInvestmentInitialValues(planForm), [planForm]);
 
@@ -532,14 +538,18 @@ export default function PlanDetailPage() {
           <Button variant="secondary" onClick={handleOpenEdit}>
             Editar
           </Button>
-          <Button variant="secondary" onClick={handleEvaluatePlan} disabled={evaluatePlan.isPending}>
-            {evaluatePlan.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            Avaliar IA
-          </Button>
-          <Button variant="outline" onClick={() => setLinkDialogOpen(true)}>
-            <Link2 size={16} />
-            Vincular chat
-          </Button>
+          <PremiumGate featureLabel="Avaliação por IA" mode="inline">
+            <Button variant="secondary" onClick={handleEvaluatePlan} disabled={evaluatePlan.isPending}>
+              {evaluatePlan.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              Avaliar IA
+            </Button>
+          </PremiumGate>
+          <PremiumGate featureLabel="Chats vinculados ao planejamento" mode="inline">
+            <Button variant="outline" onClick={() => setLinkDialogOpen(true)}>
+              <Link2 size={16} />
+              Vincular chat
+            </Button>
+          </PremiumGate>
           <Button variant="outline" onClick={() => setDeleting(true)}>
             <Trash2 size={16} />
             Excluir
@@ -565,239 +575,257 @@ export default function PlanDetailPage() {
               <p className="mt-2 text-xs text-muted-foreground">{getPlanGoalDetail(plan, categories)}</p>
             </div>
 
-            {plan.aiAssessment ? (
+            <PremiumGate featureLabel="Diagnóstico de IA no planejamento">
               <div className="mt-4 rounded-lg border border-border/40 bg-background/60 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={plan.aiAssessment.status === "at_risk" ? "destructive" : "secondary"}>
-                    IA: {getPlanAiStatusLabel(plan.aiAssessment.status)}
-                  </Badge>
-                  <Badge variant="outline">Prioridade {getPriorityLabel(plan.aiAssessment.suggestedPriority)}</Badge>
-                  <span className="text-xs text-muted-foreground">{formatDate(plan.aiAssessment.assessedAt)}</span>
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground">{plan.aiAssessment.riskSummary}</p>
-                {plan.aiAssessment.adjustmentRecommendation ? (
-                  <p className="mt-2 text-sm text-foreground">{plan.aiAssessment.adjustmentRecommendation}</p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="glass-card p-5">
-            <h3 className="mb-4 text-lg font-semibold text-foreground">Sugestoes de replanejamento</h3>
-            {!recommendations.filter((item) => item.status === "pending").length ? (
-              <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                Nenhuma sugestao pendente.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recommendations
-                  .filter((item) => item.status === "pending")
-                  .map((recommendation) => (
-                    <div
-                      key={String(recommendation.id)}
-                      className="rounded-lg border border-border/40 bg-secondary/20 p-4"
-                    >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">{recommendation.title}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">{recommendation.rationale}</p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => handleApplyRecommendation(recommendation.id)}
-                          disabled={applyRecommendation.isPending}
-                        >
-                          Aplicar
-                        </Button>
-                      </div>
+                {plan.aiAssessment ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={plan.aiAssessment.status === "at_risk" ? "destructive" : "secondary"}>
+                        IA: {getPlanAiStatusLabel(plan.aiAssessment.status)}
+                      </Badge>
+                      <Badge variant="outline">
+                        Prioridade {getPriorityLabel(plan.aiAssessment.suggestedPriority)}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">{formatDate(plan.aiAssessment.assessedAt)}</span>
                     </div>
-                  ))}
+                    <p className="mt-3 text-sm text-muted-foreground">{plan.aiAssessment.riskSummary}</p>
+                    {plan.aiAssessment.adjustmentRecommendation ? (
+                      <p className="mt-2 text-sm text-foreground">{plan.aiAssessment.adjustmentRecommendation}</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Esta área mostra o risco, a prioridade sugerida e os ajustes propostos pela IA para o plano.
+                  </p>
+                )}
               </div>
-            )}
+            </PremiumGate>
           </div>
 
-          <div className="glass-card p-5">
-            <h3 className="mb-4 text-lg font-semibold text-foreground">Metas a cumprir</h3>
-            {!plan.items.length ? (
-              <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                Nenhuma meta cadastrada.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {plan.items.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-border/40 bg-secondary/20 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-1 items-start gap-3">
-                        <CheckCircle2
-                          size={18}
-                          className={item.status === "done" ? "mt-0.5 text-income" : "mt-0.5 text-muted-foreground"}
-                        />
-                        <div className="min-w-0 flex-1">
-                          {editingItemId === item.id && editingItemForm ? (
-                            <div className="w-full space-y-2">
-                              <div className="flex w-full items-start gap-2">
-                                <Input
-                                  value={editingItemForm.title}
+          <PremiumGate featureLabel="Sugestões de replanejamento com IA">
+            <div className="glass-card p-5">
+              <h3 className="mb-4 text-lg font-semibold text-foreground">Sugestoes de replanejamento</h3>
+              {!recommendations.filter((item) => item.status === "pending").length ? (
+                <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                  Nenhuma sugestao pendente.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recommendations
+                    .filter((item) => item.status === "pending")
+                    .map((recommendation) => (
+                      <div
+                        key={String(recommendation.id)}
+                        className="rounded-lg border border-border/40 bg-secondary/20 p-4"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{recommendation.title}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{recommendation.rationale}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => handleApplyRecommendation(recommendation.id)}
+                            disabled={applyRecommendation.isPending}
+                          >
+                            Aplicar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="glass-card p-5">
+              <h3 className="mb-4 text-lg font-semibold text-foreground">Metas a cumprir</h3>
+              {!plan.items.length ? (
+                <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                  Nenhuma meta cadastrada.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {plan.items.map((item) => (
+                    <div key={item.id} className="rounded-lg border border-border/40 bg-secondary/20 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <CheckCircle2
+                            size={18}
+                            className={item.status === "done" ? "mt-0.5 text-income" : "mt-0.5 text-muted-foreground"}
+                          />
+                          <div className="min-w-0 flex-1">
+                            {editingItemId === item.id && editingItemForm ? (
+                              <div className="w-full space-y-2">
+                                <div className="flex w-full items-start gap-2">
+                                  <Input
+                                    value={editingItemForm.title}
+                                    onChange={(event) =>
+                                      setEditingItemForm((current) =>
+                                        current ? { ...current, title: event.target.value } : current,
+                                      )
+                                    }
+                                    placeholder="Titulo da meta"
+                                    className="min-w-0 flex-1"
+                                  />
+                                  <Select
+                                    value={editingItemForm.priority}
+                                    onValueChange={(value: PlanPriority) =>
+                                      setEditingItemForm((current) =>
+                                        current
+                                          ? {
+                                              ...current,
+                                              priority: value === "high" || value === "low" ? value : "medium",
+                                            }
+                                          : current,
+                                      )
+                                    }
+                                  >
+                                    <SelectTrigger className={`w-[170px] shrink-0 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
+                                      <SelectValue placeholder="Prioridade" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="high">Alta</SelectItem>
+                                      <SelectItem value="medium">Media</SelectItem>
+                                      <SelectItem value="low">Baixa</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <Textarea
+                                  value={editingItemForm.description}
                                   onChange={(event) =>
                                     setEditingItemForm((current) =>
-                                      current ? { ...current, title: event.target.value } : current,
+                                      current ? { ...current, description: event.target.value } : current,
                                     )
                                   }
-                                  placeholder="Titulo da meta"
-                                  className="min-w-0 flex-1"
+                                  placeholder="Detalhes opcionais"
+                                  rows={4}
+                                  className="min-h-28 w-full"
                                 />
-                                <Select
-                                  value={editingItemForm.priority}
-                                  onValueChange={(value: PlanPriority) =>
-                                    setEditingItemForm((current) =>
-                                      current
-                                        ? {
-                                            ...current,
-                                            priority: value === "high" || value === "low" ? value : "medium",
-                                          }
-                                        : current,
-                                    )
-                                  }
-                                >
-                                  <SelectTrigger className={`w-[170px] shrink-0 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
-                                    <SelectValue placeholder="Prioridade" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="high">Alta</SelectItem>
-                                    <SelectItem value="medium">Media</SelectItem>
-                                    <SelectItem value="low">Baixa</SelectItem>
-                                  </SelectContent>
-                                </Select>
                               </div>
-                              <Textarea
-                                value={editingItemForm.description}
-                                onChange={(event) =>
-                                  setEditingItemForm((current) =>
-                                    current ? { ...current, description: event.target.value } : current,
-                                  )
-                                }
-                                placeholder="Detalhes opcionais"
-                                rows={4}
-                                className="min-h-28 w-full"
-                              />
-                            </div>
+                            ) : (
+                              <>
+                                <p className="text-sm font-medium text-foreground">{item.title}</p>
+                                <Badge variant="outline" className="mt-1">
+                                  Prioridade {getPriorityLabel(item.priority)}
+                                </Badge>
+                                {item.description ? (
+                                  <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-row flex-wrap items-center gap-2">
+                          {editingItemId === item.id ? (
+                            <>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => handleSaveItem(item.id)}
+                                disabled={updatePlan.isPending}
+                              >
+                                {updatePlan.isPending ? (
+                                  <Loader2 size={15} className="animate-spin" />
+                                ) : (
+                                  <Check size={15} />
+                                )}
+                                Salvar
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={handleCancelEditingItem}
+                                disabled={updatePlan.isPending}
+                              >
+                                <X size={15} />
+                                Cancelar
+                              </Button>
+                            </>
                           ) : (
                             <>
-                              <p className="text-sm font-medium text-foreground">{item.title}</p>
-                              <Badge variant="outline" className="mt-1">
-                                Prioridade {getPriorityLabel(item.priority)}
-                              </Badge>
-                              {item.description ? (
-                                <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
-                              ) : null}
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                variant={item.status === "done" ? "secondary" : "default"}
+                                onClick={() => handleMarkItemAsDone(item.id)}
+                                disabled={item.status === "done" || updatePlan.isPending}
+                              >
+                                <CheckCircle2 size={15} />
+                                {item.status === "done" ? "Concluida" : "Marcar como concluida"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-2 text-xs"
+                                onClick={() => handleStartEditingItem(item)}
+                                disabled={updatePlan.isPending || editingItemId === item.id}
+                              >
+                                <Pencil size={15} />
+                                Editar meta
+                              </Button>
                             </>
                           )}
                         </div>
                       </div>
-                      <div className="flex shrink-0 flex-row flex-wrap items-center gap-2">
-                        {editingItemId === item.id ? (
-                          <>
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              onClick={() => handleSaveItem(item.id)}
-                              disabled={updatePlan.isPending}
-                            >
-                              {updatePlan.isPending ? (
-                                <Loader2 size={15} className="animate-spin" />
-                              ) : (
-                                <Check size={15} />
-                              )}
-                              Salvar
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              onClick={handleCancelEditingItem}
-                              disabled={updatePlan.isPending}
-                            >
-                              <X size={15} />
-                              Cancelar
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              variant={item.status === "done" ? "secondary" : "default"}
-                              onClick={() => handleMarkItemAsDone(item.id)}
-                              disabled={item.status === "done" || updatePlan.isPending}
-                            >
-                              <CheckCircle2 size={15} />
-                              {item.status === "done" ? "Concluida" : "Marcar como concluida"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-2 text-xs"
-                              onClick={() => handleStartEditingItem(item)}
-                              disabled={updatePlan.isPending || editingItemId === item.id}
-                            >
-                              <Pencil size={15} />
-                              Editar meta
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </PremiumGate>
+
+          <PremiumGate featureLabel="Resumo e histórico de chat vinculados">
+            <ChatSummaryPanel
+              chat={activeChat}
+              messages={activeMessages}
+              isLoading={isLoadingMessages}
+              persistedSummary={chatSummary?.summary}
+              isLoadingSummary={isLoadingSummary}
+              onGenerateSummary={handleGenerateSummary}
+              isGeneratingSummary={generateChatSummary.isPending}
+            />
+          </PremiumGate>
+        </div>
+
+        <PremiumGate featureLabel="Chats vinculados ao planejamento">
+          <aside className="glass-card h-fit p-5">
+            <h3 className="mb-4 text-lg font-semibold text-foreground">Chats vinculados</h3>
+            {!plan.chats.length ? (
+              <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
+                Nenhum chat vinculado.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {plan.chats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    className={`rounded-lg border p-3 ${
+                      activeChat?.id === chat.id
+                        ? "border-primary/40 bg-primary/10"
+                        : "border-border/40 bg-secondary/20"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <button type="button" className="min-w-0 text-left" onClick={() => setActiveChatId(chat.id)}>
+                        <p className="truncate text-sm font-medium text-foreground">{chat.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{formatDate(chat.updatedAt)}</p>
+                      </button>
+                      <Button variant="ghost" size="sm" onClick={() => setUnlinkingChat(chat)}>
+                        <Unlink size={15} />
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-
-          <ChatSummaryPanel
-            chat={activeChat}
-            messages={activeMessages}
-            isLoading={isLoadingMessages}
-            persistedSummary={chatSummary?.summary}
-            isLoadingSummary={isLoadingSummary}
-            onGenerateSummary={handleGenerateSummary}
-            isGeneratingSummary={generateChatSummary.isPending}
-          />
-        </div>
-
-        <aside className="glass-card h-fit p-5">
-          <h3 className="mb-4 text-lg font-semibold text-foreground">Chats vinculados</h3>
-          {!plan.chats.length ? (
-            <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-              Nenhum chat vinculado.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {plan.chats.map((chat) => (
-                <div
-                  key={chat.id}
-                  className={`rounded-lg border p-3 ${
-                    activeChat?.id === chat.id ? "border-primary/40 bg-primary/10" : "border-border/40 bg-secondary/20"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <button type="button" className="min-w-0 text-left" onClick={() => setActiveChatId(chat.id)}>
-                      <p className="truncate text-sm font-medium text-foreground">{chat.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatDate(chat.updatedAt)}</p>
-                    </button>
-                    <Button variant="ghost" size="sm" onClick={() => setUnlinkingChat(chat)}>
-                      <Unlink size={15} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </aside>
+          </aside>
+        </PremiumGate>
       </div>
 
       <Dialog

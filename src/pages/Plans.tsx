@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import AppShell from "@/components/AppShell";
 import { ListPaginationBar } from "@/components/ListPaginationBar";
 import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
+import { PremiumGate } from "@/components/premium/PremiumGate";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -29,6 +30,7 @@ import { useCreatePlan, useGeneratePlanDraft, usePlans, useSuggestPlanLink } fro
 import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
+import { useAuthContext } from "@/modules/auth/components/AuthProvider";
 import {
   applyCreatedInvestmentToPlanForm,
   buildInvestmentInitialValues,
@@ -564,8 +566,10 @@ export function PlanFormFields({
 }
 
 export default function PlansPage() {
+  const { user } = useAuthContext();
+  const isPremiumUser = Boolean(user?.isPremium);
   const { data: plans = [], isLoading, isError } = usePlans();
-  const { data: chats = [] } = useChatConversations();
+  const { data: chats = [] } = useChatConversations({ enabled: isPremiumUser });
   const { data: categories = [] } = useCategories();
   const { data: investments = [] } = useInvestments();
   const navigate = useNavigate();
@@ -714,34 +718,42 @@ export default function PlansPage() {
             <Plus size={16} />
             Novo planejamento
           </Button>
-          <Button variant="secondary" onClick={() => setAiDialogOpen(true)}>
-            <Sparkles size={16} />
-            Gerar com IA
-          </Button>
+          <PremiumGate featureLabel="Geração de planejamento com IA" mode="inline">
+            <Button variant="secondary" onClick={() => setAiDialogOpen(true)}>
+              <Sparkles size={16} />
+              Gerar com IA
+            </Button>
+          </PremiumGate>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Select
-            value={suggestedChatId || EMPTY_SELECT_VALUE}
-            onValueChange={(value) => setSuggestedChatId(value === EMPTY_SELECT_VALUE ? "" : value)}
-          >
-            <SelectTrigger className={`min-w-[220px] ${INLINE_SELECT_TRIGGER_CLASSNAME}`}>
-              <SelectValue placeholder="Chat para sugestao" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={EMPTY_SELECT_VALUE}>Chat para sugestao</SelectItem>
-              {chats.map((chat) => (
-                <SelectItem key={chat.id} value={chat.id}>
-                  {chat.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={handleSuggestLink} disabled={suggestLink.isPending || !suggestedChatId}>
-            {suggestLink.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            Sugerir vinculo
-          </Button>
-        </div>
+        <PremiumGate
+          featureLabel="Sugestão de vínculo por IA"
+          mode="inline"
+          description="A IA pode sugerir quando um chat deve virar um novo planejamento ou ser vinculado a um existente."
+        >
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select
+              value={suggestedChatId || EMPTY_SELECT_VALUE}
+              onValueChange={(value) => setSuggestedChatId(value === EMPTY_SELECT_VALUE ? "" : value)}
+            >
+              <SelectTrigger className={`min-w-[220px] ${INLINE_SELECT_TRIGGER_CLASSNAME}`}>
+                <SelectValue placeholder="Chat para sugestao" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={EMPTY_SELECT_VALUE}>Chat para sugestao</SelectItem>
+                {chats.map((chat) => (
+                  <SelectItem key={chat.id} value={chat.id}>
+                    {chat.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={handleSuggestLink} disabled={suggestLink.isPending || !suggestedChatId}>
+              {suggestLink.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              Sugerir vinculo
+            </Button>
+          </div>
+        </PremiumGate>
       </div>
 
       {isLoading ? (
@@ -835,47 +847,49 @@ export default function PlansPage() {
             <DialogTitle>Gerar planejamento com IA</DialogTitle>
             <DialogDescription>Escolha um chat, gere um rascunho e revise antes de salvar.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Select
-                value={aiChatId || EMPTY_SELECT_VALUE}
-                onValueChange={(value) => {
-                  setAiChatId(value === EMPTY_SELECT_VALUE ? "" : value);
-                  setAiDraftForm(null);
-                }}
-              >
-                <SelectTrigger className={`flex-1 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
-                  <SelectValue placeholder="Selecione um chat" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={EMPTY_SELECT_VALUE}>Selecione um chat</SelectItem>
-                  {chats.map((chat) => (
-                    <SelectItem key={chat.id} value={chat.id}>
-                      {chat.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleGenerateDraft} disabled={generateDraft.isPending || !aiChatId}>
-                {generateDraft.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                Gerar
-              </Button>
-            </div>
+          <PremiumGate featureLabel="Rascunho de planejamento com IA">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Select
+                  value={aiChatId || EMPTY_SELECT_VALUE}
+                  onValueChange={(value) => {
+                    setAiChatId(value === EMPTY_SELECT_VALUE ? "" : value);
+                    setAiDraftForm(null);
+                  }}
+                >
+                  <SelectTrigger className={`flex-1 ${MODAL_SELECT_TRIGGER_CLASSNAME}`}>
+                    <SelectValue placeholder="Selecione um chat" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={EMPTY_SELECT_VALUE}>Selecione um chat</SelectItem>
+                    {chats.map((chat) => (
+                      <SelectItem key={chat.id} value={chat.id}>
+                        {chat.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleGenerateDraft} disabled={generateDraft.isPending || !aiChatId}>
+                  {generateDraft.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  Gerar
+                </Button>
+              </div>
 
-            {aiDraftForm ? (
-              <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
-                <div className="pr-4">
-                  <PlanFormFields
-                    form={aiDraftForm}
-                    categories={categories}
-                    investments={investments}
-                    onChange={setAiDraftForm}
-                    onCreateInvestment={() => setInvestmentDialogContext("ai")}
-                  />
-                </div>
-              </ScrollArea>
-            ) : null}
-          </div>
+              {aiDraftForm ? (
+                <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>
+                  <div className="pr-4">
+                    <PlanFormFields
+                      form={aiDraftForm}
+                      categories={categories}
+                      investments={investments}
+                      onChange={setAiDraftForm}
+                      onCreateInvestment={() => setInvestmentDialogContext("ai")}
+                    />
+                  </div>
+                </ScrollArea>
+              ) : null}
+            </div>
+          </PremiumGate>
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setAiDialogOpen(false)}>
               Cancelar

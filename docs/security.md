@@ -6,6 +6,7 @@
 - refresh token em cookie HttpOnly
 - `inactive` e `suspended` são bloqueados em login, refresh e rotas protegidas
 - rotas administrativas continuam protegidas no backend
+- recursos premium são protegidos no backend com `402 premium_required`; o frontend apenas exibe overlay/CTA
 
 ## CORS
 
@@ -35,3 +36,4 @@
 - preview de importação usa store temporário em Postgres com validação por `user_id`
 - o arquivo bruto e segredos do upload não são persistidos na sessão de preview
 - previews expiram e são marcados como consumidos após commit bem-sucedido
+- usuários Free ainda podem abrir páginas premium, mas não executam ações nem recebem payloads premium completos nas superfícies protegidas

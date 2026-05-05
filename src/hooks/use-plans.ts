@@ -120,11 +120,11 @@ export function useEvaluatePlan() {
   });
 }
 
-export function usePlanRecommendations(planId: string | undefined) {
+export function usePlanRecommendations(planId: string | undefined, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: planRecommendationsQueryKey(planId ?? ""),
     queryFn: () => getPlanRecommendations(planId ?? ""),
-    enabled: Boolean(planId),
+    enabled: Boolean(planId) && (options.enabled ?? true),
     staleTime: 10_000,
   });
 }
@@ -293,11 +293,11 @@ export function useSuggestPlanLink() {
   });
 }
 
-export function useChatSummary(chatId: string | undefined) {
+export function useChatSummary(chatId: string | undefined, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: chatSummaryQueryKey(chatId ?? ""),
     queryFn: () => getChatSummary(chatId ?? ""),
-    enabled: Boolean(chatId),
+    enabled: Boolean(chatId) && (options.enabled ?? true),
     staleTime: 10_000,
   });
 }

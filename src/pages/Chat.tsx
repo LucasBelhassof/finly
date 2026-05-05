@@ -18,6 +18,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import AppShell from "@/components/AppShell";
 import AiChat from "@/components/AiChat";
 import CreateInvestmentDialog from "@/components/investments/CreateInvestmentDialog";
+import { PremiumGate } from "@/components/premium/PremiumGate";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +73,7 @@ import {
 import { useInvestments } from "@/hooks/use-investments";
 import { useCategories } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
+import { useAuthContext } from "@/modules/auth/components/AuthProvider";
 import { PlanFormFields } from "@/pages/Plans";
 import {
   applyCreatedInvestmentToPlanForm,
@@ -110,7 +112,44 @@ function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export default function ChatPage() {
+function ChatLockedPage() {
+  return (
+    <AppShell title="Chat IA" description="Converse com o assistente sobre gastos, contas e metas">
+      <PremiumGate
+        featureLabel="Chat IA"
+        description="Usuários Free podem visualizar esta área, mas o envio de mensagens e os históricos do assistente ficam disponíveis apenas na versão Premium."
+      >
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="glass-card hidden min-h-[18rem] flex-col p-4 lg:flex">
+            <div className="space-y-3">
+              <div className="h-10 rounded-xl bg-secondary/60" />
+              <div className="h-10 rounded-xl bg-secondary/45" />
+              <div className="h-10 rounded-xl bg-secondary/45" />
+              <div className="mt-4 space-y-2">
+                <div className="h-14 rounded-xl bg-secondary/40" />
+                <div className="h-14 rounded-xl bg-secondary/30" />
+                <div className="h-14 rounded-xl bg-secondary/30" />
+              </div>
+            </div>
+          </aside>
+          <div className="grid min-h-[28rem] grid-rows-[auto_minmax(0,1fr)] gap-3">
+            <div className="flex min-h-10 items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Assistente Finly</h2>
+                <p className="text-sm text-muted-foreground">
+                  Planeje gastos, tire dúvidas e gere estratégias a partir das suas finanças.
+                </p>
+              </div>
+            </div>
+            <AiChat planningInProgress={false} creatingConversation />
+          </div>
+        </div>
+      </PremiumGate>
+    </AppShell>
+  );
+}
+
+function PremiumChatPage() {
   const { chatId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1037,4 +1076,14 @@ export default function ChatPage() {
       </AlertDialog>
     </AppShell>
   );
+}
+
+export default function ChatPage() {
+  const { user } = useAuthContext();
+
+  if (!user?.isPremium) {
+    return <ChatLockedPage />;
+  }
+
+  return <PremiumChatPage />;
 }

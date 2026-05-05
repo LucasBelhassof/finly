@@ -73,6 +73,7 @@ import { env } from "./shared/env.js";
 import { isHttpError, toHttpError } from "./shared/errors.js";
 import { logger } from "./shared/logger.js";
 import { normalizePaginationParams } from "./shared/pagination.js";
+import { requirePremium } from "./shared/premium.js";
 import { createApiRateLimiter } from "./shared/rate-limit.js";
 import { MAX_IMPORT_BYTES } from "./transaction-import.js";
 import { parseMultipartUpload } from "./import/index.js";
@@ -83,6 +84,42 @@ function getAuthenticatedUserId(request: Request) {
   }
 
   return request.auth.userId;
+}
+
+function getAuthenticatedUser(request: Request) {
+  if (!request.auth?.user) {
+    throw toHttpError(new Error("authenticated user is required"));
+  }
+
+  return request.auth.user;
+}
+
+function requirePremiumFeature(request: Request, feature: string) {
+  requirePremium(getAuthenticatedUser(request), feature);
+}
+
+function sanitizeDashboardForFree<T extends Record<string, unknown>>(dashboard: T, isPremium: boolean) {
+  if (isPremium) {
+    return dashboard;
+  }
+
+  return {
+    ...dashboard,
+    insights: [],
+    chatMessages: [],
+  };
+}
+
+function sanitizePlanForFree<T extends Record<string, unknown>>(plan: T, isPremium: boolean) {
+  if (isPremium) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    aiAssessment: null,
+    chats: [],
+  };
 }
 
 function parseIntegerRouteParam(value: string | undefined, errorCode: string) {
@@ -173,7 +210,7 @@ export function createApp() {
       startDate: request.query.startDate as string | undefined,
       endDate: request.query.endDate as string | undefined,
     });
-    response.json(dashboard);
+    response.json(sanitizeDashboardForFree(dashboard, Boolean(getAuthenticatedUser(request).isPremium)));
   });
 
   app.get("/api/transactions", async (request, response) => {
@@ -389,6 +426,7 @@ export function createApp() {
   });
 
   app.post("/api/transactions/import/ai-suggestions", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "import_ai_suggestions");
     const result = await getTransactionImportAiSuggestions(getAuthenticatedUserId(request), request.body ?? {});
     response.status(201).json(result);
   });
@@ -461,6 +499,7 @@ export function createApp() {
   });
 
   app.get("/api/insights", async (request, response) => {
+    requirePremiumFeature(request, "insights");
     const insights = await listInsights(getAuthenticatedUserId(request));
     response.json({ insights });
   });
@@ -524,24 +563,27 @@ export function createApp() {
 
   app.get("/api/plans", async (request, response) => {
     const plans = await listPlans(getAuthenticatedUserId(request));
+    const sanitizedPlans = plans.map((plan) =>
+      sanitizePlanForFree(plan, Boolean(getAuthenticatedUser(request).isPremium)),
+    );
     const pagination = normalizePaginationParams({
       page: request.query.page as string | undefined,
       pageSize: request.query.pageSize as string | undefined,
     });
 
     if (!pagination.isPaginated) {
-      response.json({ plans });
+      response.json({ plans: sanitizedPlans });
       return;
     }
 
     const start = pagination.offset;
     const end = start + pagination.pageSize;
     response.json({
-      plans: plans.slice(start, end),
+      plans: sanitizedPlans.slice(start, end),
       pagination: {
         page: pagination.page,
         pageSize: pagination.pageSize,
-        total: plans.length,
+        total: sanitizedPlans.length,
       },
     });
   });
@@ -552,6 +594,7 @@ export function createApp() {
   });
 
   app.post("/api/plans/ai/draft", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const chatId = request.body?.chatId;
 
     if (typeof chatId !== "string" || !chatId.trim()) {
@@ -566,6 +609,7 @@ export function createApp() {
   });
 
   app.post("/api/plans/ai/draft-session", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const chatId = request.body?.chatId;
 
     if (typeof chatId !== "string" || !chatId.trim()) {
@@ -580,11 +624,13 @@ export function createApp() {
   });
 
   app.get("/api/plan-drafts/:draftId", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const draftSession = await getPlanAiDraft(getAuthenticatedUserId(request), request.params.draftId);
     response.json({ draftSession });
   });
 
   app.patch("/api/plan-drafts/:draftId", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const draft = request.body?.draft;
 
     if (!draft || typeof draft !== "object" || Array.isArray(draft)) {
@@ -597,6 +643,7 @@ export function createApp() {
   });
 
   app.post("/api/plan-drafts/:draftId/revise", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const correction = request.body?.correction;
 
     if (typeof correction !== "string" || !correction.trim()) {
@@ -613,16 +660,19 @@ export function createApp() {
   });
 
   app.post("/api/plan-drafts/:draftId/confirm", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const plan = await confirmPlanAiDraft(getAuthenticatedUserId(request), request.params.draftId);
     response.status(201).json({ plan });
   });
 
   app.post("/api/plan-drafts/:draftId/dismiss", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const draftSession = await dismissPlanAiDraft(getAuthenticatedUserId(request), request.params.draftId);
     response.json({ draftSession });
   });
 
   app.post("/api/plans/ai/revise-draft", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_draft");
     const chatId = request.body?.chatId;
     const draft = request.body?.draft;
     const correction = request.body?.correction;
@@ -652,6 +702,7 @@ export function createApp() {
   });
 
   app.post("/api/plans/ai/suggest-link", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_link_suggestion");
     const chatId = request.body?.chatId;
 
     if (typeof chatId !== "string" || !chatId.trim()) {
@@ -667,10 +718,11 @@ export function createApp() {
 
   app.get("/api/plans/:planId", async (request, response) => {
     const plan = await getPlanDetail(getAuthenticatedUserId(request), request.params.planId);
-    response.json({ plan });
+    response.json({ plan: sanitizePlanForFree(plan, Boolean(getAuthenticatedUser(request).isPremium)) });
   });
 
   app.post("/api/plans/:planId/ai/evaluate", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_evaluation");
     const plan = await evaluatePlanWithAi(getAuthenticatedUserId(request), request.params.planId, {
       type: "manual_evaluation",
     });
@@ -678,11 +730,13 @@ export function createApp() {
   });
 
   app.get("/api/plans/:planId/recommendations", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_recommendations");
     const recommendations = await listPlanRecommendations(getAuthenticatedUserId(request), request.params.planId);
     response.json({ recommendations });
   });
 
   app.post("/api/plans/:planId/recommendations/:id/apply", async (request, response) => {
+    requirePremiumFeature(request, "plan_ai_recommendations");
     const recommendationId = parseIntegerRouteParam(request.params.id, "invalid_recommendation_id");
 
     if (recommendationId.error) {
@@ -709,11 +763,13 @@ export function createApp() {
   });
 
   app.post("/api/plans/:planId/chats/:chatId", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const plan = await linkChatToPlan(getAuthenticatedUserId(request), request.params.planId, request.params.chatId);
     response.json({ plan });
   });
 
   app.delete("/api/plans/:planId/chats/:chatId", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const plan = await unlinkChatFromPlan(
       getAuthenticatedUserId(request),
       request.params.planId,
@@ -723,16 +779,19 @@ export function createApp() {
   });
 
   app.get("/api/chats", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const chats = await listChatConversations(getAuthenticatedUserId(request));
     response.json({ chats });
   });
 
   app.post("/api/chats", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const chat = await createChatConversation(getAuthenticatedUserId(request));
     response.status(201).json({ chat });
   });
 
   app.get("/api/chats/search", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const query = String(request.query.q ?? "");
     const limit = Number.parseInt(String(request.query.limit ?? "12"), 10);
     const results = await searchChatConversations(
@@ -744,6 +803,7 @@ export function createApp() {
   });
 
   app.patch("/api/chats/:chatId", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const input = request.body ?? {};
     const hasTitle = Object.prototype.hasOwnProperty.call(input, "title");
     const hasPinned = Object.prototype.hasOwnProperty.call(input, "pinned");
@@ -774,6 +834,7 @@ export function createApp() {
   });
 
   app.get("/api/chats/:chatId/messages", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const limit = Number.parseInt(String(request.query.limit ?? "20"), 10);
     const messages = await listChatMessages(
       getAuthenticatedUserId(request),
@@ -784,16 +845,19 @@ export function createApp() {
   });
 
   app.get("/api/chats/:chatId/summary", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai_summary");
     const summary = await getPlanChatSummary(getAuthenticatedUserId(request), request.params.chatId);
     response.json({ summary });
   });
 
   app.post("/api/chats/:chatId/summary", aiRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "chat_ai_summary");
     const summary = await generatePlanChatSummary(getAuthenticatedUserId(request), request.params.chatId);
     response.status(201).json({ summary });
   });
 
   app.post("/api/chats/:chatId/messages", chatRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const messages = parseChatRequestMessages(request.body);
 
     if (!messages.length) {
@@ -808,17 +872,20 @@ export function createApp() {
   });
 
   app.delete("/api/chats/:chatId", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     await deleteChatConversation(getAuthenticatedUserId(request), request.params.chatId);
     response.status(204).send();
   });
 
   app.get("/api/chat/messages", async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const limit = Number.parseInt(String(request.query.limit ?? "20"), 10);
     const messages = await listLatestChatMessages(getAuthenticatedUserId(request), Number.isNaN(limit) ? 20 : limit);
     response.json({ messages });
   });
 
   app.post("/api/chat/messages", chatRateLimiter, async (request, response) => {
+    requirePremiumFeature(request, "chat_ai");
     const messages = parseChatRequestMessages(request.body);
 
     if (!messages.length) {

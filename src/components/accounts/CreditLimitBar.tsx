@@ -51,7 +51,7 @@ export default function CreditLimitBar({
           </TooltipTrigger>
           <TooltipContent className="space-y-1 text-xs">
             <p>{pct.toFixed(0)}% do limite usado</p>
-            <p>{availablePct.toFixed(0)}% disponivel</p>
+            <p>{availablePct.toFixed(0)}% disponível</p>
             <p className="text-muted-foreground">{formattedAvailable} livre</p>
           </TooltipContent>
         </Tooltip>

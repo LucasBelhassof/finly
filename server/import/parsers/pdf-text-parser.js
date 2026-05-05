@@ -94,7 +94,7 @@ export async function parsePdfTextBuffer(fileBuffer, options = {}) {
   });
 
   if (rows.length === 0) {
-    throw new ImportHttpError("import_pdf_parse_failed", "Nao foi possivel localizar transacoes validas no PDF.");
+    throw new ImportHttpError("import_pdf_parse_failed", "Não foi possível localizar transações válidas no PDF.");
   }
 
   const issuer = detectPdfIssuer(text, options.filename);

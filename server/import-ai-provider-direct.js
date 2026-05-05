@@ -209,7 +209,7 @@ export async function executeProviderRequest({ url, headers, body }, timeoutMs) 
       try {
         parsedBody = JSON.parse(text);
       } catch {
-        throw new Error("O provider de IA retornou um corpo JSON invalido.");
+        throw new Error("O provider de IA retornou um corpo JSON inválido.");
       }
     }
 
@@ -220,7 +220,7 @@ export async function executeProviderRequest({ url, headers, body }, timeoutMs) 
     return parsedBody;
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error("A sugestao por IA expirou antes da resposta.");
+      throw new Error("A sugestão por IA expirou antes da resposta.");
     }
 
     throw error;
@@ -234,13 +234,13 @@ export function extractStructuredBody(provider, responseBody) {
     const text = responseBody?.candidates?.[0]?.content?.parts?.find((part) => typeof part?.text === "string")?.text;
 
     if (!text) {
-      throw new Error("O Gemini nao retornou conteudo estruturado.");
+      throw new Error("O Gemini não retornou conteúdo estruturado.");
     }
 
     try {
       return JSON.parse(text);
     } catch {
-      throw new Error("O Gemini retornou JSON estruturado invalido.");
+      throw new Error("O Gemini retornou JSON estruturado inválido.");
     }
   }
 
@@ -253,13 +253,13 @@ export function extractStructuredBody(provider, responseBody) {
   const content = responseBody?.choices?.[0]?.message?.content;
 
   if (typeof content !== "string" || !content.trim()) {
-    throw new Error("A OpenAI nao retornou conteudo estruturado.");
+    throw new Error("A OpenAI não retornou conteúdo estruturado.");
   }
 
   try {
     return JSON.parse(content);
   } catch {
-    throw new Error("A OpenAI retornou JSON estruturado invalido.");
+    throw new Error("A OpenAI retornou JSON estruturado inválido.");
   }
 }
 
@@ -272,7 +272,7 @@ function normalizeItem(rawItem) {
   const rowIndex = Number(rawItem?.rowIndex);
 
   if (!Number.isInteger(rowIndex)) {
-    throw new Error("O provider retornou item sem rowIndex valido.");
+    throw new Error("O provider retornou item sem `rowIndex` válido.");
   }
 
   const status = typeof rawItem?.status === "string" ? rawItem.status : "";
@@ -356,7 +356,7 @@ function normalizeItem(rawItem) {
 
 export function normalizeAiCategorizationResults(structuredBody) {
   if (!Array.isArray(structuredBody?.items)) {
-    throw new Error("O provider nao retornou a lista estruturada de itens.");
+    throw new Error("O provider não retornou a lista estruturada de itens.");
   }
 
   return structuredBody.items.map(normalizeItem);

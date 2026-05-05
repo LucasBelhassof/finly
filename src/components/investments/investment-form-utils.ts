@@ -50,14 +50,14 @@ export function getInvestmentCoreFormError(form: InvestmentCoreFormState) {
   const currentAmount = parseDecimalInput(form.currentAmount || "0");
 
   if (!Number.isFinite(currentAmount) || currentAmount < 0) {
-    return "Informe um saldo atual valido.";
+    return "Informe um saldo atual válido.";
   }
 
   if (form.targetAmount.trim()) {
     const targetAmount = parseDecimalInput(form.targetAmount);
 
     if (!Number.isFinite(targetAmount) || targetAmount < 0) {
-      return "Informe um valor alvo valido.";
+      return "Informe um valor alvo válido.";
     }
   }
 
@@ -65,7 +65,7 @@ export function getInvestmentCoreFormError(form: InvestmentCoreFormState) {
     const fixedAmount = parseDecimalInput(form.fixedAmount);
 
     if (!Number.isFinite(fixedAmount) || fixedAmount < 0) {
-      return "Informe um aporte fixo valido.";
+      return "Informe um aporte fixo válido.";
     }
   }
 

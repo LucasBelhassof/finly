@@ -246,7 +246,7 @@ function PremiumChatPage() {
       const chat = await createChat.mutateAsync();
       navigate(getChatPath(chat.id));
     } catch (error) {
-      toast.error("Nao foi possivel criar um novo chat.", {
+      toast.error("Não foi possível criar um novo chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -260,7 +260,7 @@ function PremiumChatPage() {
       navigate(getChatPath(chat.id));
       return true;
     } catch (error) {
-      toast.error("Nao foi possivel iniciar um novo chat.", {
+      toast.error("Não foi possível iniciar um novo chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
       return false;
@@ -345,7 +345,7 @@ function PremiumChatPage() {
 
     const timeout = window.setTimeout(() => {
       void saveCurrentDraftSession().catch(() => {
-        toast.error("Nao foi possivel salvar o rascunho automaticamente.");
+        toast.error("Não foi possível salvar o rascunho automaticamente.");
       });
     }, 700);
 
@@ -378,7 +378,7 @@ function PremiumChatPage() {
       applyDraftSessionToReview(draftSession);
     } catch (error) {
       resetPlanningReview();
-      toast.error("Nao foi possivel gerar o rascunho do planejamento.", {
+      toast.error("Não foi possível gerar o rascunho do planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
       return;
@@ -397,7 +397,7 @@ function PremiumChatPage() {
       setPlanningOpen(false);
       toast.success("Chat vinculado ao planejamento.");
     } catch (error) {
-      toast.error("Nao foi possivel vincular o chat.", {
+      toast.error("Não foi possível vincular o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -431,7 +431,7 @@ function PremiumChatPage() {
       });
       applyDraftSessionToReview(draftSession);
     } catch (error) {
-      toast.error("Nao foi possivel revisar o rascunho.", {
+      toast.error("Não foi possível revisar o rascunho.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     } finally {
@@ -457,7 +457,7 @@ function PremiumChatPage() {
       resetPlanningReview();
       navigate(`${appRoutes.plans}/${plan.id}`);
     } catch (error) {
-      toast.error("Nao foi possivel salvar o planejamento.", {
+      toast.error("Não foi possível salvar o planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -483,7 +483,7 @@ function PremiumChatPage() {
       await dismissPlanDraftSession.mutateAsync(draftSessionId);
       resetPlanningReview();
     } catch (error) {
-      toast.error("Nao foi possivel recusar o rascunho.", {
+      toast.error("Não foi possível recusar o rascunho.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -496,7 +496,7 @@ function PremiumChatPage() {
     }
 
     void saveCurrentDraftSession().catch(() => {
-      toast.error("Nao foi possivel salvar o rascunho antes de fechar.");
+      toast.error("Não foi possível salvar o rascunho antes de fechar.");
     });
     setPlanningReviewOpen(false);
   };
@@ -519,7 +519,7 @@ function PremiumChatPage() {
         },
       });
     } catch (error) {
-      toast.error("Nao foi possivel atualizar o chat.", {
+      toast.error("Não foi possível atualizar o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -541,7 +541,7 @@ function PremiumChatPage() {
       });
       setRenamingChat(null);
     } catch (error) {
-      toast.error("Nao foi possivel renomear o chat.", {
+      toast.error("Não foi possível renomear o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -562,7 +562,7 @@ function PremiumChatPage() {
 
       setDeletingChat(null);
     } catch (error) {
-      toast.error("Nao foi possivel excluir o chat.", {
+      toast.error("Não foi possível excluir o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -608,7 +608,7 @@ function PremiumChatPage() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label={`Opcoes do chat ${chat.title}`}
+              aria-label={`Opções do chat ${chat.title}`}
               className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground opacity-100 transition-opacity hover:bg-background/80 hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             >
               <MoreHorizontal size={16} />
@@ -711,13 +711,13 @@ function PremiumChatPage() {
 
             {isError ? (
               <div className="rounded-lg border border-border/30 bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
-                Nao foi possivel carregar seus chats.
+                Não foi possível carregar seus chats.
               </div>
             ) : null}
 
             {!isLoading && !isError && !chats.length ? (
               <div className="rounded-lg border border-border/30 bg-secondary/30 px-3 py-2 text-sm text-muted-foreground">
-                Crie um chat para comecar.
+                Crie um chat para começar.
               </div>
             ) : null}
 
@@ -768,10 +768,10 @@ function PremiumChatPage() {
               </Button>
               <div className="min-w-0">
                 <h2 className="truncate text-base font-semibold text-foreground">
-                  {activeChat?.title ?? (chatId ? "Chat nao encontrado" : "Selecione ou crie um chat")}
+                  {activeChat?.title ?? (chatId ? "Chat não encontrado" : "Selecione ou crie um chat")}
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  {chatId ? "As mensagens ficam salvas ate voce excluir o chat." : "Cada conversa tem uma URL propria."}
+                  {chatId ? "As mensagens ficam salvas até você excluir o chat." : "Cada conversa tem uma URL própria."}
                 </p>
               </div>
             </div>
@@ -821,7 +821,7 @@ function PremiumChatPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Buscar em Chats</DialogTitle>
-            <DialogDescription>Busque pelo titulo ou pelo conteudo das conversas.</DialogDescription>
+            <DialogDescription>Busque pelo título ou pelo conteúdo das conversas.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -845,7 +845,7 @@ function PremiumChatPage() {
 
                 {nonEmptySearch && isSearchError ? (
                   <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                    Nao foi possivel buscar nos chats.
+                    Não foi possível buscar nos chats.
                   </div>
                 ) : null}
 
@@ -865,7 +865,7 @@ function PremiumChatPage() {
                     <div className="flex items-center justify-between gap-3">
                       <p className="truncate text-sm font-medium text-foreground">{result.title}</p>
                       <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs text-muted-foreground">
-                        {result.matchType === "title" ? "Titulo" : "Mensagem"}
+                        {result.matchType === "title" ? "Título" : "Mensagem"}
                       </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{result.matchedText}</p>
@@ -908,7 +908,7 @@ function PremiumChatPage() {
 
               {!plans.length ? (
                 <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                  Nenhum planejamento encontrado. Use a IA para criar um novo a partir deste chat ou abra a pagina de
+                  Nenhum planejamento encontrado. Use a IA para criar um novo a partir deste chat ou abra a página de
                   planejamentos.
                 </div>
               ) : null}
@@ -952,7 +952,7 @@ function PremiumChatPage() {
           {planningInProgress && !draftForm ? (
             <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-secondary/30 p-4 text-sm text-muted-foreground">
               <Loader2 size={16} className="animate-spin" />
-              Gerando rascunho para revisao...
+              Gerando rascunho para revisão...
             </div>
           ) : null}
 
@@ -984,7 +984,7 @@ function PremiumChatPage() {
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        Peça ajustes antes de confirmar, sem gravar no historico do chat.
+                        Peça ajustes antes de confirmar, sem gravar no histórico do chat.
                       </p>
                     )}
                   </div>
@@ -993,7 +993,7 @@ function PremiumChatPage() {
                     <Textarea
                       value={correction}
                       onChange={(event) => setCorrection(event.target.value)}
-                      placeholder="Ex.: reduza para 3 etapas e foque em cartao de credito"
+                      placeholder="Ex.: reduza para 3 etapas e foque em cartão de crédito"
                       rows={2}
                       disabled={planningInProgress}
                     />
@@ -1039,7 +1039,7 @@ function PremiumChatPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Renomear chat</DialogTitle>
-            <DialogDescription>Altere o titulo exibido na lista de chats.</DialogDescription>
+            <DialogDescription>Altere o título exibido na lista de chats.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRenameSubmit} className="space-y-4">
             <Input value={renameTitle} onChange={(event) => setRenameTitle(event.target.value)} autoFocus />
@@ -1060,7 +1060,7 @@ function PremiumChatPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir chat?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acao remove a conversa e todas as mensagens dela permanentemente.
+              Esta ação remove a conversa e todas as mensagens dela permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

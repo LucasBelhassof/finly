@@ -118,13 +118,13 @@ function ChatSummaryPanel({
   if (!chat) {
     return (
       <div className="glass-card flex min-h-[18rem] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-        Selecione um chat vinculado para ver o resumo e o historico.
+        Selecione um chat vinculado para ver o resumo e o histórico.
       </div>
     );
   }
 
   if (isLoading) {
-    return <div className="glass-card p-5 text-sm text-muted-foreground">Carregando historico do chat...</div>;
+    return <div className="glass-card p-5 text-sm text-muted-foreground">Carregando histórico do chat...</div>;
   }
 
   const summary = buildChatSummary(messages);
@@ -162,7 +162,7 @@ function ChatSummaryPanel({
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{persistedSummary}</p>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">
-              Ainda nao ha resumo persistido. O resumo visual abaixo continua disponivel.
+              Ainda não há resumo persistido. O resumo visual abaixo continua disponível.
             </p>
           )}
         </div>
@@ -222,7 +222,7 @@ function ChatSummaryPanel({
                 }`}
               >
                 <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  {message.role === "user" ? "Usuario" : "IA"} - {formatDate(message.createdAt)}
+                  {message.role === "user" ? "Usuário" : "IA"} - {formatDate(message.createdAt)}
                 </p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{message.content}</p>
               </div>
@@ -312,7 +312,7 @@ export default function PlanDetailPage() {
       setEditing(false);
       setPlanForm(null);
     } catch (error) {
-      toast.error("Nao foi possivel salvar o planejamento.", {
+      toast.error("Não foi possível salvar o planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -332,7 +332,7 @@ export default function PlanDetailPage() {
         setActiveChatId(updatedPlan.chats[0]?.id ?? "");
       }
     } catch (error) {
-      toast.error("Nao foi possivel vincular o chat.", {
+      toast.error("Não foi possível vincular o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -347,7 +347,7 @@ export default function PlanDetailPage() {
       await unlinkChat.mutateAsync({ planId: plan.id, chatId: unlinkingChat.id });
       setUnlinkingChat(null);
     } catch (error) {
-      toast.error("Nao foi possivel desvincular o chat.", {
+      toast.error("Não foi possível desvincular o chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -362,7 +362,7 @@ export default function PlanDetailPage() {
       await deletePlan.mutateAsync(plan.id);
       navigate(appRoutes.plans);
     } catch (error) {
-      toast.error("Nao foi possivel excluir o planejamento.", {
+      toast.error("Não foi possível excluir o planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -375,9 +375,9 @@ export default function PlanDetailPage() {
 
     try {
       await evaluatePlan.mutateAsync(plan.id);
-      toast.success("Avaliacao de IA atualizada.");
+      toast.success("Avaliação de IA atualizada.");
     } catch (error) {
-      toast.error("Nao foi possivel avaliar o planejamento.", {
+      toast.error("Não foi possível avaliar o planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -392,7 +392,7 @@ export default function PlanDetailPage() {
       await applyRecommendation.mutateAsync({ planId: plan.id, recommendationId });
       toast.success("Replanejamento aplicado.");
     } catch (error) {
-      toast.error("Nao foi possivel aplicar a sugestao.", {
+      toast.error("Não foi possível aplicar a sugestão.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -407,7 +407,7 @@ export default function PlanDetailPage() {
       await generateChatSummary.mutateAsync(activeChat.id);
       toast.success("Resumo textual atualizado.");
     } catch (error) {
-      toast.error("Nao foi possivel gerar o resumo.", {
+      toast.error("Não foi possível gerar o resumo.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -455,7 +455,7 @@ export default function PlanDetailPage() {
     }
 
     if (!editingItemForm.title.trim()) {
-      toast.error("Informe um titulo para a meta.");
+      toast.error("Informe um título para a meta.");
       return;
     }
 
@@ -475,7 +475,7 @@ export default function PlanDetailPage() {
       toast.success("Meta atualizada.");
       handleCancelEditingItem();
     } catch (error) {
-      toast.error("Nao foi possivel atualizar a meta.", {
+      toast.error("Não foi possível atualizar a meta.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -503,9 +503,9 @@ export default function PlanDetailPage() {
             : currentItem,
         ),
       );
-      toast.success("Meta marcada como concluida.");
+      toast.success("Meta marcada como concluída.");
     } catch (error) {
-      toast.error("Nao foi possivel concluir a meta.", {
+      toast.error("Não foi possível concluir a meta.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -521,8 +521,8 @@ export default function PlanDetailPage() {
 
   if (isError || !plan) {
     return (
-      <AppShell title="Planejamento" description="Nao foi possivel carregar este planejamento">
-        <div className="glass-card p-6 text-sm text-muted-foreground">Planejamento nao encontrado ou indisponivel.</div>
+      <AppShell title="Planejamento" description="Não foi possível carregar este planejamento">
+        <div className="glass-card p-6 text-sm text-muted-foreground">Planejamento não encontrado ou indisponível.</div>
       </AppShell>
     );
   }
@@ -564,7 +564,7 @@ export default function PlanDetailPage() {
               {plan.source === "ai" ? "Gerado com IA" : "Manual"} - {formatDate(plan.updatedAt)}
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-foreground">{plan.title}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{plan.description || "Sem descricao."}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{plan.description || "Sem descrição."}</p>
 
             <div className="mt-5 rounded-lg border border-border/40 bg-secondary/20 p-4">
               <div className="flex items-center justify-between gap-3 text-sm">
@@ -604,10 +604,10 @@ export default function PlanDetailPage() {
 
           <PremiumGate featureLabel="Sugestões de replanejamento com IA">
             <div className="glass-card p-5">
-              <h3 className="mb-4 text-lg font-semibold text-foreground">Sugestoes de replanejamento</h3>
+              <h3 className="mb-4 text-lg font-semibold text-foreground">Sugestões de replanejamento</h3>
               {!recommendations.filter((item) => item.status === "pending").length ? (
                 <div className="rounded-lg border border-border/30 bg-secondary/30 p-3 text-sm text-muted-foreground">
-                  Nenhuma sugestao pendente.
+                  Nenhuma sugestão pendente.
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -665,7 +665,7 @@ export default function PlanDetailPage() {
                                         current ? { ...current, title: event.target.value } : current,
                                       )
                                     }
-                                    placeholder="Titulo da meta"
+                                    placeholder="Título da meta"
                                     className="min-w-0 flex-1"
                                   />
                                   <Select
@@ -686,7 +686,7 @@ export default function PlanDetailPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="high">Alta</SelectItem>
-                                      <SelectItem value="medium">Media</SelectItem>
+                                      <SelectItem value="medium">Média</SelectItem>
                                       <SelectItem value="low">Baixa</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -756,7 +756,7 @@ export default function PlanDetailPage() {
                                 disabled={item.status === "done" || updatePlan.isPending}
                               >
                                 <CheckCircle2 size={15} />
-                                {item.status === "done" ? "Concluida" : "Marcar como concluida"}
+                                {item.status === "done" ? "Concluída" : "Marcar como concluída"}
                               </Button>
                               <Button
                                 type="button"

@@ -98,11 +98,11 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function getDeleteCategoryErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.code === "default_category_cannot_be_deleted") {
-    return "Categorias padrao nao podem ser excluidas.";
+    return "Categorias padrão não podem ser excluídas.";
   }
 
   if (error instanceof ApiError && error.code === "category_in_use") {
-    return "Essa categoria esta em uso e nao pode ser excluida.";
+    return "Essa categoria está em uso e não pode ser excluída.";
   }
 
   return getErrorMessage(error, "Tente novamente em instantes.");
@@ -810,8 +810,8 @@ export default function TransactionsPage() {
             <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteCategoryTarget
-                ? `A categoria "${deleteCategoryTarget.label}" sera excluida apenas se nao estiver em uso.`
-                : "A categoria sera excluida apenas se nao estiver em uso."}
+                ? `A categoria "${deleteCategoryTarget.label}" será excluída apenas se não estiver em uso.`
+                : "A categoria será excluída apenas se não estiver em uso."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -880,7 +880,7 @@ export default function TransactionsPage() {
             <Input
               value={transactionForm.description}
               onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))}
-              placeholder="Descricao"
+              placeholder="Descrição"
               className="h-11 rounded-xl border-border/60 bg-secondary/35"
             />
             <Input

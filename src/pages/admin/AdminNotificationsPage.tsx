@@ -115,7 +115,7 @@ export default function AdminNotificationsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="notification-title">Titulo</Label>
+              <Label htmlFor="notification-title">Título</Label>
               <Input
                 id="notification-title"
                 value={title}
@@ -226,7 +226,7 @@ export default function AdminNotificationsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Historico recente</CardTitle>
+            <CardTitle>Histórico recente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {(notifications?.notifications ?? []).map((item) => (

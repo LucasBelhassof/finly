@@ -394,7 +394,7 @@ export default function SettingsPage() {
       setPreferencesFeedback({
         type: "success",
         title: "Preferencias salvas neste dispositivo",
-        message: "Essas opcoes ainda nao possuem backend de persistencia e valem apenas neste navegador.",
+        message: "Essas opções ainda não possuem backend de persistência e valem apenas neste navegador.",
       });
     } catch {
       setPreferencesFeedback({

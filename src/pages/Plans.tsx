@@ -152,7 +152,7 @@ export function PlanCard({
       ) : null}
 
       <p className="mt-3 line-clamp-3 min-h-[3.75rem] text-sm text-muted-foreground">
-        {plan.description || "Sem descricao."}
+        {plan.description || "Sem descrição."}
       </p>
 
       <div className="mt-5 space-y-2">
@@ -293,7 +293,7 @@ export function PlanFormFields({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="items">Itens concluidos</SelectItem>
-                <SelectItem value="transaction_sum">Meta por transacoes</SelectItem>
+                <SelectItem value="transaction_sum">Meta por transações</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -412,7 +412,7 @@ export function PlanFormFields({
                         );
                       })
                     ) : (
-                      <span className="text-sm text-muted-foreground">Nenhuma categoria disponivel.</span>
+                      <span className="text-sm text-muted-foreground">Nenhuma categoria disponível.</span>
                     )}
                   </div>
                 </ScrollArea>
@@ -442,7 +442,7 @@ export function PlanFormFields({
                         );
                       })
                     ) : (
-                      <span className="text-sm text-muted-foreground">Nenhuma caixinha disponivel.</span>
+                      <span className="text-sm text-muted-foreground">Nenhuma caixinha disponível.</span>
                     )}
                   </div>
                 </ScrollArea>
@@ -468,7 +468,7 @@ export function PlanFormFields({
                         <p className="mt-1">Saldo atual: {investment.formattedCurrentAmount}</p>
                         {investment.id === "investment" || investment.id === "draft-investment-box" ? (
                           <p className="mt-2 text-xs text-primary">
-                            Esta caixinha sera criada automaticamente ao salvar o planejamento.
+                            Esta caixinha será criada automaticamente ao salvar o planejamento.
                           </p>
                         ) : null}
                       </div>
@@ -477,8 +477,8 @@ export function PlanFormFields({
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     {onCreateInvestment
-                      ? "Escolha uma ou mais caixinhas existentes, crie uma nova ou mantenha a sugestao criada pela IA no rascunho."
-                      : "Escolha uma ou mais caixinhas existentes ou mantenha a sugestao criada pela IA no rascunho."}
+                      ? "Escolha uma ou mais caixinhas existentes, crie uma nova ou mantenha a sugestão criada pela IA no rascunho."
+                      : "Escolha uma ou mais caixinhas existentes ou mantenha a sugestão criada pela IA no rascunho."}
                   </p>
                 )}
               </div>
@@ -512,7 +512,7 @@ export function PlanFormFields({
               <Input
                 value={item.title}
                 onChange={(event) => updateItem(index, { title: event.target.value })}
-                placeholder="Acao planejada"
+                placeholder="Ação planejada"
               />
               <Select
                 value={item.status}
@@ -525,7 +525,7 @@ export function PlanFormFields({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todo">A fazer</SelectItem>
-                  <SelectItem value="done">Concluido</SelectItem>
+                  <SelectItem value="done">Concluído</SelectItem>
                 </SelectContent>
               </Select>
               <Select
@@ -541,7 +541,7 @@ export function PlanFormFields({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="high">Alta</SelectItem>
-                  <SelectItem value="medium">Media</SelectItem>
+                  <SelectItem value="medium">Média</SelectItem>
                   <SelectItem value="low">Baixa</SelectItem>
                 </SelectContent>
               </Select>
@@ -584,9 +584,9 @@ export default function PlansPage() {
   const [suggestedChatId, setSuggestedChatId] = useState("");
   const [investmentDialogContext, setInvestmentDialogContext] = useState<"manual" | "ai" | null>(null);
   const premiumFeatureHighlights = [
-    "Geracao de rascunhos com IA a partir dos seus chats",
-    "Sugestao inteligente de vinculo entre conversa e planejamento",
-    "Revisao assistida para transformar contexto financeiro em acoes",
+    "Geração de rascunhos com IA a partir dos seus chats",
+    "Sugestão inteligente de vínculo entre conversa e planejamento",
+    "Revisão assistida para transformar contexto financeiro em ações",
   ];
 
   const {
@@ -625,7 +625,7 @@ export default function PlansPage() {
       setManualDialogOpen(false);
       navigate(`${appRoutes.plans}/${plan.id}`);
     } catch (error) {
-      toast.error("Nao foi possivel salvar o planejamento.", {
+      toast.error("Não foi possível salvar o planejamento.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -641,7 +641,7 @@ export default function PlansPage() {
       const draft = await generateDraft.mutateAsync(aiChatId);
       setAiDraftForm(createPlanFormFromDraft(draft));
     } catch (error) {
-      toast.error("Nao foi possivel gerar o rascunho.", {
+      toast.error("Não foi possível gerar o rascunho.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -671,7 +671,7 @@ export default function PlansPage() {
       setAiDraftForm(null);
       navigate(`${appRoutes.plans}/${plan.id}`);
     } catch (error) {
-      toast.error("Nao foi possivel salvar o rascunho.", {
+      toast.error("Não foi possível salvar o rascunho.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -679,7 +679,7 @@ export default function PlansPage() {
 
   const handleSuggestLink = async () => {
     if (!suggestedChatId) {
-      toast.error("Selecione um chat para a sugestao.");
+      toast.error("Selecione um chat para a sugestão.");
       return;
     }
 
@@ -698,7 +698,7 @@ export default function PlansPage() {
         setAiDialogOpen(true);
       }
     } catch (error) {
-      toast.error("Nao foi possivel sugerir um vinculo.", {
+      toast.error("Não foi possível sugerir um vínculo.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -738,10 +738,10 @@ export default function PlansPage() {
               onValueChange={(value) => setSuggestedChatId(value === EMPTY_SELECT_VALUE ? "" : value)}
             >
               <SelectTrigger className={`min-w-[220px] ${INLINE_SELECT_TRIGGER_CLASSNAME}`}>
-                <SelectValue placeholder="Chat para sugestao" />
+                <SelectValue placeholder="Chat para sugestão" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={EMPTY_SELECT_VALUE}>Chat para sugestao</SelectItem>
+                <SelectItem value={EMPTY_SELECT_VALUE}>Chat para sugestão</SelectItem>
                 {chats.map((chat) => (
                   <SelectItem key={chat.id} value={chat.id}>
                     {chat.title}
@@ -751,14 +751,14 @@ export default function PlansPage() {
             </Select>
             <Button variant="outline" onClick={handleSuggestLink} disabled={suggestLink.isPending || !suggestedChatId}>
               {suggestLink.isPending ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              Sugerir vinculo
+              Sugerir vínculo
             </Button>
           </div>
         ) : (
           <div className="rounded-2xl border border-border/60 bg-secondary/25 p-4 sm:max-w-xl">
-            <p className="text-sm font-semibold text-foreground">Disponivel apenas na versao Premium</p>
+            <p className="text-sm font-semibold text-foreground">Disponível apenas na versão Premium</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Desbloqueie os recursos de IA desta area para acelerar a construcao e a revisao dos seus planejamentos.
+              Desbloqueie os recursos de IA desta área para acelerar a construção e a revisão dos seus planejamentos.
             </p>
             <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground">
               {premiumFeatureHighlights.map((feature) => (
@@ -779,7 +779,7 @@ export default function PlansPage() {
         <div className="glass-card p-5 text-sm text-muted-foreground">Carregando planejamentos...</div>
       ) : null}
       {isError ? (
-        <div className="glass-card p-5 text-sm text-muted-foreground">Nao foi possivel carregar os planejamentos.</div>
+        <div className="glass-card p-5 text-sm text-muted-foreground">Não foi possível carregar os planejamentos.</div>
       ) : null}
       {!isLoading && !isError && !plans.length ? (
         <div className="glass-card flex min-h-[18rem] items-center justify-center p-6 text-center text-sm text-muted-foreground">
@@ -826,7 +826,7 @@ export default function PlansPage() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Novo planejamento</DialogTitle>
-            <DialogDescription>Defina um plano com itens acionaveis e uma meta de progresso.</DialogDescription>
+            <DialogDescription>Defina um plano com itens acionáveis e uma meta de progresso.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmitPlan} className="space-y-5">
             <ScrollArea className={SCROLLABLE_MODAL_CONTENT_CLASSNAME}>

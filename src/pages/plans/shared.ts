@@ -132,7 +132,7 @@ function formatGoalDateRange(goal: PlanGoal) {
   const end = formatDate(goal.endDate);
 
   if (!start || !end) {
-    return "Periodo nao definido";
+    return "Período não definido";
   }
 
   return `${start} a ${end}`;
@@ -281,7 +281,7 @@ export function getPlanFormValidationError(form: PlanFormState) {
   }
 
   if (form.goal.targetModel === "category" && (!form.goal.startDate || !form.goal.endDate)) {
-    return "Informe o periodo da meta financeira.";
+    return "Informe o período da meta financeira.";
   }
 
   if (form.goal.startDate && form.goal.endDate && form.goal.startDate > form.goal.endDate) {

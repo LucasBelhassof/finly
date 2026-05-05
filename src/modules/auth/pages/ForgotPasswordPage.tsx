@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-2">
           <CardTitle className="text-3xl">Esqueci minha senha</CardTitle>
           <CardDescription className="text-sm leading-6">
-            Informe o e-mail da conta. A resposta continua neutra mesmo quando o endereco nao existe.
+            Informe o e-mail da conta. A resposta continua neutra mesmo quando o endereço não existe.
           </CardDescription>
         </CardHeader>
 

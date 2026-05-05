@@ -3,7 +3,7 @@ export function parseMultipartUpload(contentType, bodyBuffer) {
   const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
 
   if (!boundary) {
-    throw new Error("Nao foi possivel ler o upload do arquivo.");
+    throw new Error("Não foi possível ler o upload do arquivo.");
   }
 
   if (!Buffer.isBuffer(bodyBuffer) || !bodyBuffer.length) {
@@ -55,7 +55,7 @@ export function parseMultipartUpload(contentType, bodyBuffer) {
   }
 
   if (!upload.buffer) {
-    throw new Error("O upload nao contem um arquivo valido.");
+    throw new Error("O upload não contém um arquivo válido.");
   }
 
   return upload;

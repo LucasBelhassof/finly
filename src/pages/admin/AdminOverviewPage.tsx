@@ -39,7 +39,7 @@ export default function AdminOverviewPage() {
         <CardContent>
           <p className="text-4xl font-semibold">{currencyFormatter.format(data?.totals.aggregateBalance ?? 0)}</p>
           <p className="mt-3 text-sm text-muted-foreground">
-            Periodo analisado: {data?.period.startDate ?? "--"} ate {data?.period.endDate ?? "--"}
+            Período analisado: {data?.period.startDate ?? "--"} até {data?.period.endDate ?? "--"}
           </p>
         </CardContent>
       </Card>

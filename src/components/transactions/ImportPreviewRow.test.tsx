@@ -100,7 +100,7 @@ const item: ImportPreviewItem = {
   aiReason: null,
   aiStatus: "idle",
   possibleDuplicate: true,
-  duplicateReason: "Ja existe uma transacao importada com os mesmos dados.",
+  duplicateReason: "Já existe uma transação importada com os mesmos dados.",
   canImport: false,
   requiresCategorySelection: false,
   requiresUserAction: true,

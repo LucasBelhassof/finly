@@ -199,7 +199,7 @@ export default function AccountsPage() {
     const creditLimit = form.creditLimit ? parseCurrencyInput(form.creditLimit) : null;
 
     if (!form.name.trim() || !Number.isFinite(currentBalance)) {
-      toast.error("Informe um nome valido.");
+      toast.error("Informe um nome válido.");
       return;
     }
 
@@ -210,7 +210,7 @@ export default function AccountsPage() {
       }
 
       if (!form.parentBankConnectionId || !form.statementCloseDay || !form.statementDueDay) {
-        toast.error("Cartoes exigem conta pai, dia de fechamento e dia de vencimento.");
+        toast.error("Cartões exigem conta pai, dia de fechamento e dia de vencimento.");
         return;
       }
 

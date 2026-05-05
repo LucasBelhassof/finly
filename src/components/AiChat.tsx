@@ -126,7 +126,7 @@ export default function AiChat({
       return;
     }
 
-    toast.error("Nao foi possivel carregar o historico do chat.", {
+    toast.error("Não foi possível carregar o histórico do chat.", {
       description: getErrorMessage(error, "Tente novamente em instantes."),
     });
   }, [error, isError]);
@@ -185,7 +185,7 @@ export default function AiChat({
         }
       } catch (mutationError) {
         setInput(messagesToSend.map((message) => message.content).join(" "));
-        toast.error("Nao foi possivel enviar sua mensagem.", {
+        toast.error("Não foi possível enviar sua mensagem.", {
           description: getErrorMessage(mutationError, "Tente novamente em instantes."),
         });
       }
@@ -274,7 +274,7 @@ export default function AiChat({
         !planningInProgress &&
         !creatingConversation ? (
           <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-            {isError ? "Nao foi possivel carregar a conversa agora." : "Comece uma conversa com o assistente."}
+            {isError ? "Não foi possível carregar a conversa agora." : "Comece uma conversa com o assistente."}
           </div>
         ) : (
           <>
@@ -355,7 +355,7 @@ export default function AiChat({
                   ? "Gerando rascunho de planejamento..."
                   : creatingConversation
                     ? "Criando novo chat..."
-                    : "Pergunte sobre suas financas..."
+                    : "Pergunte sobre suas finanças..."
               }
               disabled={planningInProgress || creatingConversation || (!chatId && !onStartConversation)}
               className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"

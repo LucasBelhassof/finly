@@ -378,7 +378,7 @@ describe("api mappers", () => {
           aiReason: null,
           aiStatus: "idle",
           possibleDuplicate: true,
-          duplicateReason: "Ja existe uma transacao importada com os mesmos dados.",
+          duplicateReason: "Já existe uma transação importada com os mesmos dados.",
           canImport: true,
           requiresCategorySelection: false,
           requiresUserAction: true,

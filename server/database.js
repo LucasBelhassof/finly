@@ -689,7 +689,7 @@ export async function createBankConnection(userId, input) {
   const bank = created.find((item) => String(item.id) === String(result.rows[0].id));
 
   if (!bank) {
-    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
   }
 
   return bank;
@@ -700,7 +700,7 @@ export async function updateBankConnection(userId, bankConnectionId, input) {
   const existing = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!existing) {
-    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
   }
 
   const normalized = await validateBankConnectionInput(resolvedUserId, input, bankConnectionId, existing);
@@ -751,7 +751,7 @@ export async function updateBankConnection(userId, bankConnectionId, input) {
   const bank = updated.find((item) => String(item.id) === String(bankConnectionId));
 
   if (!bank) {
-    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
   }
 
   return bank;
@@ -762,7 +762,7 @@ export async function deleteBankConnection(userId, bankConnectionId) {
   const existing = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!existing) {
-    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+    throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
   }
 
   if (await hasChildBankConnections(resolvedUserId, bankConnectionId)) {
@@ -777,7 +777,7 @@ export async function deleteBankConnection(userId, bankConnectionId) {
     throw new DatabaseHttpError(
       409,
       "bank_connection_in_use",
-      "Nao e possivel excluir uma conta ou cartao ja usado em transacoes.",
+      "Não é possível excluir uma conta ou cartão já usado em transações.",
     );
   }
 
@@ -1328,7 +1328,7 @@ export async function createHousing(userId, input) {
     ]);
 
     if (!bankConnection) {
-      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartão não encontrado.");
     }
 
     const result = await client.query(
@@ -1395,7 +1395,7 @@ export async function updateHousing(userId, housingId, input) {
     ]);
 
     if (!bankConnection) {
-      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartão não encontrado.");
     }
 
     const result = await client.query(
@@ -1433,7 +1433,7 @@ export async function updateHousing(userId, housingId, input) {
     );
 
     if (!result.rowCount) {
-      throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitacao nao encontrada.");
+      throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitação não encontrada.");
     }
 
     await generateHousingTransactions(client, resolvedUserId, {
@@ -1465,7 +1465,7 @@ export async function deleteHousing(userId, housingId) {
   );
 
   if (!result.rowCount) {
-    throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitacao nao encontrada.");
+    throw createDatabaseNotFoundError("housing_not_found", "Despesa de habitação não encontrada.");
   }
 }
 
@@ -1665,7 +1665,7 @@ export async function createInvestment(userId, input = {}) {
       const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
 
       if (!bankConnection) {
-        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
       }
     }
 
@@ -1726,14 +1726,14 @@ export async function updateInvestment(userId, investmentId, input = {}) {
     const existing = await getInvestmentRowById(resolvedUserId, investmentId, client);
 
     if (!existing) {
-      throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
+      throw createDatabaseNotFoundError("investment_not_found", "Investimento não encontrado.");
     }
 
     if (normalized.bankConnectionId !== null) {
       const bankConnection = await getBankConnectionById(resolvedUserId, normalized.bankConnectionId, client);
 
       if (!bankConnection) {
-        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+        throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
       }
     }
 
@@ -1795,7 +1795,7 @@ export async function deleteInvestment(userId, investmentId) {
   );
 
   if (!result.rowCount) {
-    throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
+    throw createDatabaseNotFoundError("investment_not_found", "Investimento não encontrado.");
   }
 }
 
@@ -1909,7 +1909,7 @@ export async function updateCategory(userId, categoryId, input) {
   const existing = await getCategoryById(resolvedUserId, categoryId);
 
   if (!existing) {
-    throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
+    throw new DatabaseHttpError(404, "category_not_found", "Categoria não encontrada.");
   }
 
   const result = await pool.query(
@@ -2049,19 +2049,19 @@ export async function deleteCategory(userId, categoryId) {
     const category = await getCategoryById(resolvedUserId, categoryId, client);
 
     if (!category) {
-      throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
+      throw new DatabaseHttpError(404, "category_not_found", "Categoria não encontrada.");
     }
 
     if (category.is_system) {
       throw new DatabaseHttpError(
         409,
         "default_category_cannot_be_deleted",
-        "Categorias padrao nao podem ser excluidas.",
+        "Categorias padrão não podem ser excluídas.",
       );
     }
 
     if (await isCategoryInUse(resolvedUserId, categoryId, client)) {
-      throw new DatabaseHttpError(409, "category_in_use", "Essa categoria esta em uso e nao pode ser excluida.");
+      throw new DatabaseHttpError(409, "category_in_use", "Essa categoria está em uso e não pode ser excluída.");
     }
 
     await client.query(`DELETE FROM categories WHERE user_id = $1 AND id = $2`, [resolvedUserId, categoryId]);
@@ -2082,30 +2082,30 @@ async function resolveCategoryForTransactionInput(userId, rawCategoryId, amount,
 
   if (categoryId === null) {
     if (transactionType === "income") {
-      throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
+      throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria válida para esta transação.");
     }
 
     const defaultExpenseCategory = await getDefaultExpenseCategory(userId, client);
 
     if (!defaultExpenseCategory) {
-      throw new DatabaseHttpError(404, "category_not_found", "Categoria padrao nao encontrada.");
+      throw new DatabaseHttpError(404, "category_not_found", "Categoria padrão não encontrada.");
     }
 
     return defaultExpenseCategory;
   }
 
   if (!Number.isInteger(categoryId)) {
-    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
+    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria válida para esta transação.");
   }
 
   const category = await getCategoryById(userId, categoryId, client);
 
   if (!category) {
-    throw new DatabaseHttpError(404, "category_not_found", "Categoria nao encontrada.");
+    throw new DatabaseHttpError(404, "category_not_found", "Categoria não encontrada.");
   }
 
   if (category.transaction_type !== transactionType) {
-    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria valida para esta transacao.");
+    throw new DatabaseBadRequestError("invalid_category", "Selecione uma categoria válida para esta transação.");
   }
 
   return category;
@@ -2315,7 +2315,7 @@ async function validateBankConnectionInput(userId, input, currentId = null, exis
     const parentBankConnection = await getBankConnectionById(userId, parentBankConnectionId);
 
     if (!parentBankConnection) {
-      throw createDatabaseNotFoundError("parent_bank_connection_not_found", "Conta pai nao encontrada.");
+      throw createDatabaseNotFoundError("parent_bank_connection_not_found", "Conta pai não encontrada.");
     }
 
     if (parentBankConnection.account_type !== "bank_account") {
@@ -2660,7 +2660,7 @@ export async function createTransaction(userId, input) {
   const bankConnection = await getBankConnectionById(resolvedUserId, bankConnectionId);
 
   if (!bankConnection) {
-    throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
+    throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartão não encontrado.");
   }
 
   if (amount > 0 && bankConnection.account_type === "credit_card") {
@@ -2724,14 +2724,14 @@ export async function updateTransaction(userId, transactionId, input) {
     const existingTransaction = await getTransactionById(resolvedUserId, transactionId, client);
 
     if (!existingTransaction) {
-      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transação não encontrada.");
     }
 
     const category = await resolveCategoryForTransactionInput(resolvedUserId, input.categoryId, amount, client);
     const bankConnection = await getBankConnectionById(resolvedUserId, bankConnectionId, client);
 
     if (!bankConnection) {
-      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartão não encontrado.");
     }
 
     if (amount > 0 && bankConnection.account_type === "credit_card") {
@@ -2799,7 +2799,7 @@ export async function updateTransaction(userId, transactionId, input) {
       );
 
       if (!nextTransactionId) {
-        throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
+        throw new DatabaseHttpError(404, "transaction_not_found", "Transação não encontrada.");
       }
 
       const row = await getTransactionById(resolvedUserId, nextTransactionId, client);
@@ -2831,7 +2831,7 @@ export async function updateTransaction(userId, transactionId, input) {
     );
 
     if (!result.rowCount) {
-      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transação não encontrada.");
     }
 
     const row = await getTransactionById(resolvedUserId, transactionId, client);
@@ -2862,7 +2862,7 @@ export async function deleteTransaction(userId, transactionId, input = {}) {
     const existingTransaction = await getTransactionById(resolvedUserId, transactionId, client);
 
     if (!existingTransaction) {
-      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transação não encontrada.");
     }
 
     if (
@@ -2901,7 +2901,7 @@ export async function deleteTransaction(userId, transactionId, input = {}) {
     );
 
     if (!result.rowCount) {
-      throw new DatabaseHttpError(404, "transaction_not_found", "Transacao nao encontrada.");
+      throw new DatabaseHttpError(404, "transaction_not_found", "Transação não encontrada.");
     }
 
     await client.query("COMMIT");
@@ -2938,7 +2938,7 @@ export async function previewTransactionImport(
     bankConnection = await getBankConnectionById(resolvedUserId, parsedBankConnectionId);
 
     if (!bankConnection) {
-      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartao nao encontrado.");
+      throw new DatabaseHttpError(404, "bank_connection_not_found", "Conta ou cartão não encontrado.");
     }
 
     if (
@@ -2948,14 +2948,14 @@ export async function previewTransactionImport(
     ) {
       throw new DatabaseBadRequestError(
         "invalid_bank_connection_for_import_source",
-        "A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.",
+        "A fatura do cartão precisa ser vinculada a uma conta do tipo cartão.",
       );
     }
 
     if (hasExplicitImportSource && importSource === "bank_statement" && bankConnection.account_type === "credit_card") {
       throw new DatabaseBadRequestError(
         "invalid_bank_connection_for_import_source",
-        "O extrato bancario precisa ser vinculado a uma conta nao-cartao.",
+        "O extrato bancário precisa ser vinculado a uma conta não-cartão.",
       );
     }
   }
@@ -3000,14 +3000,14 @@ export async function previewTransactionImport(
     if (preview.detectedSourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
       throw new DatabaseBadRequestError(
         "invalid_bank_connection_for_import_source",
-        "A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.",
+        "A fatura do cartão precisa ser vinculada a uma conta do tipo cartão.",
       );
     }
 
     if (preview.detectedSourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
       throw new DatabaseBadRequestError(
         "invalid_bank_connection_for_import_source",
-        "O extrato bancario precisa ser vinculado a uma conta nao-cartao.",
+        "O extrato bancário precisa ser vinculado a uma conta não-cartão.",
       );
     }
   }
@@ -3180,7 +3180,7 @@ export async function getTransactionImportAiSuggestions(userId, input) {
           model: config.model || null,
           requestCount: 1,
           errorCode: "import_ai_request_failed",
-          errorMessage: error instanceof Error ? error.message : "Falha na sugestao por IA da importacao.",
+          errorMessage: error instanceof Error ? error.message : "Falha na sugestão por IA da importação.",
         });
         throw error;
       }
@@ -3255,7 +3255,7 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
       if (!Number.isInteger(resolvedBankConnectionId)) {
         throw new DatabaseBadRequestError(
           "import_row_bank_connection_required",
-          "Selecione a conta ou cartao desta linha antes de confirmar a importacao.",
+          "Selecione a conta ou cartão desta linha antes de confirmar a importação.",
         );
       }
 
@@ -3269,21 +3269,21 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
       if (!bankConnection) {
         throw createDatabaseNotFoundError(
           "bank_connection_not_found",
-          "Conta ou cartao nao encontrado para esta linha.",
+          "Conta ou cartão não encontrado para esta linha.",
         );
       }
 
       if (resolvedSourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
         throw new DatabaseBadRequestError(
           "invalid_import_row_bank_connection",
-          "Linhas marcadas como fatura precisam usar um cartao.",
+          "Linhas marcadas como fatura precisam usar um cartão.",
         );
       }
 
       if (resolvedSourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
         throw new DatabaseBadRequestError(
           "invalid_import_row_bank_connection",
-          "Linhas marcadas como extrato precisam usar uma conta nao-cartao.",
+          "Linhas marcadas como extrato precisam usar uma conta não-cartão.",
         );
       }
 
@@ -3296,8 +3296,8 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
             }
           : previewItem,
       });
-      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transacao";
-      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transacoes";
+      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transação";
+      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transações";
 
       if (normalized.exclude) {
         skippedCount += entriesToImport.length;
@@ -3307,7 +3307,7 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
           reason: "excluded",
           message: `${formatImportEntryCount(entriesToImport.length, entryLabelSingular, entryLabelPlural)} removida${
             entriesToImport.length === 1 ? "" : "s"
-          } pelo usuario.`,
+          } pelo usuário.`,
         });
         continue;
       }
@@ -3534,7 +3534,7 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
       if (!Number.isInteger(resolvedBankConnectionId)) {
         throw new DatabaseBadRequestError(
           "import_row_bank_connection_required",
-          "Selecione a conta ou cartao desta linha antes de confirmar a importacao.",
+          "Selecione a conta ou cartão desta linha antes de confirmar a importação.",
         );
       }
 
@@ -3548,21 +3548,21 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
       if (!bankConnection) {
         throw createDatabaseNotFoundError(
           "bank_connection_not_found",
-          "Conta ou cartao nao encontrado para esta linha.",
+          "Conta ou cartão não encontrado para esta linha.",
         );
       }
 
       if (normalized.sourceKind === "credit_card_statement" && bankConnection.account_type !== "credit_card") {
         throw new DatabaseBadRequestError(
           "invalid_import_row_bank_connection",
-          "Linhas marcadas como fatura precisam usar um cartao.",
+          "Linhas marcadas como fatura precisam usar um cartão.",
         );
       }
 
       if (normalized.sourceKind === "bank_statement" && bankConnection.account_type === "credit_card") {
         throw new DatabaseBadRequestError(
           "invalid_import_row_bank_connection",
-          "Linhas marcadas como extrato precisam usar uma conta nao-cartao.",
+          "Linhas marcadas como extrato precisam usar uma conta não-cartão.",
         );
       }
 
@@ -3580,8 +3580,8 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
             }
           : previewItem,
       });
-      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transacao";
-      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transacoes";
+      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transação";
+      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transações";
 
       if (normalized.exclude) {
         skippedCount += entriesToImport.length;
@@ -3591,7 +3591,7 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
           reason: "excluded",
           message: `${formatImportEntryCount(entriesToImport.length, entryLabelSingular, entryLabelPlural)} removida${
             entriesToImport.length === 1 ? "" : "s"
-          } pelo usuario.`,
+          } pelo usuário.`,
         });
         continue;
       }
@@ -4751,7 +4751,7 @@ async function createPlanGoalInvestment(client, userId, investmentInput) {
     const bankConnection = await getBankConnectionById(userId, investmentInput.bankConnectionId, client);
 
     if (!bankConnection) {
-      throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartao nao encontrado.");
+      throw createDatabaseNotFoundError("bank_connection_not_found", "Conta ou cartão não encontrado.");
     }
   }
 
@@ -4804,7 +4804,7 @@ async function resolvePlanGoalInvestmentIds(client, userId, goal) {
     const existingInvestment = await getInvestmentRowById(userId, investmentId, client);
 
     if (!existingInvestment) {
-      throw createDatabaseNotFoundError("investment_not_found", "Investimento nao encontrado.");
+      throw createDatabaseNotFoundError("investment_not_found", "Investimento não encontrado.");
     }
 
     investmentIds.push(investmentId);
@@ -4886,7 +4886,7 @@ export async function updatePlan(userId, publicId, input = {}) {
   const planRow = await getPlanRowByPublicId(resolvedUserId, publicId);
 
   if (!planRow) {
-    throw createDatabaseNotFoundError("plan_not_found", "Plano nao encontrado.");
+    throw createDatabaseNotFoundError("plan_not_found", "Plano não encontrado.");
   }
 
   const hasTitle = Object.prototype.hasOwnProperty.call(input, "title");
@@ -4977,7 +4977,7 @@ export async function deletePlan(userId, publicId) {
   );
 
   if (!result.rowCount) {
-    throw createDatabaseNotFoundError("plan_not_found", "Plano nao encontrado.");
+    throw createDatabaseNotFoundError("plan_not_found", "Plano não encontrado.");
   }
 }
 
@@ -5325,7 +5325,7 @@ export async function revisePlanAiDraft(userId, draftPublicId, correction) {
   const revisionMessages = [
     ...currentDraft.revisionMessages,
     { role: "user", content: normalizedCorrection },
-    { role: "assistant", content: "Rascunho atualizado para revisao." },
+    { role: "assistant", content: "Rascunho atualizado para revisão." },
   ];
 
   const result = await pool.query(

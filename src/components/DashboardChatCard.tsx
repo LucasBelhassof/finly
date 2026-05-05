@@ -61,7 +61,7 @@ export default function DashboardChatCard() {
       setPendingInitialMessage(initialMessage ?? null);
       return true;
     } catch (error) {
-      toast.error("Nao foi possivel iniciar um novo chat.", {
+      toast.error("Não foi possível iniciar um novo chat.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
       return false;
@@ -85,7 +85,7 @@ export default function DashboardChatCard() {
     return (
       <PremiumGate
         featureLabel="Chat financeiro com IA"
-        description="Faça upgrade para desbloquear o assistente financeiro com contexto do seu historico e conversas salvas."
+        description="Faça upgrade para desbloquear o assistente financeiro com contexto do seu histórico e conversas salvas."
       >
         <AiChat />
       </PremiumGate>

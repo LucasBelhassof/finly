@@ -64,7 +64,7 @@ export async function requestWebhookImportAiSuggestionsWithTelemetry(payload) {
     };
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error("A sugestao por IA expirou antes da resposta.");
+      throw new Error("A sugestão por IA expirou antes da resposta.");
     }
 
     throw error;

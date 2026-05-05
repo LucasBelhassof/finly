@@ -25,14 +25,14 @@ class PreviewStoreHttpError extends Error {
 }
 
 function toPreviewStoreNotFoundError() {
-  return new PreviewStoreHttpError(404, "import_preview_not_found", "Preview invalido ou expirado.");
+  return new PreviewStoreHttpError(404, "import_preview_not_found", "Preview inválido ou expirado.");
 }
 
 function toCommittedPreviewError() {
   return new PreviewStoreHttpError(
     409,
     "import_preview_already_committed",
-    "Esta previa ja foi utilizada. Gere uma nova previa para continuar.",
+    "Esta prévia já foi utilizada. Gere uma nova prévia para continuar.",
   );
 }
 
@@ -40,7 +40,7 @@ function toExpiredPreviewError() {
   return new PreviewStoreHttpError(
     400,
     "import_preview_expired",
-    "A previa expirou. Gere a previa novamente para continuar.",
+    "A prévia expirou. Gere a prévia novamente para continuar.",
   );
 }
 

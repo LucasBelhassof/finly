@@ -26,19 +26,19 @@ function formatSurfaceLabel(surface: string, operation: string) {
     case "chat:reply":
       return "Resposta do chat";
     case "chat:title":
-      return "Titulo de conversa";
+      return "Título de conversa";
     case "chat:summary":
       return "Resumo de chat";
     case "plans:draft":
       return "Rascunho de plano";
     case "plans:draft_revision":
-      return "Revisao de rascunho";
+      return "Revisão de rascunho";
     case "plans:link_suggestion":
-      return "Sugestao de vinculo";
+      return "Sugestão de vínculo";
     case "plans:assessment":
-      return "Avaliacao de plano";
+      return "Avaliação de plano";
     case "imports:category_suggestions":
-      return "Sugestoes da importacao";
+      return "Sugestões da importação";
     default:
       return `${surface} / ${operation}`;
   }
@@ -46,7 +46,7 @@ function formatSurfaceLabel(surface: string, operation: string) {
 
 function formatModelLabel(provider: string, model: string) {
   if (!provider && !model) {
-    return "Nao informado";
+    return "Não informado";
   }
 
   if (!provider) {
@@ -104,7 +104,7 @@ function UsageTooltip({
               <p className="text-sm font-medium text-foreground">{item.data.label}</p>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>Requisicoes</span>
+              <span>Requisições</span>
               <span className="text-right font-medium text-foreground">
                 {numberFormatter.format(item.data.requests)}
               </span>
@@ -112,7 +112,7 @@ function UsageTooltip({
               <span className="text-right font-medium text-foreground">
                 {numberFormatter.format(item.data.inputTokens)}
               </span>
-              <span>Tokens saida</span>
+              <span>Tokens saída</span>
               <span className="text-right font-medium text-foreground">
                 {numberFormatter.format(item.data.outputTokens)}
               </span>
@@ -214,7 +214,7 @@ export default function AdminAiUsagePage() {
   const { chartData, modelEntries } = useMemo(() => buildChartState(data), [data]);
   const cards = useMemo(
     () => [
-      { label: "Requisicoes IA", value: numberFormatter.format(data?.summary.totalRequests ?? 0) },
+      { label: "Requisições IA", value: numberFormatter.format(data?.summary.totalRequests ?? 0) },
       { label: "Tokens totais", value: numberFormatter.format(data?.summary.totalTokens ?? 0) },
       { label: "Custo estimado", value: usdFormatter.format(data?.summary.estimatedCostUsd ?? 0) },
       { label: "Falhas", value: numberFormatter.format(data?.summary.failedRequests ?? 0) },
@@ -227,11 +227,11 @@ export default function AdminAiUsagePage() {
   return (
     <AdminLayout
       title="Consumo de IA"
-      description="Leitura operacional da IA por periodo, com foco em volume diario de requisicoes por modelo."
+      description="Leitura operacional da IA por período, com foco em volume diário de requisições por modelo."
     >
       <Card>
         <CardHeader>
-          <CardTitle>Periodo</CardTitle>
+          <CardTitle>Período</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="w-full lg:max-w-md">
@@ -239,7 +239,7 @@ export default function AdminAiUsagePage() {
               startValue={appliedRange.startValue}
               endValue={appliedRange.endValue}
               onChange={setAppliedRange}
-              placeholder="Selecionar periodo"
+              placeholder="Selecionar período"
             />
           </div>
           <div className="flex gap-2">
@@ -259,7 +259,7 @@ export default function AdminAiUsagePage() {
       {hasPartialCoverage ? (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            Parte das requisicoes deste periodo nao trouxe tokens ou custo do provider. O tooltip e os totais refletem
+            Parte das requisições deste período não trouxe tokens ou custo do provider. O tooltip e os totais refletem
             apenas o que foi rastreado.
           </CardContent>
         </Card>
@@ -278,9 +278,9 @@ export default function AdminAiUsagePage() {
 
       <Card>
         <CardHeader className="gap-2">
-          <CardTitle>Uso diario da IA</CardTitle>
+          <CardTitle>Uso diário da IA</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Eixo X com os dias do periodo e eixo Y com o numero de requisicoes. Cada modelo aparece como uma linha
+            Eixo X com os dias do período e eixo Y com o número de requisições. Cada modelo aparece como uma linha
             separada.
           </p>
         </CardHeader>
@@ -311,7 +311,7 @@ export default function AdminAiUsagePage() {
           </div>
 
           {!isLoading && chartData.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Nenhum uso de IA encontrado no periodo.</p>
+            <p className="mt-4 text-sm text-muted-foreground">Nenhum uso de IA encontrado no período.</p>
           ) : null}
         </CardContent>
       </Card>
@@ -326,7 +326,7 @@ export default function AdminAiUsagePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Modelo</TableHead>
-                  <TableHead>Requisicoes</TableHead>
+                  <TableHead>Requisições</TableHead>
                   <TableHead>Tokens</TableHead>
                   <TableHead>Custo</TableHead>
                 </TableRow>
@@ -354,7 +354,7 @@ export default function AdminAiUsagePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Serie agregada do periodo</CardTitle>
+            <CardTitle>Série agregada do período</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {(data?.dailySeries ?? []).map((item) => (
@@ -364,7 +364,7 @@ export default function AdminAiUsagePage() {
                   <Badge variant={item.failures > 0 ? "destructive" : "outline"}>{item.failures} falhas</Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {numberFormatter.format(item.requests)} requisicoes • {numberFormatter.format(item.totalTokens)}{" "}
+                  {numberFormatter.format(item.requests)} requisições • {numberFormatter.format(item.totalTokens)}{" "}
                   tokens • {usdFormatter.format(item.estimatedCostUsd)}
                 </p>
               </div>
@@ -383,7 +383,7 @@ export default function AdminAiUsagePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Fluxo</TableHead>
-                  <TableHead>Requisicoes</TableHead>
+                  <TableHead>Requisições</TableHead>
                   <TableHead>Falhas</TableHead>
                   <TableHead>Custo</TableHead>
                 </TableRow>
@@ -414,7 +414,7 @@ export default function AdminAiUsagePage() {
                   <Badge variant="destructive">{item.errorCode ?? "erro"}</Badge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {formatModelLabel(item.provider ?? "", item.model ?? "")} • {item.user?.name ?? "Usuario"} •{" "}
+                  {formatModelLabel(item.provider ?? "", item.model ?? "")} • {item.user?.name ?? "Usuário"} •{" "}
                   {new Date(item.createdAt).toLocaleString("pt-BR")}
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -428,23 +428,23 @@ export default function AdminAiUsagePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Data table de uso por usuarios</CardTitle>
+          <CardTitle>Tabela de uso por usuários</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Requisicoes</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Requisições</TableHead>
                   <TableHead>Sucessos</TableHead>
                   <TableHead>Falhas</TableHead>
                   <TableHead>Mensagens</TableHead>
                   <TableHead>Tokens entrada</TableHead>
-                  <TableHead>Tokens saida</TableHead>
+                  <TableHead>Tokens saída</TableHead>
                   <TableHead>Tokens totais</TableHead>
                   <TableHead>Custo</TableHead>
-                  <TableHead>Ultimo uso</TableHead>
+                  <TableHead>Último uso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -474,7 +474,7 @@ export default function AdminAiUsagePage() {
           </div>
 
           {!isLoading && (data?.userUsage.length ?? 0) === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">Nenhum usuario com uso de IA no periodo.</p>
+            <p className="mt-4 text-sm text-muted-foreground">Nenhum usuário com uso de IA no período.</p>
           ) : null}
         </CardContent>
       </Card>
@@ -482,7 +482,7 @@ export default function AdminAiUsagePage() {
       {isError ? (
         <Card className="border-destructive/40">
           <CardContent className="pt-6 text-sm text-destructive">
-            {error instanceof Error ? error.message : "Nao foi possivel carregar o consumo de IA."}
+            {error instanceof Error ? error.message : "Não foi possível carregar o consumo de IA."}
           </CardContent>
         </Card>
       ) : null}

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const loginFormSchema = z.object({
-  email: z.string().trim().email("Informe um e-mail valido."),
+  email: z.string().trim().email("Informe um e-mail válido."),
   password: z.string().min(1, "Informe sua senha."),
   rememberMe: z.boolean().default(true),
 });
@@ -9,7 +9,7 @@ export const loginFormSchema = z.object({
 export const signupFormSchema = z
   .object({
     name: z.string().trim().min(1, "Informe seu nome.").max(100, "O nome pode ter no maximo 100 caracteres."),
-    email: z.string().trim().email("Informe um e-mail valido."),
+    email: z.string().trim().email("Informe um e-mail válido."),
     password: z
       .string()
       .min(8, "A senha precisa ter pelo menos 8 caracteres.")
@@ -23,7 +23,7 @@ export const signupFormSchema = z
   });
 
 export const forgotPasswordFormSchema = z.object({
-  email: z.string().trim().email("Informe um e-mail valido."),
+  email: z.string().trim().email("Informe um e-mail válido."),
 });
 
 export const resetPasswordFormSchema = z
@@ -40,8 +40,8 @@ export const resetPasswordFormSchema = z
 export const settingsAccountFormSchema = z
   .object({
     name: z.string().trim().min(1, "Informe seu nome.").max(100, "O nome pode ter no maximo 100 caracteres."),
-    email: z.string().trim().email("Informe um e-mail valido."),
-    confirmEmail: z.string().trim().email("Confirme um e-mail valido."),
+    email: z.string().trim().email("Informe um e-mail válido."),
+    confirmEmail: z.string().trim().email("Confirme um e-mail válido."),
   })
   .refine((value) => value.email === value.confirmEmail, {
     message: "Os e-mails precisam ser iguais.",
@@ -95,7 +95,7 @@ export const settingsContactFormSchema = z
 
         const digits = value.replace(/\D/g, "");
         return digits.length === 10 || digits.length === 11;
-      }, "Informe um telefone valido com DDD."),
+      }, "Informe um telefone válido com DDD."),
     addressStreet: optionalTrimmedField,
     addressNumber: z
       .string()
@@ -126,7 +126,7 @@ export const settingsContactFormSchema = z
         }
 
         return value.replace(/\D/g, "").length === 8;
-      }, "Informe um CEP valido."),
+      }, "Informe um CEP válido."),
     addressCountry: z
       .string()
       .trim()
@@ -186,7 +186,7 @@ export const settingsContactFormSchema = z
     if (!value.addressPostalCode || value.addressPostalCode.replace(/\D/g, "").length !== 8) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Informe um CEP valido.",
+        message: "Informe um CEP válido.",
         path: ["addressPostalCode"],
       });
     }

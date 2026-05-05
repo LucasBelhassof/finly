@@ -806,13 +806,13 @@ function buildFallbackPlanAssessment(plan) {
     status = "at_risk";
     priority = "high";
     riskSummary = "A meta financeira ja ultrapassou o limite definido.";
-    recommendation = "Replaneje o valor alvo, reduza novas despesas relacionadas ou ajuste o periodo.";
+    recommendation = "Replaneje o valor-alvo, reduza novas despesas relacionadas ou ajuste o período.";
   } else if ((isTransactionGoal && percentage >= 80) || (daysToEnd !== null && daysToEnd < 0 && percentage < 100)) {
     status = "attention";
     priority = "high";
     riskSummary =
       daysToEnd !== null && daysToEnd < 0
-        ? "O periodo da meta terminou sem conclusao."
+        ? "O período da meta terminou sem conclusão."
         : "A meta esta proxima do limite definido.";
     recommendation = "Revise as acoes pendentes e ajuste prioridade antes de novas movimentacoes.";
   }

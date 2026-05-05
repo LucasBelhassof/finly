@@ -366,7 +366,7 @@ export async function createUniversalImportPreview({
       : [];
 
   if (canonicalRows.length === 0) {
-    throw new Error("Nao foi possivel localizar transacoes validas no arquivo.");
+    throw new Error("Não foi possível localizar transações válidas no arquivo.");
   }
 
   const sourceDetection = inferSourceKind(canonicalRows, {

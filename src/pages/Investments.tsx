@@ -158,11 +158,11 @@ function getFormError(form: InvestmentFormState) {
     }
 
     if (!form.manualGoalStartDate || !form.manualGoalEndDate) {
-      return "Informe o periodo da meta financeira para o planejamento manual.";
+      return "Informe o período da meta financeira para o planejamento manual.";
     }
 
     if (form.manualGoalStartDate > form.manualGoalEndDate) {
-      return "A data inicial da meta deve ser anterior a data final.";
+      return "A data inicial da meta deve ser anterior à data final.";
     }
   }
 
@@ -172,7 +172,7 @@ function getFormError(form: InvestmentFormState) {
 
   if (form.planLinkMode === "new_manual") {
     if (!form.manualPlanTitle.trim()) {
-      return "Informe o titulo do novo planejamento manual.";
+      return "Informe o título do novo planejamento manual.";
     }
 
     const filledItems = form.manualPlanItems.filter((item) => item.title.trim());
@@ -339,7 +339,7 @@ export default function InvestmentsPage() {
       setEditingInvestment(null);
       setForm(buildEmptyForm());
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel salvar a caixinha.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a caixinha.");
     }
   };
 
@@ -380,7 +380,7 @@ export default function InvestmentsPage() {
       toast.success("Caixinha removida.");
       setDeletingInvestment(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel remover a caixinha.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível remover a caixinha.");
     }
   };
 
@@ -433,7 +433,7 @@ export default function InvestmentsPage() {
           </div>
         ) : isError ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            Nao foi possivel carregar as caixinhas.
+            Não foi possível carregar as caixinhas.
           </div>
         ) : investments.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/50 p-8 text-center text-sm text-muted-foreground">
@@ -460,7 +460,7 @@ export default function InvestmentsPage() {
                     <TableCell>
                       <div>
                         <p className="font-medium text-foreground">{investment.name}</p>
-                        <p className="text-xs text-muted-foreground">{investment.description || "Sem descricao."}</p>
+                        <p className="text-xs text-muted-foreground">{investment.description || "Sem descrição."}</p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -479,13 +479,13 @@ export default function InvestmentsPage() {
                           ? "Arquivada"
                           : "Ativa"}
                     </TableCell>
-                    <TableCell>{investment.bank?.name ?? "Nao vinculada"}</TableCell>
+                    <TableCell>{investment.bank?.name ?? "Não vinculada"}</TableCell>
                     <TableCell>
                       {(() => {
                         const linkedPlans = linkedManualPlansByInvestmentId.get(String(investment.id)) ?? [];
 
                         if (!linkedPlans.length) {
-                          return "Sem vinculo";
+                          return "Sem vínculo";
                         }
 
                         if (linkedPlans.length === 1) {
@@ -531,7 +531,7 @@ export default function InvestmentsPage() {
           <DialogHeader>
             <DialogTitle>{editingInvestment ? "Editar caixinha" : "Nova caixinha"}</DialogTitle>
             <DialogDescription>
-              Defina o aporte da caixinha e, se quiser, ja vincule a um planejamento manual existente ou crie um novo.
+              Defina o aporte da caixinha e, se quiser, já vincule a um planejamento manual existente ou crie um novo.
             </DialogDescription>
           </DialogHeader>
 
@@ -545,7 +545,7 @@ export default function InvestmentsPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Descricao</label>
+              <label className="text-sm font-medium text-foreground">Descrição</label>
               <Textarea
                 rows={3}
                 value={form.description}
@@ -689,7 +689,7 @@ export default function InvestmentsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nao vincular agora</SelectItem>
+                      <SelectItem value="none">Não vincular agora</SelectItem>
                       <SelectItem value="existing_manual">Vincular a planejamento manual existente</SelectItem>
                       <SelectItem value="new_manual">Criar novo planejamento manual</SelectItem>
                     </SelectContent>
@@ -714,7 +714,7 @@ export default function InvestmentsPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">Inicio</label>
+                        <label className="text-sm font-medium text-foreground">Início</label>
                         <Input
                           type="date"
                           value={form.manualGoalStartDate}
@@ -765,7 +765,7 @@ export default function InvestmentsPage() {
                               ))
                             ) : (
                               <SelectItem value="__empty" disabled>
-                                Nenhum planejamento manual disponivel
+                                Nenhum planejamento manual disponível
                               </SelectItem>
                             )}
                           </SelectContent>
@@ -777,7 +777,7 @@ export default function InvestmentsPage() {
                       <div className="space-y-4">
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Titulo do planejamento</label>
+                            <label className="text-sm font-medium text-foreground">Título do planejamento</label>
                             <Input
                               value={form.manualPlanTitle}
                               onChange={(event) =>
@@ -789,7 +789,7 @@ export default function InvestmentsPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Descricao</label>
+                            <label className="text-sm font-medium text-foreground">Descrição</label>
                             <Input
                               value={form.manualPlanDescription}
                               onChange={(event) =>
@@ -819,12 +819,12 @@ export default function InvestmentsPage() {
                               >
                                 <div className="grid gap-3 sm:grid-cols-2">
                                   <Input
-                                    placeholder="Titulo do item"
+                                    placeholder="Título do item"
                                     value={item.title}
                                     onChange={(event) => updateManualItem(index, { title: event.target.value })}
                                   />
                                   <Input
-                                    placeholder="Descricao"
+                                    placeholder="Descrição"
                                     value={item.description}
                                     onChange={(event) => updateManualItem(index, { description: event.target.value })}
                                   />
@@ -843,7 +843,7 @@ export default function InvestmentsPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="todo">Pendente</SelectItem>
-                                      <SelectItem value="done">Concluido</SelectItem>
+                                      <SelectItem value="done">Concluído</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   <Select
@@ -860,7 +860,7 @@ export default function InvestmentsPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="low">Prioridade baixa</SelectItem>
-                                      <SelectItem value="medium">Prioridade media</SelectItem>
+                                      <SelectItem value="medium">Prioridade média</SelectItem>
                                       <SelectItem value="high">Prioridade alta</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -906,7 +906,7 @@ export default function InvestmentsPage() {
             <AlertDialogTitle>Remover caixinha</AlertDialogTitle>
             <AlertDialogDescription>
               {deletingInvestment
-                ? `A caixinha ${deletingInvestment.name} sera removida. Planejamentos vinculados perderao o vínculo.`
+                ? `A caixinha ${deletingInvestment.name} será removida. Planejamentos vinculados perderão o vínculo.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>

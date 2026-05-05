@@ -13,7 +13,7 @@ export function createImportPdfPasswordError(filePassword) {
     filePassword ? "import_pdf_password_invalid" : "import_pdf_password_required",
     filePassword
       ? "Senha do PDF incorreta. Verifique e tente novamente."
-      : "Informe a senha do PDF para gerar a previa.",
+      : "Informe a senha do PDF para gerar a prévia.",
     { requiresPassword: true },
   );
 }
@@ -21,6 +21,6 @@ export function createImportPdfPasswordError(filePassword) {
 export function createImportUnsupportedFileError(filename) {
   return new ImportHttpError(
     "import_unsupported_file_type",
-    `O arquivo ${String(filename ?? "selecionado")} nao e suportado por esta importacao.`,
+    `O arquivo ${String(filename ?? "selecionado")} não é suportado por esta importação.`,
   );
 }

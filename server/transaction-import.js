@@ -48,7 +48,7 @@ export function createPdfPasswordError(filePassword) {
     filePassword ? "import_pdf_password_invalid" : "import_pdf_password_required",
     filePassword
       ? "Senha do PDF incorreta. Verifique e tente novamente."
-      : "Informe a senha do PDF para gerar a previa.",
+      : "Informe a senha do PDF para gerar a prévia.",
     { requiresPassword: true },
   );
 }
@@ -543,7 +543,7 @@ function parsePdfDateWithMonthName(day, monthLabel, year) {
   const month = ptShortMonthMap.get(normalizeDescription(monthLabel).slice(0, 3));
 
   if (!month) {
-    throw new Error("Mes invalido na fatura PDF.");
+    throw new Error("Mês inválido na fatura PDF.");
   }
 
   return parseOccurredOnInput(`${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`);
@@ -773,7 +773,7 @@ export function parseCreditCardPdfStatement({ text, filename }) {
   const issuer = detectPdfIssuer(text, filename);
 
   if (!issuer) {
-    throw new Error("Nao foi possivel identificar o emissor da fatura PDF. Use Inter, Itau ou exporte CSV.");
+    throw new Error("Não foi possível identificar o emissor da fatura PDF. Use Inter, Itaú ou exporte CSV.");
   }
 
   if (issuer === "inter") {
@@ -829,13 +829,13 @@ async function extractPdfText(buffer, filePassword) {
 async function extractImportRowsFromFile({ fileBuffer, contentType, filename, importSource, filePassword }) {
   if (isPdfUpload(contentType, filename)) {
     if (importSource !== "credit_card_statement") {
-      throw new Error("PDF e suportado apenas para fatura do cartao nesta versao.");
+      throw new Error("PDF é suportado apenas para fatura do cartão nesta versão.");
     }
 
     const text = await extractPdfText(fileBuffer, filePassword);
 
     if (!text || !text.trim()) {
-      throw new Error("Nao foi possivel extrair texto do PDF. Use um PDF com texto selecionavel ou exporte CSV.");
+      throw new Error("Não foi possível extrair texto do PDF. Use um PDF com texto selecionável ou exporte CSV.");
     }
 
     const parsedPdf = parseCreditCardPdfStatement({
@@ -844,7 +844,7 @@ async function extractImportRowsFromFile({ fileBuffer, contentType, filename, im
     });
 
     if (!parsedPdf.rows.length) {
-      throw new Error("Nao foi possivel localizar despesas validas na fatura PDF.");
+      throw new Error("Não foi possível localizar despesas válidas na fatura PDF.");
     }
 
     return {
@@ -865,7 +865,7 @@ async function extractImportRowsFromFile({ fileBuffer, contentType, filename, im
   const nonEmptyRows = rows.filter((row) => !isBlankCsvRow(row));
 
   if (nonEmptyRows.length < 2) {
-    throw new Error("O arquivo CSV precisa ter cabecalho e ao menos uma linha de dados.");
+    throw new Error("O arquivo CSV precisa ter cabeçalho e ao menos uma linha de dados.");
   }
 
   if (nonEmptyRows.length - 1 > MAX_IMPORT_ROWS) {
@@ -878,7 +878,7 @@ async function extractImportRowsFromFile({ fileBuffer, contentType, filename, im
     } catch {
       throw new ImportBadRequestError(
         "bad_request",
-        "CSV protegido por senha nao e suportado. Exporte o CSV sem senha ou envie a fatura em PDF com senha.",
+        "CSV protegido por senha não é suportado. Exporte o CSV sem senha ou envie a fatura em PDF com senha.",
       );
     }
   }
@@ -895,7 +895,7 @@ async function extractImportRowsFromFile({ fileBuffer, contentType, filename, im
       if (filePassword) {
         throw new ImportBadRequestError(
           "bad_request",
-          "CSV protegido por senha nao e suportado. Exporte o CSV sem senha ou envie a fatura em PDF com senha.",
+          "CSV protegido por senha não é suportado. Exporte o CSV sem senha ou envie a fatura em PDF com senha.",
         );
       }
 
@@ -999,7 +999,7 @@ function parseCsvText(text) {
   const trimmed = text.replace(/^\uFEFF/, "");
 
   if (!trimmed.trim()) {
-    throw new Error("O arquivo CSV esta vazio.");
+    throw new Error("O arquivo CSV está vazio.");
   }
 
   return splitCsvRows(trimmed, chooseDelimiter(trimmed));
@@ -1023,7 +1023,7 @@ function resolveHeaderIndexes(headerRow) {
     !(typeof mapping.amount === "number" || (typeof mapping.debit === "number" && typeof mapping.credit === "number"))
   ) {
     throw new Error(
-      "Nao foi possivel identificar as colunas obrigatorias. O CSV precisa ter data, descricao/historico e valor ou debito/credito.",
+      "Não foi possível identificar as colunas obrigatórias. O CSV precisa ter data, descrição/histórico e valor ou débito/crédito.",
     );
   }
 
@@ -1115,7 +1115,7 @@ export function parseAmountInput(rawValue) {
   const parsed = Number.parseFloat(value);
 
   if (!Number.isFinite(parsed)) {
-    throw new Error("Valor invalido.");
+    throw new Error("Valor inválido.");
   }
 
   const absolute = Math.round(Math.abs(parsed) * 100) / 100;
@@ -1140,14 +1140,14 @@ export function parseOccurredOnInput(rawValue) {
   } else if (/^\d{2}-\d{2}-\d{4}$/.test(input)) {
     [day, month, year] = input.split("-").map(Number);
   } else {
-    throw new Error("Data invalida.");
+    throw new Error("Data inválida.");
   }
 
   const normalized = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   const date = new Date(`${normalized}T12:00:00Z`);
 
   if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== normalized) {
-    throw new Error("Data invalida.");
+    throw new Error("Data inválida.");
   }
 
   return normalized;
@@ -1310,7 +1310,7 @@ function buildPreviewItem({
   };
 
   if (!rawDescription) {
-    errors.push("Descricao ausente.");
+    errors.push("Descrição ausente.");
   }
 
   try {
@@ -1368,7 +1368,7 @@ function buildPreviewItem({
 
   if (importLayout === "credit_card_statement" && isCreditCardPaymentReceived(normalizedDescriptionValue)) {
     defaultExclude = true;
-    warnings.push("Pagamento recebido de fatura sera ignorado por padrao.");
+    warnings.push("Pagamento recebido de fatura será ignorado por padrão.");
   }
 
   if (importLayout === "credit_card_statement" && type === "expense") {
@@ -1383,7 +1383,7 @@ function buildPreviewItem({
 
     if (installmentMetadata.isInstallment && installmentMetadata.generatedInstallmentCount) {
       warnings.push(
-        `Compra parcelada detectada: ${installmentMetadata.generatedInstallmentCount} despesas mensais serao geradas ao importar, incluindo parcelas anteriores.`,
+        `Compra parcelada detectada: ${installmentMetadata.generatedInstallmentCount} despesas mensais serão geradas ao importar, incluindo parcelas anteriores.`,
       );
     }
   }
@@ -1417,7 +1417,7 @@ function buildPreviewItem({
 
     if (existingFingerprints.has(fingerprint)) {
       possibleDuplicate = true;
-      duplicateReason = "Ja existe uma transacao importada com os mesmos dados.";
+      duplicateReason = "Já existe uma transação importada com os mesmos dados.";
       warnings.push("Duplicata provavel encontrada.");
     } else if (seenFingerprints.has(fingerprint)) {
       possibleDuplicate = true;
@@ -1435,7 +1435,7 @@ function buildPreviewItem({
   if (finalRequiresCategorySelection) {
     warnings.push("Selecione uma categoria antes de importar.");
   } else if (!defaultExclude && type === "expense" && !finalSuggestedCategory) {
-    warnings.push("Se nenhuma categoria for escolhida, a despesa sera importada como Compras.");
+    warnings.push("Se nenhuma categoria for escolhida, a despesa será importada como Compras.");
   }
 
   const canImport = errors.length === 0 && !finalRequiresCategorySelection;
@@ -1593,7 +1593,7 @@ function normalizeRowIndexes(rowIndexes, session, maxRows) {
     const allIndexes = session.items.map((item) => item.rowIndex);
 
     if (allIndexes.length > maxRows) {
-      throw new Error(`O enriquecimento permite no maximo ${maxRows} linhas por chamada.`);
+      throw new Error(`O enriquecimento permite no máximo ${maxRows} linhas por chamada.`);
     }
 
     return allIndexes;
@@ -1608,7 +1608,7 @@ function normalizeRowIndexes(rowIndexes, session, maxRows) {
   }
 
   if (rowIndexes.length > maxRows) {
-    throw new Error(`O enriquecimento permite no maximo ${maxRows} linhas por chamada.`);
+    throw new Error(`O enriquecimento permite no máximo ${maxRows} linhas por chamada.`);
   }
 
   const allowedIndexes = new Set(session.items.map((item) => item.rowIndex));
@@ -1616,11 +1616,11 @@ function normalizeRowIndexes(rowIndexes, session, maxRows) {
 
   return rowIndexes.map((rowIndex) => {
     if (!Number.isInteger(rowIndex) || !allowedIndexes.has(rowIndex)) {
-      throw new Error("Uma ou mais linhas nao pertencem a esta previa.");
+      throw new Error("Uma ou mais linhas não pertencem a esta prévia.");
     }
 
     if (seenIndexes.has(rowIndex)) {
-      throw new Error("A mesma linha foi enviada mais de uma vez para sugestao por IA.");
+      throw new Error("A mesma linha foi enviada mais de uma vez para sugestão por IA.");
     }
 
     seenIndexes.add(rowIndex);
@@ -1722,7 +1722,7 @@ export function normalizeAiCategorizationResult(raw, allowedCategoryMap) {
   const rowIndex = Number(raw?.rowIndex);
 
   if (!Number.isInteger(rowIndex)) {
-    throw new Error("Resultado de IA sem rowIndex valido.");
+    throw new Error("Resultado de IA sem rowIndex válido.");
   }
 
   const status = raw?.status;
@@ -1923,7 +1923,7 @@ export function parseMultipartCsvUpload(contentType, bodyBuffer) {
   const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
 
   if (!boundary) {
-    throw new Error("Nao foi possivel ler o upload do arquivo.");
+    throw new Error("Não foi possível ler o upload do arquivo.");
   }
 
   if (!Buffer.isBuffer(bodyBuffer) || !bodyBuffer.length) {
@@ -1971,7 +1971,7 @@ export function parseMultipartCsvUpload(contentType, bodyBuffer) {
     return upload;
   }
 
-  throw new Error("O upload nao contem um arquivo CSV valido.");
+  throw new Error("O upload não contém um arquivo CSV válido.");
 }
 
 export async function createImportPreview({
@@ -2099,7 +2099,7 @@ export function validateCommitItemsShape(items, session) {
   }
 
   if (items.length > MAX_IMPORT_ROWS) {
-    throw new Error(`O commit permite no maximo ${MAX_IMPORT_ROWS} linhas por chamada.`);
+    throw new Error(`O commit permite no máximo ${MAX_IMPORT_ROWS} linhas por chamada.`);
   }
 
   const sessionIndexes = new Set(session.items.map((item) => item.rowIndex));
@@ -2109,7 +2109,7 @@ export function validateCommitItemsShape(items, session) {
     ensureCommitItemShape(item);
 
     if (!Number.isInteger(item.rowIndex) || !sessionIndexes.has(item.rowIndex)) {
-      throw new Error("Uma ou mais linhas nao pertencem a esta previa.");
+      throw new Error("Uma ou mais linhas não pertencem a esta prévia.");
     }
 
     if (seenIndexes.has(item.rowIndex)) {
@@ -2124,7 +2124,7 @@ export function validateCommitLine(input, categories) {
   const description = String(input.description ?? "").trim();
 
   if (!description) {
-    throw new Error("Descricao ausente.");
+    throw new Error("Descrição ausente.");
   }
 
   const occurredOn = parseOccurredOnInput(input.occurredOn);
@@ -2132,7 +2132,7 @@ export function validateCommitLine(input, categories) {
   const type = input.type === "income" ? "income" : input.type === "expense" ? "expense" : null;
 
   if (!type) {
-    throw new Error("Tipo invalido.");
+    throw new Error("Tipo inválido.");
   }
 
   const rawCategoryId = input.categoryId;
@@ -2146,7 +2146,7 @@ export function validateCommitLine(input, categories) {
     category = getDefaultExpenseCategory(categories);
 
     if (!category) {
-      throw new Error("Categoria padrao de despesa nao encontrada.");
+      throw new Error("Categoria padrão de despesa não encontrada.");
     }
   } else {
     const categoryId = Number(rawCategoryId);
@@ -2162,7 +2162,7 @@ export function validateCommitLine(input, categories) {
     }
 
     if (category.transactionType !== type) {
-      throw new Error("A categoria selecionada nao corresponde ao tipo da transacao.");
+      throw new Error("A categoria selecionada não corresponde ao tipo da transação.");
     }
   }
 

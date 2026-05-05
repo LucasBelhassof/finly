@@ -289,7 +289,7 @@ async function executeProviderRequest({ url, headers, body }, timeoutMs) {
       try {
         parsedBody = JSON.parse(text);
       } catch {
-        throw new Error("O provider de chat retornou um corpo JSON invalido.");
+        throw new Error("O provider de chat retornou um corpo JSON inválido.");
       }
     }
 
@@ -319,7 +319,7 @@ export function extractChatResponse(provider, responseBody) {
       .trim();
 
     if (!text) {
-      throw new Error("O Gemini nao retornou texto para o chat.");
+      throw new Error("O Gemini não retornou texto para o chat.");
     }
 
     return {
@@ -363,7 +363,7 @@ export function extractChatResponse(provider, responseBody) {
     : "";
 
   if (!partsText) {
-    throw new Error("A OpenAI nao retornou texto para o chat.");
+    throw new Error("A OpenAI não retornou texto para o chat.");
   }
 
   return {

@@ -11,7 +11,7 @@ vi.mock("./import/preview-session-store.js", () => ({
     const session = previewStoreState.get(String(previewToken));
 
     if (!session || session.userId !== String(userId)) {
-      const error = new Error("Preview invalido ou expirado.");
+      const error = new Error("Preview inválido ou expirado.");
       error.name = "HttpError";
       error.status = 404;
       error.code = "import_preview_not_found";
@@ -19,7 +19,7 @@ vi.mock("./import/preview-session-store.js", () => ({
     }
 
     if (session.expiresAtMs <= Date.now()) {
-      const error = new Error("A previa expirou. Gere a previa novamente para continuar.");
+      const error = new Error("A prévia expirou. Gere a prévia novamente para continuar.");
       error.name = "HttpError";
       error.status = 400;
       error.code = "import_preview_expired";
@@ -502,7 +502,7 @@ describe("transaction import helpers", () => {
         },
         categories,
       ),
-    ).toThrow("nao corresponde ao tipo");
+    ).toThrow("não corresponde ao tipo");
   });
 
   it("keeps rows with local rule matches out of AI enrichment", async () => {
@@ -689,7 +689,7 @@ describe("transaction import helpers", () => {
         maxRows: 1,
         suggestCategories: async () => [],
       }),
-    ).rejects.toThrow("no maximo 1 linhas");
+    ).rejects.toThrow("no máximo 1 linhas");
   });
 
   it("extracts a useful match key from noisy banking descriptions", () => {

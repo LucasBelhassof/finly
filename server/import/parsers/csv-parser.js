@@ -110,7 +110,7 @@ function normalizeTabularRows(rows, source, options = {}) {
     if (!finalOccurredOn) {
       finalOccurredOn = options.fallbackOccurredOn ?? new Date().toISOString().slice(0, 10);
       issues.push(
-        buildIssue("import_missing_date", "Nao foi possivel identificar a data original desta linha.", "warning"),
+        buildIssue("import_missing_date", "Não foi possível identificar a data original desta linha.", "warning"),
       );
     }
 
@@ -118,7 +118,7 @@ function normalizeTabularRows(rows, source, options = {}) {
       issues.push(
         buildIssue(
           "import_missing_description",
-          "Nao foi possivel identificar a descricao original desta linha.",
+          "Não foi possível identificar a descrição original desta linha.",
           "warning",
         ),
       );
@@ -126,7 +126,7 @@ function normalizeTabularRows(rows, source, options = {}) {
 
     if (signedAmount === null) {
       issues.push(
-        buildIssue("import_missing_amount", "Nao foi possivel identificar o valor original desta linha.", "error"),
+        buildIssue("import_missing_amount", "Não foi possível identificar o valor original desta linha.", "error"),
       );
     }
 

@@ -31,7 +31,7 @@ export default function InsightsPage() {
           <div data-tour-id="insights-recommendations" className="glass-card p-5">
             <h2 className="text-lg font-semibold text-foreground">Insights em espera</h2>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Esta area foi mantida visivel, mas o recurso esta desligado porque ainda nao existe uma regra de negocio
+              Esta área foi mantida visível, mas o recurso está desligado porque ainda não existe uma regra de negócio
               fechada para gerar insights confiaveis. Enquanto isso, o chat usa os dados financeiros reais do usuário
               para analisar gastos, montar planos e orientar próximos passos.
             </p>

@@ -623,7 +623,7 @@ describe("transaction import commit dispatcher", () => {
     });
 
     await expect(getUniversalPreviewSession("preview-store-cross-user", 8)).rejects.toThrow(
-      "Preview invalido ou expirado.",
+      "Preview inválido ou expirado.",
     );
   });
 
@@ -648,7 +648,7 @@ describe("transaction import commit dispatcher", () => {
 
     await expect(hasUniversalPreviewSession("preview-store-expired")).resolves.toBe(false);
     await expect(getUniversalPreviewSession("preview-store-expired", 7)).rejects.toThrow(
-      "A previa expirou. Gere a previa novamente para continuar.",
+      "A prévia expirou. Gere a prévia novamente para continuar.",
     );
   });
 
@@ -759,7 +759,7 @@ describe("transaction import commit dispatcher", () => {
 
     await expect(hasUniversalPreviewSession("preview-store-committed-locked")).resolves.toBe(false);
     await expect(getUniversalPreviewSession("preview-store-committed-locked", 7)).rejects.toThrow(
-      "Esta previa ja foi utilizada.",
+      "Esta prévia já foi utilizada.",
     );
     expect(pgState.current?.previewSessions.get("preview-store-committed-locked")?.committed_at).toBeTruthy();
   });
@@ -839,7 +839,7 @@ describe("transaction import commit dispatcher", () => {
     expect(result.failedCount).toBe(1);
     expect(result.results[0]).toMatchObject({
       status: "failed",
-      message: "Selecione a conta ou cartao desta linha antes de confirmar a importacao.",
+      message: "Selecione a conta ou cartão desta linha antes de confirmar a importação.",
     });
   });
 
@@ -873,7 +873,7 @@ describe("transaction import commit dispatcher", () => {
           },
         ],
       }),
-    ).rejects.toThrow("Preview invalido ou expirado.");
+    ).rejects.toThrow("Preview inválido ou expirado.");
   });
 
   it("detects universal duplicates by externalId before inserting", async () => {
@@ -1137,7 +1137,7 @@ describe("transaction import commit dispatcher", () => {
     const first = await commitTransactionImport(7, input);
     const purchasesAfterFirstImport = pgState.current?.installmentPurchases.size;
     const insertsAfterFirstImport = pgState.current?.inserts.length;
-    await expect(commitTransactionImport(7, input)).rejects.toThrow("Esta previa ja foi utilizada.");
+    await expect(commitTransactionImport(7, input)).rejects.toThrow("Esta prévia já foi utilizada.");
 
     await setUniversalPreviewSession("universal-installments-duplicate-2", {
       kind: "universal",
@@ -1338,7 +1338,7 @@ describe("transaction import commit dispatcher", () => {
 
     await expect(
       previewTransactionImport(7, Buffer.from(csv, "utf8"), undefined, 20, "extrato.csv", "text/csv", undefined),
-    ).rejects.toThrow("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+    ).rejects.toThrow("O extrato bancário precisa ser vinculado a uma conta não-cartão.");
   });
 
   it("rejects a universal preview after detection when a credit card statement is linked to a non-card account", async () => {
@@ -1359,7 +1359,7 @@ describe("transaction import commit dispatcher", () => {
         "text/csv",
         undefined,
       ),
-    ).rejects.toThrow("A fatura do cartao precisa ser vinculada a uma conta do tipo cartao.");
+    ).rejects.toThrow("A fatura do cartão precisa ser vinculada a uma conta do tipo cartão.");
   });
 
   it("keeps the legacy preview compatibility check when importSource is explicit", async () => {
@@ -1367,7 +1367,7 @@ describe("transaction import commit dispatcher", () => {
 
     await expect(
       previewTransactionImport(7, Buffer.from("fake file"), "bank_statement", 20, "extrato.csv", "text/csv", undefined),
-    ).rejects.toThrow("O extrato bancario precisa ser vinculado a uma conta nao-cartao.");
+    ).rejects.toThrow("O extrato bancário precisa ser vinculado a uma conta não-cartão.");
   });
 
   it("surfaces invalid preview tokens for commit", async () => {
@@ -1387,6 +1387,6 @@ describe("transaction import commit dispatcher", () => {
           },
         ],
       }),
-    ).rejects.toThrow("Preview invalido ou expirado.");
+    ).rejects.toThrow("Preview inválido ou expirado.");
   });
 });

@@ -855,7 +855,7 @@ export default function RecurringIncomePage() {
                   <TableHead>Receita</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Conta</TableHead>
-                  <TableHead>{isYearlyTable ? "Periodo" : "Ocorrencia"}</TableHead>
+                  <TableHead>{isYearlyTable ? "Período" : "Ocorrência"}</TableHead>
                   <TableHead>Serie</TableHead>
                   <TableHead className="text-center">{isYearlyTable ? "Ocorrencias" : "Tipo"}</TableHead>
                   <TableHead className="text-right">Valor</TableHead>

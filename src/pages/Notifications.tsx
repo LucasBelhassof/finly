@@ -286,7 +286,7 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Periodo</Label>
+                  <Label>Período</Label>
                   <DateRangePickerInput
                     startValue={startDate || null}
                     endValue={endDate || null}
@@ -487,7 +487,7 @@ export default function NotificationsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="notification-title">Titulo</Label>
+              <Label htmlFor="notification-title">Título</Label>
               <Input
                 id="notification-title"
                 value={title}

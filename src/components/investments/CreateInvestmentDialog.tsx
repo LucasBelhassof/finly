@@ -84,7 +84,7 @@ export default function CreateInvestmentDialog({
       onCreated(createdInvestment);
       handleOpenChange(false);
     } catch (error) {
-      toast.error("Nao foi possivel criar a caixinha.", {
+      toast.error("Não foi possível criar a caixinha.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
       });
     }
@@ -114,7 +114,7 @@ export default function CreateInvestmentDialog({
 
           <div className="space-y-2">
             <label htmlFor="create-investment-description" className="text-sm font-medium text-foreground">
-              Descricao
+              Descrição
             </label>
             <Textarea
               id="create-investment-description"

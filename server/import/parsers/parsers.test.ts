@@ -10,7 +10,7 @@ import { parseSpreadsheetBuffer } from "./spreadsheet-parser.js";
 import { parseTextBuffer } from "./text-parser.js";
 import { inferSourceKind } from "../source-kind-detector.js";
 
-function buildWorkbookBuffer(sheets) {
+function buildWorkbookBuffer(sheets, bookType: "xlsx" | "xls" = "xlsx") {
   const workbook = XLSX.utils.book_new();
 
   for (const [sheetName, rows] of Object.entries(sheets)) {
@@ -20,7 +20,7 @@ function buildWorkbookBuffer(sheets) {
 
   return XLSX.write(workbook, {
     type: "buffer",
-    bookType: "xlsx",
+    bookType,
   });
 }
 
@@ -89,6 +89,31 @@ describe("universal import parsers", () => {
     expect(rows[0].raw.source).toBe("Transactions");
   });
 
+  it("parses XLS workbooks through the same spreadsheet path", () => {
+    const buffer = buildWorkbookBuffer(
+      {
+        Summary: [
+          ["Resumo", "Valor"],
+          ["Total", "100"],
+        ],
+        Statement: [
+          ["Data", "Descricao", "Valor"],
+          ["06/04/2026", "Padaria", "-18,50"],
+        ],
+      },
+      "xls",
+    );
+    const rows = parseSpreadsheetBuffer(buffer);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      occurredOn: "2026-04-06",
+      description: "Padaria",
+      amount: -18.5,
+    });
+    expect(rows[0].raw.source).toBe("Statement");
+  });
+
   it("parses OFX with FITID", () => {
     const ofx = `
 <OFX>
@@ -140,6 +165,32 @@ describe("universal import parsers", () => {
       amount: 23.5,
     });
     expect(rows[1].description).toBe("Salario");
+  });
+
+  it("keeps low-confidence CSV rows with inferred dates and row issues", () => {
+    const csv = ["05/04/2026;Cafe;-12,90", ";Uber;-45,00"].join("\n");
+    const rows = parseCsvLikeBuffer(Buffer.from(csv, "utf8"));
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      occurredOn: "2026-04-05",
+      description: "Cafe",
+      amount: -12.9,
+    });
+    expect(rows[1]).toMatchObject({
+      occurredOn: "2026-04-05",
+      description: "Uber",
+      amount: -45,
+      confidence: 0.45,
+    });
+    expect(rows[1].issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "import_inferred_date",
+          severity: "warning",
+        }),
+      ]),
+    );
   });
 
   it("parses JSON array", () => {

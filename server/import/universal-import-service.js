@@ -3,13 +3,8 @@ import crypto from "node:crypto";
 import { createImportPreview, MAX_IMPORT_BYTES } from "../transaction-import.js";
 import { createImportUnsupportedFileError } from "./errors.js";
 import { detectFileType } from "./file-type-detector.js";
-import { parseCsvLikeBuffer } from "./parsers/csv-parser.js";
-import { parseJsonBuffer } from "./parsers/json-parser.js";
-import { parseOfxBuffer } from "./parsers/ofx-parser.js";
-import { parsePdfTextBuffer } from "./parsers/pdf-text-parser.js";
-import { parseQifBuffer } from "./parsers/qif-parser.js";
-import { parseSpreadsheetBuffer } from "./parsers/spreadsheet-parser.js";
-import { parseTextBuffer } from "./parsers/text-parser.js";
+import { normalizeCanonicalParserResult } from "./parser-contract.js";
+import { resolveUniversalImportParser } from "./parser-registry.js";
 import { setUniversalPreviewMetadata, setUniversalPreviewSession } from "./preview-session-store.js";
 import { inferSourceKind } from "./source-kind-detector.js";
 
@@ -27,67 +22,8 @@ function serializeCanonicalRowsToCsv(rows) {
   return Buffer.from([header, ...lines].join("\n"), "utf8");
 }
 
-const PARSERS = {
-  csv: {
-    parserId: "csv-delimited",
-    parserLabel: "CSV/TSV parser",
-    parse: (input) => parseCsvLikeBuffer(input.fileBuffer, { source: input.filename }),
-  },
-  tsv: {
-    parserId: "csv-delimited",
-    parserLabel: "CSV/TSV parser",
-    parse: (input) => parseCsvLikeBuffer(input.fileBuffer, { source: input.filename }),
-  },
-  xlsx: {
-    parserId: "spreadsheet-workbook",
-    parserLabel: "Spreadsheet parser",
-    parse: (input) => parseSpreadsheetBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  xls: {
-    parserId: "spreadsheet-workbook",
-    parserLabel: "Spreadsheet parser",
-    parse: (input) => parseSpreadsheetBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  ofx: {
-    parserId: "ofx-basic",
-    parserLabel: "OFX parser",
-    parse: (input) => parseOfxBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  qif: {
-    parserId: "qif-basic",
-    parserLabel: "QIF parser",
-    parse: (input) => parseQifBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  txt: {
-    parserId: "text-structured",
-    parserLabel: "Structured text parser",
-    parse: (input) => parseTextBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  json: {
-    parserId: "json-transactions",
-    parserLabel: "JSON parser",
-    parse: (input) => parseJsonBuffer(input.fileBuffer, { filename: input.filename }),
-  },
-  pdf: {
-    parserId: "pdf-text",
-    parserLabel: "PDF text parser",
-    parse: async (input) => {
-      const parsed = await parsePdfTextBuffer(input.fileBuffer, {
-        filename: input.filename,
-        filePassword: input.filePassword,
-      });
-
-      return {
-        ...parsed,
-        parserId: "pdf-text",
-        parserLabel: "PDF text parser",
-      };
-    },
-  },
-};
-
 function resolveParsedFile(fileType, input) {
-  const parser = PARSERS[fileType];
+  const parser = resolveUniversalImportParser(fileType);
 
   if (!parser) {
     throw createImportUnsupportedFileError(input.filename);
@@ -353,17 +289,23 @@ export async function createUniversalImportPreview({
     throw createImportUnsupportedFileError(filename);
   }
 
-  const parsedResult = await resolveParsedFile(detectedFileType, {
-    fileBuffer,
-    filePassword,
-    filename,
-    contentType,
-  });
-  const canonicalRows = Array.isArray(parsedResult?.rows)
-    ? parsedResult.rows
-    : Array.isArray(parsedResult)
-      ? parsedResult
-      : [];
+  const parserEntry = resolveUniversalImportParser(detectedFileType);
+
+  if (!parserEntry) {
+    throw createImportUnsupportedFileError(filename);
+  }
+
+  const parsedResult = normalizeCanonicalParserResult(
+    await resolveParsedFile(detectedFileType, {
+      fileBuffer,
+      filePassword,
+      filename,
+      contentType,
+    }),
+    parserEntry,
+    detectedFileType,
+  );
+  const canonicalRows = parsedResult.rows;
 
   if (canonicalRows.length === 0) {
     throw new Error("Não foi possível localizar transações válidas no arquivo.");
@@ -372,7 +314,7 @@ export async function createUniversalImportPreview({
   const sourceDetection = inferSourceKind(canonicalRows, {
     filename,
     requestedImportSource,
-    issuerName: parsedResult?.metadata?.issuerName ?? null,
+    issuerName: parsedResult.metadata?.issuerName ?? null,
   });
   const csvBuffer = serializeCanonicalRowsToCsv(canonicalRows);
   const preview = await createImportPreview({
@@ -400,21 +342,21 @@ export async function createUniversalImportPreview({
   return await enrichPreviewResponse(
     preview,
     {
-      parserId: parsedResult?.parserId ?? PARSERS[detectedFileType].parserId,
-      parserLabel: parsedResult?.parserLabel ?? PARSERS[detectedFileType].parserLabel,
-      detectedFileType,
+      parserId: parsedResult.parserId,
+      parserLabel: parsedResult.parserLabel,
+      detectedFileType: parsedResult.detectedFileType,
       detectedSourceKind: sourceDetection.sourceKind,
-      sourceKindConfidence: parsedResult?.sourceKindConfidence ?? sourceDetection.confidence,
+      sourceKindConfidence: parsedResult.sourceKindConfidence ?? sourceDetection.confidence,
       selectedBankConnectionId: bankConnectionId,
       filename,
-      institutionName: parsedResult?.metadata?.issuerName ?? null,
+      institutionName: parsedResult.metadata?.issuerName ?? null,
       accountHint:
-        parsedResult?.accountHint ??
-        parsedResult?.rows?.find((row) => row.bankAccountHint)?.bankAccountHint?.accountId ??
+        parsedResult.accountHint ??
+        canonicalRows.find((row) => row.bankAccountHint)?.bankAccountHint?.accountId ??
         null,
-      statementReferenceMonth: parsedResult?.metadata?.statementReferenceMonth ?? null,
-      statementDueDate: parsedResult?.metadata?.statementDueDate ?? null,
-      warnings: [...(parsedResult?.warnings ?? []), ...sourceDetection.warnings],
+      statementReferenceMonth: parsedResult.metadata?.statementReferenceMonth ?? null,
+      statementDueDate: parsedResult.metadata?.statementDueDate ?? null,
+      warnings: [...parsedResult.warnings, ...sourceDetection.warnings],
       userId,
     },
     canonicalRows,

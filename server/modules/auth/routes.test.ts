@@ -261,6 +261,9 @@ describe("auth routes", () => {
         completedSteps: ["dashboard_summary"],
         skippedSteps: [],
         dismissed: false,
+        actionChecklist: {
+          completedSteps: ["dashboard"],
+        },
       });
 
     expect(response.status).toBe(200);
@@ -269,6 +272,9 @@ describe("auth routes", () => {
       completedSteps: ["dashboard_summary"],
       skippedSteps: [],
       dismissed: false,
+      actionChecklist: {
+        completedSteps: ["dashboard"],
+      },
     });
     expect(response.body).toEqual({
       user: buildUser(),

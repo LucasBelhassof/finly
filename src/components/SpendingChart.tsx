@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import CategoryPieChart, { type CategoryPieChartItem } from "@/components/CategoryPieChart";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { appRoutes } from "@/lib/routes";
 import type { BankItem, SpendingItem, TransactionItem } from "@/types/api";
 
 interface SpendingChartProps {
@@ -132,12 +135,24 @@ export default function SpendingChart({
       </div>
 
       {!chartData.length ? (
-        <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-          {isError
-            ? "Não foi possível carregar o consolidado por categoria."
-            : hasPrecomputedItems || selectedBankId === "all"
-              ? "Ainda não existem gastos categorizados para exibir."
-              : "Não há despesas categorizadas para a conta selecionada."}
+        <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+          <p className="text-sm text-muted-foreground">
+            {isError
+              ? "Não foi possível carregar o consolidado por categoria."
+              : hasPrecomputedItems || selectedBankId === "all"
+                ? "Ainda não existem gastos categorizados para exibir."
+                : "Não há despesas categorizadas para a conta selecionada."}
+          </p>
+          {!isError ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link to={appRoutes.transactions}>Importar extrato</Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to={appRoutes.transactions}>Revisar categorias</Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <CategoryPieChart items={chartData} emptyMessage="Ainda não existem gastos categorizados para exibir." />

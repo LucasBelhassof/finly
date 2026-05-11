@@ -185,7 +185,7 @@ function getPlanMeta(isPremium?: boolean, premiumSince?: string | null) {
 
   return {
     label: "Free",
-    description: "Plano padrao da conta.",
+    description: "Plano padrão da conta.",
     className: "border-border/60 bg-secondary/50 text-foreground",
   };
 }
@@ -193,7 +193,7 @@ function getPlanMeta(isPremium?: boolean, premiumSince?: string | null) {
 function getOnboardingMeta(progress: AuthOnboardingProgress, hasCompletedOnboarding?: boolean) {
   if (hasCompletedOnboarding) {
     return {
-      label: "Concluido",
+      label: "Concluído",
       description: "Todas as etapas principais foram finalizadas.",
       className: "border-income/20 bg-income/10 text-income",
     };
@@ -401,7 +401,7 @@ export default function ProfilePage() {
                     <p className="mt-2 text-2xl font-semibold text-foreground">{insightsCount}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {isPremiumUser
-                        ? "Insights disponiveis para a conta atual."
+                        ? "Insights disponíveis para a conta atual."
                         : "Recurso liberado apenas para assinantes premium."}
                     </p>
                   </div>
@@ -482,7 +482,7 @@ export default function ProfilePage() {
                 onClick={() => navigate(appRoutes.expenseManagementMetrics)}
               >
                 <Rocket size={16} />
-                Metricas
+                Métricas
               </Button>
               <Button
                 variant="outline"

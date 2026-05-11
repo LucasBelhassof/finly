@@ -2,6 +2,7 @@ import { Building2, CreditCard, Landmark, Plus, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import CreditLimitBar from "@/components/accounts/CreditLimitBar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolveCategoryColorValue } from "@/lib/category-colors";
 import { appRoutes } from "@/lib/routes";
@@ -115,12 +116,21 @@ export default function BankConnection({
         </div>
 
         {!bankAccounts.length ? (
-          <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-            {isError
-              ? "Não foi possível carregar as contas bancárias."
-              : hasActiveFilter
-                ? "Nenhuma conta corrente encontrada para o filtro selecionado."
-                : "Nenhuma conta bancária vinculada ainda. Adicione sua primeira conta para acompanhar o saldo."}
+          <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              {isError
+                ? "Não foi possível carregar as contas bancárias."
+                : hasActiveFilter
+                  ? "Nenhuma conta corrente encontrada para o filtro selecionado."
+                  : "Nenhuma conta bancária vinculada ainda. Adicione sua primeira conta para acompanhar o saldo."}
+            </p>
+            {!isError && !hasActiveFilter ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild size="sm">
+                  <Link to={appRoutes.accounts}>Criar conta ou cartão</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -165,12 +175,21 @@ export default function BankConnection({
         </div>
 
         {!creditCards.length ? (
-          <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-            {isError
-              ? "Não foi possível carregar os cartões."
-              : hasActiveFilter
-                ? "Nenhum cartão encontrado para o filtro selecionado."
-                : "Nenhum cartão vinculado ainda. Cadastre um cartão para acompanhar limite e uso."}
+          <div className="rounded-lg border border-border/30 bg-secondary/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              {isError
+                ? "Não foi possível carregar os cartões."
+                : hasActiveFilter
+                  ? "Nenhum cartão encontrado para o filtro selecionado."
+                  : "Nenhum cartão vinculado ainda. Cadastre um cartão para acompanhar limite e uso."}
+            </p>
+            {!isError && !hasActiveFilter ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link to={appRoutes.accounts}>Criar conta ou cartão</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="space-y-3">

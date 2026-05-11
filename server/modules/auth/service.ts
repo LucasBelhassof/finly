@@ -31,7 +31,13 @@ import {
   updateUserPassword,
   withTransaction,
 } from "./repository.js";
-import type { AuthOnboardingProgress, AuthSessionResult, AuthUser, OnboardingStepId } from "./types.js";
+import type {
+  ActionOnboardingStepId,
+  AuthOnboardingProgress,
+  AuthSessionResult,
+  AuthUser,
+  OnboardingStepId,
+} from "./types.js";
 
 export interface AuthRequestMetadata {
   ipAddress: string | null;
@@ -84,6 +90,8 @@ const ONBOARDING_STEPS: OnboardingStepId[] = [
   "settings_contact",
   "settings_preferences",
 ];
+
+const ACTION_ONBOARDING_STEPS: ActionOnboardingStepId[] = ["dashboard", "premium"];
 
 function normalizeOnboardingStepId(step: unknown): OnboardingStepId | null {
   switch (step) {
@@ -206,12 +214,33 @@ function normalizeOnboardingProgress(
   const skippedSteps = ONBOARDING_STEPS.filter(
     (step) => normalizedSkippedSteps.includes(step) && !completedSteps.includes(step),
   );
+  const actionChecklistRaw =
+    value && typeof value.actionChecklist === "object" && value.actionChecklist !== null
+      ? (value.actionChecklist as { completedSteps?: unknown })
+      : null;
+  const actionCompletedStepsRaw = Array.isArray(actionChecklistRaw?.completedSteps)
+    ? actionChecklistRaw.completedSteps
+    : [];
+  const normalizedActionCompletedSteps = actionCompletedStepsRaw
+    .map((step) => {
+      switch (step) {
+        case "dashboard":
+        case "premium":
+          return step;
+        default:
+          return null;
+      }
+    })
+    .filter((step): step is ActionOnboardingStepId => step !== null);
 
   return {
     currentStep: Math.max(0, Math.min(ONBOARDING_STEPS.length - 1, currentStepRaw)),
     completedSteps,
     skippedSteps,
     dismissed: Boolean(value?.dismissed) && onboardingCompletedAt == null,
+    actionChecklist: {
+      completedSteps: ACTION_ONBOARDING_STEPS.filter((step) => normalizedActionCompletedSteps.includes(step)),
+    },
   };
 }
 

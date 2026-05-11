@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ArrowDownCircle } from "lucide-react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
 import SpendingChart from "@/components/SpendingChart";
+import { appRoutes } from "@/lib/routes";
 import type { BankItem, SpendingItem, TransactionItem } from "@/types/api";
 
 const banks: BankItem[] = [
@@ -222,12 +224,18 @@ describe("SpendingChart", () => {
   });
 
   it("shows a contextual empty state for accounts without expenses", () => {
-    render(<SpendingChart transactions={transactions} banks={banks} />);
+    render(
+      <MemoryRouter>
+        <SpendingChart transactions={transactions} banks={banks} />
+      </MemoryRouter>,
+    );
 
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.click(screen.getByRole("option", { name: "Caixa" }));
 
     expect(screen.getByText(/Não há despesas categorizadas para a conta selecionada/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Importar extrato" })).toHaveAttribute("href", appRoutes.transactions);
+    expect(screen.getByRole("link", { name: "Revisar categorias" })).toHaveAttribute("href", appRoutes.transactions);
   });
 
   it("lists all account options in the selector", () => {

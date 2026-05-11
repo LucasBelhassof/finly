@@ -202,6 +202,9 @@ export function createAuthRouter() {
       completedSteps: parsed.completedSteps ?? [],
       skippedSteps: parsed.skippedSteps ?? [],
       dismissed: parsed.dismissed ?? false,
+      actionChecklist: {
+        completedSteps: parsed.actionChecklist?.completedSteps ?? [],
+      },
     };
     const user = await updateOnboardingProgress(auth.userId, input);
     response.json({ user });

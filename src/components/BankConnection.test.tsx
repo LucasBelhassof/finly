@@ -86,5 +86,6 @@ describe("BankConnection", () => {
 
     expect(screen.getByText(/Nenhuma conta bancária vinculada ainda/i)).toBeInTheDocument();
     expect(screen.getByText(/Nenhum cartão vinculado ainda/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Criar conta ou cartão/i })).toHaveLength(2);
   });
 });

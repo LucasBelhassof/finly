@@ -1,4 +1,5 @@
 import { Check, Crown, Sparkles, X } from "lucide-react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { appRoutes } from "@/lib/routes";
+import { useActionOnboardingProgress } from "@/modules/auth/hooks/use-action-onboarding-progress";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 
 type Feature = {
@@ -26,10 +28,19 @@ const FEATURES: Feature[] = [
 
 export default function PricingPage() {
   const { user } = useAuthSession();
+  const { completeActionStep } = useActionOnboardingProgress();
   const navigate = useNavigate();
 
   const isAuthenticated = Boolean(user);
   const isPremium = Boolean(user?.isPremium);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void completeActionStep("premium");
+  }, [completeActionStep, user]);
 
   function handlePremiumCta() {
     if (!isAuthenticated) {

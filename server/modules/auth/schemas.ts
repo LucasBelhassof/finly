@@ -92,11 +92,18 @@ const onboardingStepSchema = z.enum([
   "settings_preferences",
 ]);
 
+const actionOnboardingStepSchema = z.enum(["dashboard", "premium"]);
+
 export const onboardingProgressSchema = z.object({
   currentStep: z.number().int().min(0).max(42),
   completedSteps: z.array(onboardingStepSchema).default([]),
   skippedSteps: z.array(onboardingStepSchema).default([]),
   dismissed: z.boolean().default(false),
+  actionChecklist: z
+    .object({
+      completedSteps: z.array(actionOnboardingStepSchema).default([]),
+    })
+    .optional(),
 });
 
 export const updateAccountSchema = z

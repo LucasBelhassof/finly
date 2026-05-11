@@ -208,7 +208,7 @@ describe("ProductTourProvider", () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: /proximo/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /próximo/i }));
 
     await waitFor(() => {
       expect(updateProductTourProgressMock).toHaveBeenCalledWith(

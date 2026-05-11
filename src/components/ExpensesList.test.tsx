@@ -65,5 +65,7 @@ describe("ExpensesList", () => {
     );
 
     expect(screen.getByText(/Nenhuma transação recente foi encontrada/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Importar extrato" })).toHaveAttribute("href", appRoutes.transactions);
+    expect(screen.getByRole("link", { name: "Criar transação" })).toHaveAttribute("href", appRoutes.transactions);
   });
 });

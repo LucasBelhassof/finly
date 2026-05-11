@@ -1,5 +1,6 @@
 import { CreditCard, Landmark, Pencil, Trash2, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import AppShell from "@/components/AppShell";
 import {
@@ -29,7 +30,9 @@ import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { useBanks, useCreateBankConnection, useDeleteBankConnection, useUpdateBankConnection } from "@/hooks/use-banks";
 import { ACCOUNT_COLOR_PRESETS, getSuggestedAccountColor } from "@/lib/account-colors";
+import { appRoutes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import type { BankItem, CreateBankConnectionInput, UpdateBankConnectionInput } from "@/types/api";
 
 type AccountType = "bank_account" | "credit_card" | "cash";
@@ -152,6 +155,7 @@ function AccountsSkeleton() {
 }
 
 export default function AccountsPage() {
+  const { user } = useAuthSession();
   const { data: banks = [], isLoading, isError } = useBanks();
   const createBankConnection = useCreateBankConnection();
   const deleteBankConnection = useDeleteBankConnection();
@@ -520,7 +524,7 @@ export default function AccountsPage() {
           <p className="mt-1 text-2xl font-bold text-foreground">{bankAccounts.length}</p>
         </div>
         <div className="glass-card p-4 sm:p-5">
-          <p className="text-sm text-muted-foreground">Cartoes</p>
+          <p className="text-sm text-muted-foreground">Cartões</p>
           <p className="mt-1 text-2xl font-bold text-foreground">{creditCards.length}</p>
         </div>
         <div className="glass-card p-4 sm:p-5">
@@ -541,8 +545,18 @@ export default function AccountsPage() {
           </div>
 
           {!banks.length ? (
-            <div className="rounded-xl border border-border/30 bg-secondary/20 p-4 text-sm text-muted-foreground">
-              {isError ? "Não foi possível carregar as contas agora." : "Nenhuma conta cadastrada ainda."}
+            <div className="rounded-xl border border-border/30 bg-secondary/20 p-4">
+              <p className="text-sm text-muted-foreground">
+                {isError ? "Não foi possível carregar as contas agora." : "Nenhuma conta cadastrada ainda."}
+              </p>
+              {!isError ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => openCreateDialog("bank_account")}>
+                    Criar conta ou cartão
+                  </Button>
+                  <Button onClick={() => openCreateDialog("cash")}>Caixa / Dinheiro</Button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
@@ -671,8 +685,40 @@ export default function AccountsPage() {
         </div>
 
         <div data-tour-id="accounts-support" className="glass-card rounded-2xl border border-border/40 p-4 sm:p-5">
-          <h3 className="text-[1.3rem] font-semibold text-foreground"></h3>
-          <div className="mt-4 space-y-3 text-sm text-muted-foreground"></div>
+          <h3 className="text-[1.3rem] font-semibold text-foreground">Próximos passos</h3>
+          <div className="mt-4 space-y-4">
+            <div className="rounded-xl border border-border/30 bg-secondary/20 p-4">
+              <p className="text-sm text-muted-foreground">
+                {!banks.length
+                  ? "Cadastre pelo menos uma conta bancária ou cartão antes de seguir para os lançamentos."
+                  : "Com a estrutura pronta, o próximo passo é trazer movimentações reais para o dashboard."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!banks.length ? (
+                  <Button variant="outline" onClick={() => openCreateDialog("bank_account")}>
+                    Criar conta ou cartão
+                  </Button>
+                ) : (
+                  <Button asChild>
+                    <Link to={appRoutes.transactions}>Importar extrato</Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {!user?.isPremium ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
+                <p className="text-sm text-muted-foreground">
+                  Depois da configuração inicial, o Premium libera IA, insights e planejamentos sobre os seus dados.
+                </p>
+                <div className="mt-3">
+                  <Button asChild variant="outline">
+                    <Link to={appRoutes.pricing}>Conhecer Premium</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </AppShell>

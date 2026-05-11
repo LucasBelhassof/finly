@@ -689,6 +689,45 @@ describe("TransactionsPage", () => {
     expect(options).not.toContain("Nubank Ultravioleta");
   });
 
+  it("offers direct setup CTAs when there are no transactions yet", () => {
+    mockUseTransactions.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+
+    renderPage();
+
+    expect(screen.getByText("Você ainda não tem transações nesta área.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Importar extrato" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Criar transação" }).length).toBeGreaterThan(0);
+  });
+
+  it("offers filter reset when filters hide all visible transactions", async () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Receitas" }));
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Salario").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("Buscar transação..."), {
+      target: { value: "nao existe" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Nenhuma transação encontrada para os filtros atuais.")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Limpar filtros" }).at(-1)!);
+
+    await waitFor(() => {
+      expect(screen.getByText("iFood")).toBeInTheDocument();
+      expect(screen.getByText("Uber")).toBeInTheDocument();
+    });
+  });
+
   it("deletes a projected recurring income using the effective occurrence date", async () => {
     const deleteTransaction = createMutation();
     mockUseDeleteTransaction.mockReturnValue(deleteTransaction);

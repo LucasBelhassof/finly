@@ -11,6 +11,8 @@ import { useTransactions } from "@/hooks/use-transactions";
 import { useUrlPeriodFilter } from "@/hooks/use-url-period-filter";
 import { resolveDayPeriodGreeting } from "@/lib/greeting";
 import { getCurrentMonthSelection, resolveMonthYearRange } from "@/lib/transactions-date-filter";
+import { useActionOnboardingProgress } from "@/modules/auth/hooks/use-action-onboarding-progress";
+import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import type { SpendingItem, SummaryCard, TransactionItem } from "@/types/api";
@@ -204,6 +206,8 @@ function buildSpendingItems(transactions: TransactionItem[]): SpendingItem[] {
 }
 
 export default function Index() {
+  const { user } = useAuthSession();
+  const { completeActionStep } = useActionOnboardingProgress();
   const currentSelection = getCurrentMonthSelection();
   const defaultDateRange = resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year);
   const [, setSearchParams] = useSearchParams();
@@ -222,6 +226,14 @@ export default function Index() {
     datePreset: "month",
     dateRange: resolveMonthYearRange(currentSelection.monthIndex, currentSelection.year),
   });
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void completeActionStep("dashboard");
+  }, [completeActionStep, user]);
   const { data, isLoading, isError } = useDashboard({
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,

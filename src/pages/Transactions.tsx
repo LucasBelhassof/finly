@@ -487,10 +487,10 @@ export default function TransactionsPage() {
           id: transactionForm.sourceTransactionId ?? transactionForm.id,
           ...payload,
         } satisfies UpdateTransactionInput);
-        toast.success("Transacao atualizada.");
+        toast.success("Transação atualizada.");
       } else {
         await createTransaction.mutateAsync(payload satisfies CreateTransactionInput);
-        toast.success("Transacao criada.");
+        toast.success("Transação criada.");
       }
 
       setTransactionDialogOpen(false);
@@ -557,7 +557,7 @@ export default function TransactionsPage() {
       });
       setDeleteTargetId(null);
       setTransactionDialogOpen(false);
-      toast.success("Transacao removida.");
+      toast.success("Transação removida.");
     } catch (error) {
       toast.error("Não foi possível remover a transação.", {
         description: getErrorMessage(error, "Tente novamente em instantes."),
@@ -627,11 +627,33 @@ export default function TransactionsPage() {
 
   const renderTransactionsTable = () => {
     if (!filteredTransactions.length) {
+      const hasAnyTransactions = visibleTransactions.length > 0;
+
       return (
-        <div className="rounded-2xl border border-border/30 bg-secondary/20 p-6 text-sm text-muted-foreground">
-          {isError
-            ? "Não foi possível carregar as transações agora."
-            : "Nenhuma transação encontrada para os filtros atuais."}
+        <div className="rounded-2xl border border-border/30 bg-secondary/20 p-6">
+          <p className="text-sm text-muted-foreground">
+            {isError
+              ? "Não foi possível carregar as transações agora."
+              : hasAnyTransactions
+                ? "Nenhuma transação encontrada para os filtros atuais."
+                : "Você ainda não tem transações nesta área."}
+          </p>
+          {!isError ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {hasAnyTransactions ? (
+                <Button variant="outline" onClick={handleResetFilters}>
+                  Limpar filtros
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => setImportDialogOpen(true)}>Importar extrato</Button>
+                  <Button variant="outline" onClick={() => openCreateTransaction("expense")}>
+                    Criar transação
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -640,7 +662,7 @@ export default function TransactionsPage() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Transacao</TableHead>
+            <TableHead>Transação</TableHead>
             <TableHead className="hidden sm:table-cell">Categoria</TableHead>
             <TableHead className="hidden md:table-cell">Conta</TableHead>
             <TableHead className="hidden md:table-cell">Data</TableHead>
@@ -1283,6 +1305,20 @@ export default function TransactionsPage() {
               isError={isError}
               emptyErrorMessage="Não foi possível carregar o consolidado por categoria."
             />
+
+            {!isError && !categoryBreakdown.length ? (
+              <div className="rounded-xl border border-dashed border-border/40 bg-secondary/20 p-4">
+                <p className="text-sm text-muted-foreground">
+                  As categorias ficam mais úteis depois dos primeiros lançamentos ou da primeira importação.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button onClick={() => setImportDialogOpen(true)}>Importar extrato</Button>
+                  <Button variant="outline" onClick={() => openCreateTransaction("expense")}>
+                    Criar transação
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             {categoriesWithBreakdown.length ? (
               <div className="space-y-2 border-t border-border/40 pt-4">

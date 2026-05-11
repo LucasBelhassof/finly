@@ -11,6 +11,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 
 import * as authService from "@/modules/auth/services/auth-service";
+import { normalizeActionOnboardingProgress } from "@/modules/auth/lib/onboarding-progress";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import type { AuthOnboardingProgress, OnboardingStepId } from "@/modules/auth/types/auth-types";
 import { ProductTourCoachMark } from "@/modules/product-tour/ProductTourCoachMark";
@@ -144,6 +145,7 @@ function normalizeProgress(progress?: Partial<AuthOnboardingProgress> | null): A
     completedSteps: uniqueSteps(progress?.completedSteps ?? []),
     skippedSteps: uniqueSteps(progress?.skippedSteps ?? []),
     dismissed: Boolean(progress?.dismissed),
+    actionChecklist: normalizeActionOnboardingProgress(progress?.actionChecklist),
   };
 }
 

@@ -150,7 +150,7 @@ export function ProductTourCoachMark({
             </Button>
             <Button size="sm" className="flex-1 sm:flex-none" onClick={onNext}>
               {isLastStep ? <CheckCircle2 size={16} /> : <ChevronRight size={16} />}
-              {isLastStep ? "Concluir tour" : "Proximo"}
+              {isLastStep ? "Concluir tour" : "Próximo"}
             </Button>
           </div>
         </div>

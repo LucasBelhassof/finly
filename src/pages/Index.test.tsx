@@ -8,6 +8,7 @@ import Index from "@/pages/Index";
 import { getCurrentMonthSelection, resolveMonthYearRange } from "@/lib/transactions-date-filter";
 import type { BankItem, SummaryCard, TransactionItem } from "@/types/api";
 
+const mockCompleteActionStep = vi.fn();
 const mockUseDashboard = vi.fn();
 const mockUseTransactions = vi.fn();
 const mockSetSearchParams = vi.fn();
@@ -39,6 +40,25 @@ vi.mock("@/hooks/use-url-period-filter", () => ({
     handleYearChange: vi.fn(),
     handlePresetChange: vi.fn(),
     handleCustomRangeApply: vi.fn(),
+  }),
+}));
+
+vi.mock("@/modules/auth/hooks/use-auth-session", () => ({
+  useAuthSession: () => ({
+    user: {
+      id: 1,
+      onboardingProgress: {
+        actionChecklist: {
+          completedSteps: [],
+        },
+      },
+    },
+  }),
+}));
+
+vi.mock("@/modules/auth/hooks/use-action-onboarding-progress", () => ({
+  useActionOnboardingProgress: () => ({
+    completeActionStep: mockCompleteActionStep,
   }),
 }));
 
@@ -336,6 +356,7 @@ const transactions: TransactionItem[] = [
 
 describe("Index", () => {
   beforeEach(() => {
+    mockCompleteActionStep.mockReset();
     mockSetSearchParams.mockReset();
     mockUseTransactions.mockReturnValue({
       data: transactions,
@@ -380,6 +401,12 @@ describe("Index", () => {
       isLoading: false,
       isError: false,
     });
+  });
+
+  it("marks the dashboard checklist step as complete for authenticated users", () => {
+    renderPage();
+
+    expect(mockCompleteActionStep).toHaveBeenCalledWith("dashboard");
   });
 
   it("keeps dashboard filters side by side, shows the card selector only for cards, and resets defaults", async () => {

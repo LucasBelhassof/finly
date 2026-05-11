@@ -43,11 +43,18 @@ export type OnboardingStepId =
   | "settings_contact"
   | "settings_preferences";
 
+export type ActionOnboardingStepId = "dashboard" | "premium";
+
+export interface AuthActionOnboardingProgress {
+  completedSteps: ActionOnboardingStepId[];
+}
+
 export interface AuthOnboardingProgress {
   currentStep: number;
   completedSteps: OnboardingStepId[];
   skippedSteps: OnboardingStepId[];
   dismissed: boolean;
+  actionChecklist?: AuthActionOnboardingProgress;
 }
 
 export interface AuthUser {

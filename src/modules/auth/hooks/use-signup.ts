@@ -14,7 +14,7 @@ export function useSignup() {
     mutationFn: (input: SignupInput) => signup(input),
     onSuccess: (payload) => {
       applySession(payload);
-      navigate(appRoutes.dashboard, { replace: true });
+      navigate(appRoutes.onboarding, { replace: true });
     },
   });
 }

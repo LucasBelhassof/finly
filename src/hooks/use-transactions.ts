@@ -36,11 +36,12 @@ export const transactionImportPreviewQueryKey = ["transactions", "import", "prev
 export const transactionImportAiSuggestionsQueryKey = ["transactions", "import", "ai-suggestions"] as const;
 export const transactionImportTemplatesQueryKey = ["transactions", "import", "templates"] as const;
 
-export function useTransactions(limit?: number) {
+export function useTransactions(limit?: number, enabled = true) {
   return useQuery({
     queryKey: transactionsQueryKey(limit),
     queryFn: () => getTransactions(limit),
     staleTime: 30_000,
+    enabled,
   });
 }
 

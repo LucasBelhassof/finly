@@ -7,9 +7,10 @@ import { AdminRoute } from "@/modules/auth/components/AdminRoute";
 import { ProtectedRoute } from "@/modules/auth/components/ProtectedRoute";
 import { PublicOnlyRoute } from "@/modules/auth/components/PublicOnlyRoute";
 
-const { useAuthContextMock, useBanksMock } = vi.hoisted(() => ({
+const { useAuthContextMock, useBanksMock, useTransactionsMock } = vi.hoisted(() => ({
   useAuthContextMock: vi.fn(),
   useBanksMock: vi.fn(),
+  useTransactionsMock: vi.fn(),
 }));
 
 vi.mock("@/modules/auth/components/AuthProvider", () => ({
@@ -20,6 +21,10 @@ vi.mock("@/hooks/use-banks", () => ({
   useBanks: useBanksMock,
 }));
 
+vi.mock("@/hooks/use-transactions", () => ({
+  useTransactions: useTransactionsMock,
+}));
+
 function renderProtectedRoute(initialPath = appRoutes.dashboard) {
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -27,6 +32,7 @@ function renderProtectedRoute(initialPath = appRoutes.dashboard) {
         <Route element={<ProtectedRoute />}>
           <Route path={appRoutes.onboarding} element={<h1>Primeiros passos</h1>} />
           <Route path={appRoutes.dashboard} element={<h1>Area interna</h1>} />
+          <Route path={appRoutes.accounts} element={<h1>Contas</h1>} />
         </Route>
         <Route path={appRoutes.login} element={<h1>Login</h1>} />
       </Routes>
@@ -68,6 +74,10 @@ describe("auth route guards", () => {
       data: [],
       isLoading: false,
     });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: false,
       isBootstrapping: true,
@@ -84,6 +94,10 @@ describe("auth route guards", () => {
       data: [],
       isLoading: false,
     });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: false,
       isBootstrapping: false,
@@ -96,7 +110,11 @@ describe("auth route guards", () => {
 
   it("renders protected content for authenticated users", async () => {
     useBanksMock.mockReturnValue({
-      data: [],
+      data: [{ id: 1, accountType: "bank_account" }],
+      isLoading: false,
+    });
+    useTransactionsMock.mockReturnValue({
+      data: [{ id: 1 }],
       isLoading: false,
     });
     useAuthContextMock.mockReturnValue({
@@ -142,6 +160,10 @@ describe("auth route guards", () => {
       data: [],
       isLoading: false,
     });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
@@ -161,6 +183,10 @@ describe("auth route guards", () => {
       data: [],
       isLoading: false,
     });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
     useAuthContextMock.mockReturnValue({
       isAuthenticated: true,
       isBootstrapping: false,
@@ -175,8 +201,12 @@ describe("auth route guards", () => {
     expect(await screen.findByRole("heading", { name: /admin/i })).toBeInTheDocument();
   });
 
-  it("allows access to internal routes even when the product tour is still pending", async () => {
+  it("redirects incomplete regular users from the dashboard to primeiros passos", async () => {
     useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useTransactionsMock.mockReturnValue({
       data: [],
       isLoading: false,
     });
@@ -190,11 +220,15 @@ describe("auth route guards", () => {
 
     renderProtectedRoute();
 
-    expect(await screen.findByRole("heading", { name: /area interna/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
   });
 
   it("keeps the compatibility onboarding route accessible while the product tour is pending", async () => {
     useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useTransactionsMock.mockReturnValue({
       data: [],
       isLoading: false,
     });
@@ -212,6 +246,76 @@ describe("auth route guards", () => {
     renderProtectedRoute(appRoutes.onboarding);
 
     expect(await screen.findByRole("heading", { name: /primeiros passos/i })).toBeInTheDocument();
+  });
+
+  it("allows incomplete regular users to navigate away from onboarding to other internal routes", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        role: "user",
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderProtectedRoute(appRoutes.accounts);
+
+    expect(await screen.findByRole("heading", { name: /contas/i })).toBeInTheDocument();
+  });
+
+  it("does not force admins into onboarding from the dashboard", async () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: false,
+    });
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        role: "admin",
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderProtectedRoute();
+
+    expect(await screen.findByRole("heading", { name: /area interna/i })).toBeInTheDocument();
+  });
+
+  it("keeps the loader visible while the setup check is still loading on the dashboard", () => {
+    useBanksMock.mockReturnValue({
+      data: [],
+      isLoading: true,
+    });
+    useTransactionsMock.mockReturnValue({
+      data: [],
+      isLoading: true,
+    });
+    useAuthContextMock.mockReturnValue({
+      isAuthenticated: true,
+      isBootstrapping: false,
+      user: {
+        role: "user",
+        hasCompletedOnboarding: false,
+      },
+    });
+
+    renderProtectedRoute();
+
+    expect(screen.getByText(/finly/i)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /area interna/i })).not.toBeInTheDocument();
   });
 
   it("redirects authenticated users with pending product tour away from login to dashboard", async () => {

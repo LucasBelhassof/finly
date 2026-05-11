@@ -11,6 +11,7 @@ import { useDashboard } from "@/hooks/use-dashboard";
 import { useCategories, useTransactions } from "@/hooks/use-transactions";
 import { appRoutes } from "@/lib/routes";
 import { hasCompletedActionOnboardingStep } from "@/modules/auth/lib/onboarding-progress";
+import { hasUsefulOnboardingAccount, isUsefulOnboardingAccountType } from "@/modules/auth/lib/setup-completion";
 import { useAuthSession } from "@/modules/auth/hooks/use-auth-session";
 import { useProductTour } from "@/modules/product-tour/use-product-tour";
 
@@ -27,10 +28,6 @@ type OnboardingChecklistItem = {
   onSecondaryAction?: () => void;
 };
 
-function hasUsefulAccountStructure(accountType: "bank_account" | "credit_card" | "cash") {
-  return accountType === "bank_account" || accountType === "credit_card";
-}
-
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const { user } = useAuthSession();
@@ -40,17 +37,14 @@ export default function OnboardingPage() {
   const { data: categories = [], isLoading: isCategoriesLoading } = useCategories();
   const { data: dashboardData, isLoading: isDashboardLoading } = useDashboard();
 
-  const hasConfiguredAccounts = useMemo(
-    () => banks.some((bank) => hasUsefulAccountStructure(bank.accountType)),
-    [banks],
-  );
+  const hasConfiguredAccounts = useMemo(() => hasUsefulOnboardingAccount(banks), [banks]);
   const hasTransactions = transactions.length > 0;
   const hasCategoriesToReview = categories.length > 0 && hasTransactions;
   const hasVisitedDashboard = hasCompletedActionOnboardingStep(user?.onboardingProgress, "dashboard");
   const hasVisitedPremium = hasCompletedActionOnboardingStep(user?.onboardingProgress, "premium");
   const hasUsefulDashboardData = useMemo(() => {
     const dashboardBanks = dashboardData?.banks ?? [];
-    const hasDashboardAccounts = dashboardBanks.some((bank) => hasUsefulAccountStructure(bank.accountType));
+    const hasDashboardAccounts = dashboardBanks.some((bank) => isUsefulOnboardingAccountType(bank.accountType));
     const hasDashboardTransactions = (dashboardData?.recentTransactions?.length ?? 0) > 0;
     const hasSpendingData = (dashboardData?.spendingByCategory?.length ?? 0) > 0;
 

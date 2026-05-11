@@ -5,6 +5,7 @@ import {
   getLegacyPreviewSession,
   setLegacyPreviewSession,
 } from "./import/preview-session-store.js";
+import { isClearlyReceivedIncomeDescription } from "./import/received-income-detector.js";
 import { suggestKnownMerchantCategory } from "./merchant-category-rules.js";
 
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -122,18 +123,6 @@ const matchKeyNoiseTokens = new Set([
   "banco",
   "sa",
 ]);
-const clearReceivedIncomePatterns = [
-  "pix recebido",
-  "deposito",
-  "transferencia recebida",
-  "ted recebido",
-  "doc recebido",
-  "pagamento recebido",
-  "recebimento",
-  "credito recebido",
-  "entrada",
-];
-
 const importRules = [
   {
     id: "salary",
@@ -1085,22 +1074,6 @@ function isCreditCardPaymentReceived(normalizedDescriptionValue) {
   return normalizedDescriptionValue.includes("pagamento recebido");
 }
 
-function isClearReceivedIncomeDescription(normalizedDescriptionValue, importLayout) {
-  const normalized = String(normalizedDescriptionValue ?? "").trim();
-
-  if (!normalized) {
-    return false;
-  }
-
-  return clearReceivedIncomePatterns.some((pattern) => {
-    if (pattern === "pagamento recebido" && importLayout === "credit_card_statement") {
-      return false;
-    }
-
-    return normalized.includes(pattern);
-  });
-}
-
 export function parseAmountInput(rawValue) {
   const original = String(rawValue ?? "").trim();
 
@@ -1396,7 +1369,7 @@ function buildPreviewItem({
   }
 
   const clearReceivedIncome =
-    errors.length === 0 && isClearReceivedIncomeDescription(normalizedDescriptionValue, importLayout);
+    errors.length === 0 && isClearlyReceivedIncomeDescription(normalizedDescriptionValue, { importLayout });
 
   if (clearReceivedIncome) {
     type = "income";
@@ -1501,7 +1474,11 @@ function buildPreviewItem({
 
   if (clearReceivedIncome) {
     if (!isCategoryCompatibleWithType(finalSuggestedCategory, "income")) {
-      finalSuggestedCategory = getDefaultIncomeCategory(categories);
+      // For clearly-received-income rows without a valid prior income category,
+      // default specifically to the salary category (slug "salario") rather
+      // than falling back to any income category, since the majority of direct
+      // deposits in this context are salary or equivalent.
+      finalSuggestedCategory = getSalaryCategory(categories);
       finalSuggestionSource = finalSuggestedCategory ? "default_income" : null;
     }
   }

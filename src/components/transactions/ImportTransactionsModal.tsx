@@ -115,14 +115,14 @@ const filterOptions: Array<{ value: PreviewFilter; label: string }> = [
   { value: "ignored", label: "Ignoradas" },
 ];
 const mappingFieldOptions: Array<{ field: ImportMappingField; label: string; required?: boolean }> = [
-  { field: "date", label: "Date", required: true },
-  { field: "description", label: "Description", required: true },
-  { field: "amount", label: "Signed amount" },
-  { field: "debit", label: "Debit / outflow" },
-  { field: "credit", label: "Credit / inflow" },
-  { field: "balance", label: "Balance" },
-  { field: "currency", label: "Currency" },
-  { field: "externalId", label: "Reference / external ID" },
+  { field: "date", label: "Data", required: true },
+  { field: "description", label: "Descrição", required: true },
+  { field: "amount", label: "Valor com sinal" },
+  { field: "debit", label: "Débito / saída" },
+  { field: "credit", label: "Crédito / entrada" },
+  { field: "balance", label: "Saldo" },
+  { field: "currency", label: "Moeda" },
+  { field: "externalId", label: "Referência / ID externo" },
 ];
 
 const initialState: ModalState = {

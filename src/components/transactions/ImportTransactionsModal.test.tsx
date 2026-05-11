@@ -838,4 +838,24 @@ describe("ImportTransactionsModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "ignore-preview-1:40" }));
     expect(hasChip("Rev.", 1)).toBe(false);
   });
+
+  it("blocks preview generation and shows error when no bank connection is selected", async () => {
+    const { toast } = await import("@/components/ui/sonner");
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    // Deliberately do NOT select a bank; the gate must fire.
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    expect(previewMutateAsync).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Selecione uma conta ou cartão antes de gerar o preview.");
+    expect(screen.queryByTestId("import-preview-body")).not.toBeInTheDocument();
+  });
 });

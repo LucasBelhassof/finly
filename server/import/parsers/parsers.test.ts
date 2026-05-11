@@ -311,6 +311,127 @@ describe("universal import parsers", () => {
     expect(rows).toHaveLength(0);
   });
 
+  // ── Inline-date regression tests (fix: date + transaction on same line) ──
+
+  it("parses inline-date row with DD/MM/YYYY prefix", () => {
+    const rows = parseFallbackStatementLines(['27/02/2026 Pix recebido: "Cp :18236120-LUCAS" R$ 115,00 R$ 230,00'], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      occurredOn: "2026-02-27",
+      amount: 115,
+      balanceAfter: 230,
+    });
+    expect(rows[0].description).not.toMatch(/^27\/02\/2026/);
+  });
+
+  it("parses inline-date row with YYYY-MM-DD prefix", () => {
+    const rows = parseFallbackStatementLines(['2026-03-16 Pix enviado: "Lucas" -R$ 132,00 R$ 438,00'], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      occurredOn: "2026-03-16",
+      amount: -132,
+      balanceAfter: 438,
+    });
+    expect(rows[0].description).not.toMatch(/^2026-03-16/);
+  });
+
+  it("parses inline-date row with long Portuguese date prefix", () => {
+    const rows = parseFallbackStatementLines(
+      ['22 de Março de 2026 Compra no debito: "Posto Hawai" -R$ 60,00 R$ 86,00'],
+      { referenceYear: 2026 },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      occurredOn: "2026-03-22",
+      amount: -60,
+      balanceAfter: 86,
+    });
+  });
+
+  it("still parses grouped-date rows (date on own line) after inline-date fix", () => {
+    const rows = parseFallbackStatementLines(
+      [
+        "27 de Fevereiro de 2026 Saldo do dia: R$ 115,00",
+        'Pix recebido: "Cp :18236120-LUCAS" R$ 115,00 R$ 115,00',
+        "28 de Fevereiro de 2026 Saldo do dia: R$ 200,00",
+        'Deposito: "Banco X" R$ 85,00 R$ 200,00',
+      ],
+      { referenceYear: 2026 },
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ occurredOn: "2026-02-27", amount: 115 });
+    expect(rows[1]).toMatchObject({ occurredOn: "2026-02-28", amount: 85 });
+  });
+
+  it("discards pure date-header-only lines with no transaction data", () => {
+    const rows = parseFallbackStatementLines(
+      ["27 de Fevereiro de 2026 Saldo do dia: R$ 115,00", 'Pix recebido: "Cp :18236120-LUCAS" R$ 115,00 R$ 230,00'],
+      { referenceYear: 2026 },
+    );
+
+    // The date-header line has "saldo do dia" which is a NOISE_PATTERN.
+    // parseFallbackStatementLines should treat it as a pure header (sets
+    // activeDate) and NOT produce a row from it; only the next transaction
+    // line yields a row.
+    expect(rows).toHaveLength(1);
+    expect(rows[0].occurredOn).toBe("2026-02-27");
+  });
+
+  // ── Expanded income keywords ──
+
+  it("infers positive amount for TED recebido", () => {
+    const rows = parseFallbackStatementLines(["2026-04-01 Ted recebido: empresa sa R$ 500,00 R$ 1000,00"], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBeGreaterThan(0);
+  });
+
+  it("infers positive amount for DOC recebido", () => {
+    const rows = parseFallbackStatementLines(["2026-04-02 Doc recebido banco xyz R$ 300,00 R$ 800,00"], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBeGreaterThan(0);
+  });
+
+  it("infers positive amount for credito em conta", () => {
+    const rows = parseFallbackStatementLines(["2026-04-03 Credito em conta corrente R$ 1200,00 R$ 2000,00"], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBeGreaterThan(0);
+  });
+
+  it("infers positive amount for deposito recebido", () => {
+    const rows = parseFallbackStatementLines(["2026-04-04 Deposito recebido agencia R$ 250,00 R$ 750,00"], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBeGreaterThan(0);
+  });
+
+  it("infers positive amount for reembolso even without explicit sign", () => {
+    const rows = parseFallbackStatementLines(["2026-04-05 Reembolso plano saude R$ 150,00 R$ 900,00"], {
+      referenceYear: 2026,
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amount).toBeGreaterThan(0);
+  });
+
   it("keeps low-confidence CSV rows with inferred dates and row issues", () => {
     const csv = ["05/04/2026;Cafe;-12,90", ";Uber;-45,00"].join("\n");
     const rows = parseCsvLikeBuffer(Buffer.from(csv, "utf8"));

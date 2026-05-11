@@ -1,4 +1,5 @@
 import { buildIssue, normalizeAmountInput, normalizeDateInput, normalizeHeaderKey } from "./tabular-utils.js";
+import { CLEARLY_RECEIVED_INCOME_KEYWORDS } from "../received-income-detector.js";
 
 const PORTUGUESE_MONTHS = {
   janeiro: 1,
@@ -15,14 +16,9 @@ const PORTUGUESE_MONTHS = {
   dezembro: 12,
 };
 
-const POSITIVE_KEYWORDS = [
-  "pix recebido",
-  "pagamento recebido",
-  "transferencia recebida",
-  "deposito",
-  "reembolso",
-  "estorno",
-];
+// Canonical received-income keywords imported from shared detector.
+// All are treated as positive (inbound) for sign inference.
+const POSITIVE_KEYWORDS = CLEARLY_RECEIVED_INCOME_KEYWORDS;
 
 const NEGATIVE_KEYWORDS = [
   "pix enviado",
@@ -297,6 +293,26 @@ export function parseStatementTransactionLine(line, context = {}) {
   };
 }
 
+/**
+ * Strip a leading date token (numeric or long-Portuguese) from a description
+ * string so that inline-date rows don't carry the date prefix in their
+ * description field.
+ *
+ * @param {string} description
+ * @returns {string}
+ */
+function stripDatePrefixFromDescription(description) {
+  // Numeric formats at the start: YYYY-MM-DD or DD/MM/YYYY, DD.MM.YYYY, etc.
+  let cleaned = description
+    .replace(/^\d{4}-\d{2}-\d{2}\s+/, "")
+    .replace(/^\d{1,2}[\/.-]\d{1,2}(?:[\/.-]\d{2,4})?\s+/, "");
+
+  // Long Portuguese format (normalized, no accents): "01 de marco de 2026 ..."
+  cleaned = cleaned.replace(/^\d{1,2}\s+de\s+\S+\s+de\s+\d{4}\s+/i, "");
+
+  return normalizeWhitespace(cleaned);
+}
+
 export function parseFallbackStatementLines(lines, options = {}) {
   const rows = [];
   let activeDate = null;
@@ -314,6 +330,27 @@ export function parseFallbackStatementLines(lines, options = {}) {
     if (dateHeader) {
       activeDate = dateHeader.occurredOn;
       activeDateIssues = dateHeader.issues;
+
+      // The same line may also contain an inline transaction
+      // (e.g. "27/02/2026 Pix recebido: \"...\" R$ 115,00 R$ 230,00").
+      // Attempt to parse the full line as a transaction using the date we
+      // just extracted as context.  If it yields a valid row we keep it;
+      // a pure date-header line (no keyword / amount) produces null here.
+      const inlineRow = parseStatementTransactionLine(line, {
+        occurredOn: activeDate,
+        dateIssues: activeDateIssues,
+        referenceYear: options.referenceYear,
+      });
+
+      if (inlineRow) {
+        const cleanedDescription = stripDatePrefixFromDescription(inlineRow.description);
+        rows.push({
+          ...inlineRow,
+          description: cleanedDescription || inlineRow.description,
+          sourceRow: { raw: line, dateHeader: activeDate },
+        });
+      }
+
       continue;
     }
 

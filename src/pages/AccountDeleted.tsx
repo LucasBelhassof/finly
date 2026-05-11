@@ -26,6 +26,12 @@ export default function AccountDeletedPage() {
         <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
           <h1 className="text-xl font-semibold text-foreground">Cancelamento concluído</h1>
           <p className="mt-2 text-sm text-muted-foreground">
+            Sua conta foi cancelada com sucesso e os dados vinculados foram removidos.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Você será redirecionado para a tela de login em instantes.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
             Se quiser voltar a usar o Finly no futuro, será necessário criar uma nova conta.
           </p>
 

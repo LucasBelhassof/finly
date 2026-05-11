@@ -24,10 +24,10 @@ describe("AccountDeletedPage", () => {
     render(<AccountDeletedPage />);
 
     expect(screen.getByRole("heading", { name: /cancelamento concluído/i })).toBeInTheDocument();
-    expect(screen.getByText(/conta cancelada com sucesso/i)).toBeInTheDocument();
+    expect(screen.getByText(/sua conta foi cancelada com sucesso/i)).toBeInTheDocument();
 
     act(() => {
-      vi.advanceTimersByTime(4000);
+      vi.advanceTimersByTime(10000);
     });
 
     expect(navigateMock).toHaveBeenCalledWith(appRoutes.login, { replace: true });

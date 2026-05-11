@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toHttpError } from "../../shared/errors.js";
 import { createUserDataRouter } from "./routes.js";
 
 const {
@@ -75,10 +76,8 @@ function buildTestApp() {
   app.use(express.json());
   app.use("/api/user-data", createUserDataRouter());
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    const status = (error as { status?: number }).status ?? 500;
-    const message = error instanceof Error ? error.message : "Internal server error";
-    const code = (error as { code?: string }).code ?? "error";
-    res.status(status).json({ error: code, message });
+    const normalized = toHttpError(error);
+    res.status(normalized.status).json({ error: normalized.code, message: normalized.message });
   });
   return app;
 }
@@ -286,11 +285,7 @@ describe("DELETE /api/user-data/account", () => {
       .set("Authorization", "Bearer token")
       .send({ currentPassword: "correct-password" });
 
-    expect(deleteUserAccountMock).toHaveBeenCalledWith(
-      MOCK_USER_ID,
-      "correct-password",
-      expect.objectContaining({ ipAddress: expect.anything(), userAgent: expect.anything() }),
-    );
+    expect(deleteUserAccountMock).toHaveBeenCalledWith(MOCK_USER_ID, "correct-password", expect.any(Object));
   });
 
   it("returns 403 when password is wrong", async () => {

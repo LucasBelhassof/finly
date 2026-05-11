@@ -1,6 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { env } from "./shared/env.js";
 
 const pingDatabaseMock = vi.hoisted(() => vi.fn());
 const noop = vi.hoisted(() => vi.fn());
@@ -73,6 +74,13 @@ vi.mock("./modules/notifications/routes.js", () => ({
 }));
 
 describe("app health route", () => {
+  function expectSecurityHeaders(headers: Record<string, string | string[] | undefined>) {
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(headers["referrer-policy"]).toBe("no-referrer");
+    expect(headers["cross-origin-opener-policy"]).toBe("same-origin");
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     pingDatabaseMock.mockResolvedValue({
@@ -84,12 +92,15 @@ describe("app health route", () => {
     const { createApp } = await import("./app.js");
     const app = createApp();
 
-    const response = await request(app).get("/api/health");
+    const response = await request(app).get("/api/health").set("Origin", env.appOrigin);
 
     expect(response.status).toBe(200);
     expect(response.body.status).toBe("ok");
     expect(typeof response.body.serverTime).toBe("string");
     expect(response.headers["x-request-id"]).toBeTruthy();
+    expectSecurityHeaders(response.headers);
+    expect(response.headers["access-control-allow-origin"]).toBe(env.appOrigin);
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
     expect(pingDatabaseMock).not.toHaveBeenCalled();
   });
 
@@ -106,6 +117,7 @@ describe("app health route", () => {
       serverTime: "2026-04-26T15:00:00.000Z",
     });
     expect(response.headers["x-request-id"]).toBeTruthy();
+    expectSecurityHeaders(response.headers);
     expect(pingDatabaseMock).toHaveBeenCalledTimes(1);
   });
 });

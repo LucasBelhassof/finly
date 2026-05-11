@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
+import helmet from "helmet";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -180,6 +181,12 @@ export function createApp() {
   const aiRateLimiter = createApiRateLimiter("ai", 30);
 
   app.set("trust proxy", 1);
+  app.use(
+    helmet({
+      // Strict CSP is deferred until the built frontend and any third-party assets are audited.
+      contentSecurityPolicy: false,
+    }),
+  );
 
   app.use(
     cors({

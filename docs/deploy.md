@@ -53,6 +53,7 @@ Características do container:
 
 - Faça um backup do Postgres antes de executar `npm run db:migrate` em produção.
 - Use o runbook em `docs/operations/backup-restore.md` para o fluxo de backup e restore.
+- Use `docs/operations/release-checklist.md` como checklist final antes e depois do deploy.
 
 ## Rollback básico
 

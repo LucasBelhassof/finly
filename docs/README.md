@@ -20,6 +20,14 @@ Esta pasta consolida a documentação técnica da aplicação com base no códig
 14. [Boas práticas e padrões](./14-boas-praticas-e-padroes.md)
 15. [Casos de uso](./15-casos-de-uso.md)
 
+## Runbooks operacionais
+
+- [Deploy](./deploy.md)
+- [Ambiente](./env.md)
+- [Observability](./observability.md)
+- [Backup and restore](./operations/backup-restore.md)
+- [Production release checklist](./operations/release-checklist.md)
+
 ## Fontes consideradas
 
 - Backend Express em `server/app.ts`

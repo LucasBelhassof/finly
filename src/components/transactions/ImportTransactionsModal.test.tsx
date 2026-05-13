@@ -35,7 +35,12 @@ vi.mock("@/components/transactions/ImportTransactionCard", () => ({
     onChange,
   }: {
     row: { key: string; draft: { exclude: boolean }; hasError?: boolean; needsReview?: boolean };
-    onChange: (patch: { exclude?: boolean; categoryId?: string; reviewed?: boolean }) => void;
+    onChange: (patch: {
+      exclude?: boolean;
+      categoryId?: string;
+      reviewed?: boolean;
+      reviewConfirmed?: boolean;
+    }) => void;
   }) => (
     <div data-testid={`import-card:${row.key}`}>
       <span data-testid={`row-status:${row.key}`}>{row.draft.exclude ? "ignored" : "included"}</span>
@@ -52,7 +57,7 @@ vi.mock("@/components/transactions/ImportTransactionCard", () => ({
         categorize-{row.key}
       </button>
       {!row.hasError && row.needsReview ? (
-        <button type="button" onClick={() => onChange({ reviewed: true })}>
+        <button type="button" onClick={() => onChange({ reviewed: true, reviewConfirmed: true })}>
           mark-reviewed-{row.key}
         </button>
       ) : null}
@@ -263,8 +268,8 @@ const installmentPreviewData: ImportPreviewData = {
       sourceKind: "credit_card_statement",
       bankConnectionId: 2,
       bankConnectionName: "Caixa/Dinheiro",
-      suggestedCategoryId: null,
-      suggestedCategoryLabel: null,
+      suggestedCategoryId: 99,
+      suggestedCategoryLabel: "Eletrônicos",
       suggestionSource: null,
       matchedRuleId: null,
       aiSuggestedType: null,
@@ -741,6 +746,8 @@ describe("ImportTransactionsModal", () => {
 
     await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
 
+    expect(screen.getByTestId("row-review-status:preview-1:15")).toHaveTextContent("review");
+    fireEvent.click(screen.getByRole("button", { name: "mark-reviewed-preview-1:15" }));
     fireEvent.click(screen.getByRole("button", { name: /importar \d+ linha/i }));
 
     await waitFor(() =>
@@ -778,7 +785,7 @@ describe("ImportTransactionsModal", () => {
     expect(hasChip("OK", 1)).toBe(true);
   });
 
-  it("keeps uncategorized expenses ready because they fallback to Compras", async () => {
+  it("marks uncategorized expenses for review and lets the user confirm the Compras fallback", async () => {
     previewMutateAsync.mockResolvedValueOnce(uncategorizedExpensePreviewData);
 
     render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
@@ -795,9 +802,48 @@ describe("ImportTransactionsModal", () => {
 
     await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
 
+    expect(screen.getByTestId("row-review-status:preview-1:50")).toHaveTextContent("review");
+    expect(hasChip("Rev.", 1)).toBe(true);
+    expect(hasChip("OK", 1)).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "mark-reviewed-preview-1:50" }));
+
     expect(screen.getByTestId("row-review-status:preview-1:50")).toHaveTextContent("ready");
     expect(hasChip("Rev.", 1)).toBe(false);
     expect(hasChip("OK", 1)).toBe(true);
+  });
+
+  it("commits an uncategorized reviewed expense without category so the backend uses Compras", async () => {
+    previewMutateAsync.mockResolvedValueOnce(uncategorizedExpensePreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "mark-reviewed-preview-1:50" }));
+    fireEvent.click(screen.getByRole("button", { name: /importar 1 linha válida/i }));
+
+    await waitFor(() =>
+      expect(commitMutateAsync).toHaveBeenCalledWith({
+        previewToken: "preview-1",
+        bankConnectionId: "2",
+        items: [
+          expect.not.objectContaining({
+            categoryId: expect.anything(),
+          }),
+        ],
+      }),
+    );
   });
 
   it("marks a categorized line as ready after the user resolves the category", async () => {

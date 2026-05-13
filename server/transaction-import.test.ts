@@ -36,6 +36,7 @@ beforeEach(() => {
 
 import {
   addMonthsToOccurredOn,
+  applyCommitOverridesToPreviewItem,
   buildInstallmentPurchaseSeedKey,
   buildInstallmentTransactionSeedKey,
   buildImportSeedKey,
@@ -358,6 +359,46 @@ describe("transaction import helpers", () => {
     ]);
     expect(entries.map((entry) => entry.occurredOn)).toEqual(["2026-03-15", "2026-04-15", "2026-05-15"]);
     expect(entries.every((entry) => entry.amount === -120)).toBe(true);
+  });
+
+  it("applies commit edits to every generated installment entry", () => {
+    const normalizedLine = validateCommitLine(
+      {
+        description: "Notebook editado 2/3",
+        amount: "250.50",
+        occurredOn: "2026-05-20",
+        type: "expense",
+        categoryId: 4,
+      },
+      categories,
+    );
+    const previewItem = applyCommitOverridesToPreviewItem({
+      normalizedLine,
+      previewItem: {
+        importSource: "generic_transactions",
+        purchaseDescriptionBase: "Compra Loja",
+        normalizedPurchaseDescriptionBase: "compra loja",
+        purchaseOccurredOn: "2026-03-15",
+        isInstallment: true,
+        installmentIndex: 2,
+        installmentCount: 3,
+        generatedInstallmentCount: 3,
+      },
+    });
+
+    const entries = buildImportedTransactionEntries({ normalizedLine, previewItem });
+
+    expect(previewItem.purchaseDescriptionBase).toBe("Notebook editado");
+    expect(previewItem.normalizedPurchaseDescriptionBase).toBe("notebook editado");
+    expect(previewItem.purchaseOccurredOn).toBe("2026-04-20");
+    expect(entries.map((entry) => entry.description)).toEqual([
+      "Notebook editado 1/3",
+      "Notebook editado 2/3",
+      "Notebook editado 3/3",
+    ]);
+    expect(entries.map((entry) => entry.occurredOn)).toEqual(["2026-04-20", "2026-05-20", "2026-06-20"]);
+    expect(entries.every((entry) => entry.amount === -250.5)).toBe(true);
+    expect(entries.every((entry) => entry.categoryId === 4)).toBe(true);
   });
 
   it("increments installment dates month by month with day clamping", () => {

@@ -9,6 +9,7 @@ import {
   buildImportedTransactionEntries,
   buildImportSeedKey,
   extractCategorizationMatchKey,
+  applyCommitOverridesToPreviewItem,
   enrichPreviewSessionWithAi,
   getPreviewSession,
   normalizeDescription,
@@ -3485,7 +3486,7 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
         );
       }
 
-      const entriesToImport = buildImportedTransactionEntries({
+      const commitPreviewItem = applyCommitOverridesToPreviewItem({
         normalizedLine: normalized,
         previewItem: previewItem
           ? {
@@ -3494,8 +3495,12 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
             }
           : previewItem,
       });
-      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transação";
-      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transações";
+      const entriesToImport = buildImportedTransactionEntries({
+        normalizedLine: normalized,
+        previewItem: commitPreviewItem,
+      });
+      const entryLabelSingular = commitPreviewItem?.isInstallment ? "parcela" : "transação";
+      const entryLabelPlural = commitPreviewItem?.isInstallment ? "parcelas" : "transações";
 
       if (normalized.exclude) {
         skippedCount += entriesToImport.length;
@@ -3511,19 +3516,19 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
       }
 
       const isInstallmentEntry =
-        Boolean(previewItem?.isInstallment) &&
-        Boolean(previewItem?.purchaseOccurredOn) &&
-        Boolean(previewItem?.normalizedPurchaseDescriptionBase) &&
-        Number.isInteger(previewItem?.installmentCount);
+        Boolean(commitPreviewItem?.isInstallment) &&
+        Boolean(commitPreviewItem?.purchaseOccurredOn) &&
+        Boolean(commitPreviewItem?.normalizedPurchaseDescriptionBase) &&
+        Number.isInteger(commitPreviewItem?.installmentCount);
 
       const installmentPurchaseSeedKey = isInstallmentEntry
         ? buildInstallmentPurchaseSeedKey(
             resolvedUserId,
             resolvedBankConnectionId,
-            previewItem.purchaseOccurredOn,
-            previewItem.normalizedPurchaseDescriptionBase,
+            commitPreviewItem.purchaseOccurredOn,
+            commitPreviewItem.normalizedPurchaseDescriptionBase,
             Math.abs(normalized.signedAmount),
-            Number(previewItem.installmentCount),
+            Number(commitPreviewItem.installmentCount),
           )
         : null;
       const importedTransactions = [];
@@ -3542,10 +3547,10 @@ async function commitLegacyTransactionImport(resolvedUserId, input) {
               bankConnectionId: resolvedBankConnectionId,
               categoryId: normalized.categoryId,
               seedKey: installmentPurchaseSeedKey,
-              descriptionBase: previewItem.purchaseDescriptionBase,
-              normalizedDescriptionBase: previewItem.normalizedPurchaseDescriptionBase,
-              purchaseOccurredOn: previewItem.purchaseOccurredOn,
-              installmentCount: Number(previewItem.installmentCount),
+              descriptionBase: commitPreviewItem.purchaseDescriptionBase,
+              normalizedDescriptionBase: commitPreviewItem.normalizedPurchaseDescriptionBase,
+              purchaseOccurredOn: commitPreviewItem.purchaseOccurredOn,
+              installmentCount: Number(commitPreviewItem.installmentCount),
               amountPerInstallment: Math.abs(normalized.signedAmount),
             },
             client,
@@ -3764,7 +3769,7 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
         );
       }
 
-      const entriesToImport = buildImportedTransactionEntries({
+      const commitPreviewItem = applyCommitOverridesToPreviewItem({
         normalizedLine: normalized,
         previewItem: previewItem
           ? {
@@ -3778,8 +3783,12 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
             }
           : previewItem,
       });
-      const entryLabelSingular = previewItem?.isInstallment ? "parcela" : "transação";
-      const entryLabelPlural = previewItem?.isInstallment ? "parcelas" : "transações";
+      const entriesToImport = buildImportedTransactionEntries({
+        normalizedLine: normalized,
+        previewItem: commitPreviewItem,
+      });
+      const entryLabelSingular = commitPreviewItem?.isInstallment ? "parcela" : "transação";
+      const entryLabelPlural = commitPreviewItem?.isInstallment ? "parcelas" : "transações";
 
       if (normalized.exclude) {
         skippedCount += entriesToImport.length;
@@ -3795,18 +3804,18 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
       }
 
       const isInstallmentEntry =
-        Boolean(previewItem?.isInstallment) &&
-        Boolean(previewItem?.purchaseOccurredOn) &&
-        Boolean(previewItem?.normalizedPurchaseDescriptionBase) &&
-        Number.isInteger(previewItem?.installmentCount);
+        Boolean(commitPreviewItem?.isInstallment) &&
+        Boolean(commitPreviewItem?.purchaseOccurredOn) &&
+        Boolean(commitPreviewItem?.normalizedPurchaseDescriptionBase) &&
+        Number.isInteger(commitPreviewItem?.installmentCount);
       const installmentPurchaseSeedKey = isInstallmentEntry
         ? buildInstallmentPurchaseSeedKey(
             resolvedUserId,
             resolvedBankConnectionId,
-            previewItem.purchaseOccurredOn,
-            previewItem.normalizedPurchaseDescriptionBase,
+            commitPreviewItem.purchaseOccurredOn,
+            commitPreviewItem.normalizedPurchaseDescriptionBase,
             Math.abs(normalized.signedAmount),
-            Number(previewItem.installmentCount),
+            Number(commitPreviewItem.installmentCount),
           )
         : null;
       const importedTransactions = [];
@@ -3825,10 +3834,10 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
               bankConnectionId: resolvedBankConnectionId,
               categoryId: normalized.categoryId,
               seedKey: installmentPurchaseSeedKey,
-              descriptionBase: previewItem.purchaseDescriptionBase,
-              normalizedDescriptionBase: previewItem.normalizedPurchaseDescriptionBase,
-              purchaseOccurredOn: previewItem.purchaseOccurredOn,
-              installmentCount: Number(previewItem.installmentCount),
+              descriptionBase: commitPreviewItem.purchaseDescriptionBase,
+              normalizedDescriptionBase: commitPreviewItem.normalizedPurchaseDescriptionBase,
+              purchaseOccurredOn: commitPreviewItem.purchaseOccurredOn,
+              installmentCount: Number(commitPreviewItem.installmentCount),
               amountPerInstallment: Math.abs(normalized.signedAmount),
             },
             client,
@@ -3853,7 +3862,7 @@ async function commitUniversalTransactionImport(resolvedUserId, input) {
                     normalizedOccurredOn: entry.occurredOn,
                     signedAmount: entry.amount,
                   },
-                  previewItem,
+                  previewItem: commitPreviewItem,
                   sourceKind: normalized.sourceKind,
                 });
           const seedKey = duplicateCandidates[0];

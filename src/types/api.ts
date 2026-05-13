@@ -1014,6 +1014,7 @@ export interface ImportReviewDraft {
   ignoreDuplicate: boolean;
   selected: boolean;
   reviewed: boolean;
+  reviewConfirmed?: boolean;
 }
 
 export interface ImportAiSuggestionItem {

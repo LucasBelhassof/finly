@@ -168,7 +168,13 @@ function createDbState() {
     importMappingTemplates,
     rules,
     previewSessions,
-    inserts: [] as Array<{ seedKey: string; description: string; amount: number; occurredOn: string }>,
+    inserts: [] as Array<{
+      seedKey: string;
+      description: string;
+      amount: number;
+      occurredOn: string;
+      categoryId: number;
+    }>,
     aiUsageEvents: 0,
     handleQuery(sql: string, params: unknown[]) {
       const normalizedSql = sql.replace(/\s+/g, " ").trim();
@@ -472,6 +478,7 @@ function createDbState() {
           description: String(params[3]),
           amount: Number(params[4]),
           occurredOn: String(params[5]),
+          categoryId: Number(params[2]),
         });
 
         return Promise.resolve({ rows: [{ id }], rowCount: 1 });
@@ -1211,6 +1218,55 @@ describe("transaction import commit dispatcher", () => {
       "Compra Loja 3/3",
     ]);
     expect(pgState.current?.inserts.map((item) => item.occurredOn)).toEqual(["2026-03-15", "2026-04-15", "2026-05-15"]);
+  });
+
+  it("applies edited installment fields to every imported parcel", async () => {
+    const { commitTransactionImport } = await loadDatabaseModule();
+    const { setUniversalPreviewSession } = await import("./import/preview-session-store.js");
+
+    await setUniversalPreviewSession("universal-installments-edited", {
+      kind: "universal",
+      previewToken: "universal-installments-edited",
+      userId: "7",
+      createdAtMs: Date.now(),
+      expiresAtMs: Date.now() + 60_000,
+      detectedSourceKind: "generic_transactions",
+      selectedBankConnectionId: 20,
+      items: [
+        buildUniversalInstallmentSessionRow({
+          description: "Compra Loja 2/3",
+          purchaseOccurredOn: "2026-03-15",
+          occurredOn: "2026-04-15",
+          installmentIndex: 2,
+          installmentCount: 3,
+        }),
+      ],
+    });
+
+    const result = await commitTransactionImport(7, {
+      previewToken: "universal-installments-edited",
+      items: [
+        {
+          rowIndex: 1,
+          description: "Notebook editado 2/3",
+          amount: "250.50",
+          occurredOn: "2026-05-20",
+          type: "expense",
+          categoryId: 1,
+          sourceKind: "generic_transactions",
+        },
+      ],
+    });
+
+    expect(result.importedCount).toBe(3);
+    expect(pgState.current?.inserts.map((item) => item.description)).toEqual([
+      "Notebook editado 1/3",
+      "Notebook editado 2/3",
+      "Notebook editado 3/3",
+    ]);
+    expect(pgState.current?.inserts.map((item) => item.occurredOn)).toEqual(["2026-04-20", "2026-05-20", "2026-06-20"]);
+    expect(pgState.current?.inserts.every((item) => item.amount === -250.5)).toBe(true);
+    expect(pgState.current?.inserts.every((item) => item.categoryId === 1)).toBe(true);
   });
 
   it("does not duplicate installment purchases or installment transactions when the same file is imported again", async () => {

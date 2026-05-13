@@ -232,6 +232,7 @@ function buildDrafts(preview: ImportPreviewData): Record<string, ImportReviewDra
         ignoreDuplicate: false,
         selected: false,
         reviewed: false,
+        reviewConfirmed: false,
       },
     ]),
   );
@@ -351,6 +352,7 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
 
       const reviewed =
         action.patch.reviewed === true || currentDraft.reviewed || patchTouchesReviewableField(action.patch);
+      const reviewConfirmed = action.patch.reviewConfirmed === true || currentDraft.reviewConfirmed === true;
 
       return {
         ...state,
@@ -360,6 +362,7 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
             ...currentDraft,
             ...action.patch,
             reviewed,
+            reviewConfirmed,
           },
         },
       };
@@ -414,9 +417,12 @@ function isInformationalIssue(issue: ImportPreviewItem["issues"][number]) {
 
   return (
     issue.message.startsWith("Compra parcelada detectada:") ||
-    issue.message.startsWith("Se nenhuma categoria for escolhida, a despesa") ||
     issue.message === "Selecione uma categoria antes de importar."
   );
+}
+
+function isUncategorizedExpenseIssue(issue: ImportPreviewItem["issues"][number]) {
+  return issue.level === "warning" && issue.message.startsWith("Se nenhuma categoria for escolhida, a despesa");
 }
 
 function isReviewIssueResolved(issue: ImportPreviewItem["issues"][number], draft: ImportReviewDraft) {
@@ -426,6 +432,12 @@ function isReviewIssueResolved(issue: ImportPreviewItem["issues"][number], draft
 
   if (isInformationalIssue(issue)) {
     return true;
+  }
+
+  if (isUncategorizedExpenseIssue(issue)) {
+    return (
+      draft.type !== "expense" || String(draft.categoryId ?? "").trim().length > 0 || draft.reviewConfirmed === true
+    );
   }
 
   if (!draft.reviewed) {
@@ -591,8 +603,11 @@ export default function ImportTransactionsModal({
       const lowConfidence = (item.confidence ?? 1) < 0.75;
       const lowConfidenceNeedsReview = lowConfidence && !draft.reviewed;
       const hasPendingCategorySelection = item.requiresCategorySelection && draft.type !== "expense" && !hasCategory;
+      const hasUncategorizedExpense = draft.type === "expense" && !hasCategory && draft.reviewConfirmed !== true;
       const hasError = backendHasError || frontendErrors.length > 0;
-      const needsReview = !hasError && (lowConfidenceNeedsReview || hasPendingCategorySelection || backendHasWarning);
+      const needsReview =
+        !hasError &&
+        (lowConfidenceNeedsReview || hasPendingCategorySelection || hasUncategorizedExpense || backendHasWarning);
 
       return {
         key,
@@ -601,7 +616,7 @@ export default function ImportTransactionsModal({
         displayIssues,
         frontendErrors,
         hasError,
-        hasWarning: backendHasWarning || lowConfidenceNeedsReview,
+        hasWarning: backendHasWarning || lowConfidenceNeedsReview || hasUncategorizedExpense,
         isDuplicate: item.possibleDuplicate,
         isIgnored: draft.exclude,
         needsReview,

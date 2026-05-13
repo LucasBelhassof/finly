@@ -2374,13 +2374,39 @@ export function validateCommitLine(input, categories) {
   };
 }
 
-export function buildImportedTransactionEntries({ normalizedLine, previewItem }) {
-  const hasInstallmentMetadata =
+function hasInstallmentPreviewMetadata(previewItem) {
+  return (
     Boolean(previewItem?.isInstallment) &&
     Number.isInteger(previewItem?.installmentIndex) &&
     Number(previewItem.installmentIndex) >= 1 &&
     Number.isInteger(previewItem?.installmentCount) &&
-    Number(previewItem.installmentCount) >= 2;
+    Number(previewItem.installmentCount) >= 2
+  );
+}
+
+export function applyCommitOverridesToPreviewItem({ normalizedLine, previewItem }) {
+  if (!hasInstallmentPreviewMetadata(previewItem)) {
+    return previewItem;
+  }
+
+  const installmentIndex = Number(previewItem.installmentIndex);
+  const descriptionBase =
+    stripInstallmentMarker(normalizedLine.description) ||
+    previewItem.purchaseDescriptionBase ||
+    normalizedLine.description;
+  const normalizedDescriptionBase =
+    normalizeDescription(descriptionBase) || previewItem.normalizedPurchaseDescriptionBase;
+
+  return {
+    ...previewItem,
+    purchaseDescriptionBase: descriptionBase,
+    normalizedPurchaseDescriptionBase: normalizedDescriptionBase,
+    purchaseOccurredOn: addMonthsToOccurredOn(normalizedLine.normalizedOccurredOn, 1 - installmentIndex),
+  };
+}
+
+export function buildImportedTransactionEntries({ normalizedLine, previewItem }) {
+  const hasInstallmentMetadata = hasInstallmentPreviewMetadata(previewItem);
   const generatedInstallmentCount =
     hasInstallmentMetadata &&
     Number.isInteger(previewItem.generatedInstallmentCount) &&

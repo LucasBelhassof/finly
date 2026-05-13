@@ -282,7 +282,7 @@ export default function ImportTransactionCard({
                   variant="secondary"
                   size="sm"
                   className="h-8 rounded-lg text-xs"
-                  onClick={() => onChange({ reviewed: true })}
+                  onClick={() => onChange({ reviewed: true, reviewConfirmed: true })}
                 >
                   Marcar revisado
                 </Button>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finly - Documentacao operacional</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: #121932;
+        --panel-soft: #17203d;
+        --line: #2a365f;
+        --text: #eef2ff;
+        --muted: #aab6d3;
+        --accent: #7c9cff;
+        --accent-soft: rgba(124, 156, 255, 0.14);
+        --warn: #f5b942;
+        --danger: #ff7b88;
+        --ok: #59d7a2;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font: 15px/1.6 Arial, sans-serif;
+        background: linear-gradient(180deg, #0b1020 0%, #10162b 100%);
+        color: var(--text);
+      }
+      a { color: #9bb3ff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 290px;
+        overflow-y: auto;
+        padding: 24px 18px 32px;
+        background: rgba(10, 15, 30, 0.94);
+        border-right: 1px solid var(--line);
+      }
+      .brand { margin: 0 0 6px; font-size: 20px; }
+      .brand small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; font-weight: 400; }
+      .nav-group { margin-top: 24px; }
+      .nav-group h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+      .nav-group a { display: block; padding: 8px 10px; margin-bottom: 6px; border-radius: 10px; background: transparent; }
+      .nav-group a.active, .nav-group a:hover { background: var(--accent-soft); text-decoration: none; }
+      main { margin-left: 290px; padding: 28px; }
+      .hero, .section, .footer { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; }
+      .hero { padding: 28px; }
+      .hero h1 { margin: 0 0 8px; font-size: 32px; line-height: 1.15; }
+      .hero p { margin: 0; color: var(--muted); max-width: 960px; }
+      .tags, .toc { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+      .tag, .toc a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--panel-soft);
+        border: 1px solid var(--line);
+        color: var(--text);
+      }
+      .cards, .grid-2, .grid-3 { display: grid; gap: 16px; margin-top: 22px; }
+      .cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .card {
+        padding: 18px;
+        border-radius: 16px;
+        background: var(--panel-soft);
+        border: 1px solid var(--line);
+      }
+      .card strong { display: block; margin-bottom: 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; }
+      .section { padding: 24px; margin-top: 18px; }
+      .section h2 { margin: 0 0 12px; font-size: 22px; }
+      .section p, .section li { color: var(--muted); }
+      .callout {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-left: 4px solid var(--warn);
+        background: rgba(245, 185, 66, 0.08);
+        border-radius: 12px;
+      }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+      th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+      code { padding: 2px 6px; border-radius: 6px; background: #0a0f1f; color: #b9cbff; }
+      ul.checklist { padding-left: 18px; }
+      .footer { margin-top: 18px; padding: 18px 24px; color: var(--muted); }
+      @media (max-width: 960px) {
+        .sidebar { position: static; width: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+        main { margin-left: 0; padding: 18px; }
+        .cards, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <h1 class="brand">Finly operacional <small>Documentacao HTML standalone gerada a partir do codigo do repositorio.</small></h1>
+      <nav class="nav-group">
+        <h2>Paginas</h2>
+        <a class="active" href="index.html">Inicio</a>
+        <a href="api-auth-sessoes-usuarios.html">Auth, sessoes e usuarios</a>
+        <a href="api-transacoes.html">Transacoes</a>
+        <a href="api-importacao-extrato.html">Importacao de extrato</a>
+        <a href="api-dashboard-metricas.html">Dashboard e metricas</a>
+        <a href="api-contas-cartoes-categorias.html">Contas, cartoes e categorias</a>
+        <a href="api-faturas-parcelamentos.html">Faturas e parcelamentos</a>
+        <a href="api-planejamentos-chat-ia.html">Planejamentos, chat e IA</a>
+        <a href="api-admin.html">Admin</a>
+        <a href="api-notificacoes.html">Notificacoes</a>
+        <a href="api-exportacao-exclusao-dados.html">Exportacao e exclusao</a>
+        <a href="observabilidade-health-logs-erros.html">Observabilidade</a>
+        <a href="seguranca-privacidade-limitacoes.html">Seguranca e privacidade</a>
+        <a href="api-habitacao.html">Habitacao</a>
+        <a href="api-investimentos.html">Investimentos</a>
+      </nav>
+    </aside>
+    <main>
+      <header class="hero">
+        <h1>Documentacao operacional por capacidade</h1>
+        <p>
+          Este conjunto descreve o que cada capacidade do Finly faz na pratica, com foco em rotas, validacoes,
+          permissoes, efeitos colaterais, integracoes, erros e arquivos reais do repositorio. Quando um dominio nao foi
+          confirmado em codigo, a pagina marca explicitamente <strong>"Nao confirmado no codigo analisado"</strong> ou
+          <strong>"Nao identificado no repositorio analisado"</strong>.
+        </p>
+        <div class="tags">
+          <span class="tag">HTML standalone</span>
+          <span class="tag">Sem build</span>
+          <span class="tag">Baseado em server/app.ts e modulos dedicados</span>
+          <span class="tag">Escopo restrito a docs/operacional/</span>
+        </div>
+        <div class="cards">
+          <div class="card"><strong>Capaz de mapear</strong>Rotas, middlewares, hooks, telas, tabelas, migrations, IA e superficies administrativas.</div>
+          <div class="card"><strong>Limites</strong>Areas sem confirmacao em codigo sao marcadas, sem inferencia comercial.</div>
+          <div class="card"><strong>Permissoes</strong>Destaca auth bearer, cookie de refresh, admin e premium onde aplicavel.</div>
+          <div class="card"><strong>Arquivos fonte</strong>Backend em <code>server/</code>, frontend em <code>src/</code>, schema em <code>server/migrations/</code>.</div>
+        </div>
+        <div class="toc">
+          <a href="#objetivo">Objetivo</a>
+          <a href="#como-ler">Como ler</a>
+          <a href="#indice">Indice</a>
+          <a href="#dominios">Dominios</a>
+          <a href="#fontes">Fontes</a>
+        </div>
+      </header>
+
+      <section class="section" id="objetivo">
+        <h2>Objetivo da documentacao</h2>
+        <p>
+          Transformar a base de codigo em um mapa operacional navegavel. Cada pagina isola uma capacidade relevante do
+          produto e responde o que ela cria, altera, lista, remove, valida, exige de permissao e quais efeitos
+          colaterais dispara.
+        </p>
+        <div class="callout">
+          Esta documentacao nao substitui leitura de codigo para mudancas profundas. Ela reduz o tempo de onboarding e
+          manutencao operacional.
+        </div>
+      </section>
+
+      <section class="section" id="como-ler">
+        <h2>Como ler cada pagina</h2>
+        <div class="grid-3">
+          <div class="card"><strong>1. Hero</strong>Resume capacidade, limitacoes, permissoes e arquivos principais.</div>
+          <div class="card"><strong>2. Tabelas tecnicas</strong>Mostram endpoints, entradas, validacoes e erros esperados.</div>
+          <div class="card"><strong>3. Fluxo operacional</strong>Mostra o caminho da tela ate backend, servicos, banco e resposta.</div>
+        </div>
+        <ul class="checklist">
+          <li>Prefira a pagina da capacidade antes de alterar uma rota ou hook.</li>
+          <li>Use os arquivos relacionados para abrir a implementacao real.</li>
+          <li>Considere as marcacoes de premium, admin, scoping por usuario e sanitizacao.</li>
+        </ul>
+      </section>
+
+      <section class="section" id="indice">
+        <h2>Indice das capacidades</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Arquivo</th>
+              <th>Escopo principal</th>
+              <th>Superficie</th>
+              <th>Observacao</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><a href="api-auth-sessoes-usuarios.html">api-auth-sessoes-usuarios.html</a></td><td>Login, signup, refresh, me, onboarding, conta, contato, senha</td><td>Backend + guards frontend</td><td>Cookie HttpOnly + bearer token</td></tr>
+            <tr><td><a href="api-transacoes.html">api-transacoes.html</a></td><td>CRUD de transacoes e categorias operacionais ligadas</td><td>Backend + hooks + tela</td><td>Inclui invalidacao de cache</td></tr>
+            <tr><td><a href="api-importacao-extrato.html">api-importacao-extrato.html</a></td><td>Preview, commit, templates e IA de importacao</td><td>Upload + parser + persistencia</td><td>5 MB, 5000 linhas, preview temporario</td></tr>
+            <tr><td><a href="api-dashboard-metricas.html">api-dashboard-metricas.html</a></td><td>Cards, gastos, filtros e metricas derivadas</td><td>Dashboard + graficos</td><td>Insights avancados estao desabilitados no codigo</td></tr>
+            <tr><td><a href="api-contas-cartoes-categorias.html">api-contas-cartoes-categorias.html</a></td><td>Contas, cartoes, categorias e restricoes de uso</td><td>Backend + Accounts/Transactions</td><td>Cartao exige conta pai</td></tr>
+            <tr><td><a href="api-faturas-parcelamentos.html">api-faturas-parcelamentos.html</a></td><td>Faturas, pagamentos, ajustes de cartao e overview de parcelamentos</td><td>Backend + telas de gastos</td><td>Parcelas tambem afetam transacoes</td></tr>
+            <tr><td><a href="api-planejamentos-chat-ia.html">api-planejamentos-chat-ia.html</a></td><td>Planos, chats, drafts, resumos e avaliacao por IA</td><td>Backend + Premium UI</td><td>Rate limit e telemetria de uso de IA</td></tr>
+            <tr><td><a href="api-admin.html">api-admin.html</a></td><td>Metrica administrativa, usuarios, acesso e notificacoes admin</td><td>Backend + paginas admin</td><td>Requer role admin</td></tr>
+            <tr><td><a href="api-notificacoes.html">api-notificacoes.html</a></td><td>Inbox do usuario e lembretes proprios</td><td>Backend + pagina Notifications</td><td>Escopo por usuario autenticado</td></tr>
+            <tr><td><a href="api-exportacao-exclusao-dados.html">api-exportacao-exclusao-dados.html</a></td><td>Export CSV/JSON e exclusao de conta</td><td>Backend + Settings</td><td>Operacao destrutiva exige senha atual</td></tr>
+            <tr><td><a href="observabilidade-health-logs-erros.html">observabilidade-health-logs-erros.html</a></td><td>Health, ready, requestId, logs e error handler</td><td>Backend transversal</td><td>Redacao de chaves sensiveis</td></tr>
+            <tr><td><a href="seguranca-privacidade-limitacoes.html">seguranca-privacidade-limitacoes.html</a></td><td>Autenticacao, autorizacao, headers, cookies e IA</td><td>Backend + frontend</td><td>Centraliza limites de seguranca</td></tr>
+            <tr><td><a href="api-habitacao.html">api-habitacao.html</a></td><td>Despesas de habitacao e financiamentos</td><td>Backend + pagina Housing</td><td>Gera transacoes derivadas</td></tr>
+            <tr><td><a href="api-investimentos.html">api-investimentos.html</a></td><td>Caixas de investimento e metas</td><td>Backend + pagina Plans/Investments</td><td>Tambem alimenta goal de planos</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section" id="dominios">
+        <h2>Resumo dos principais dominios do sistema</h2>
+        <div class="grid-2">
+          <div class="card"><strong>Financeiro base</strong>Transacoes, categorias, contas/cartoes, dashboard, faturas, parcelamentos, habitacao e investimentos.</div>
+          <div class="card"><strong>Auth e seguranca</strong>Login com JWT access token, refresh token em cookie HttpOnly, guards no frontend, rate limit e auditoria.</div>
+          <div class="card"><strong>IA e premium</strong>Chat financeiro, drafts de planejamento, recomendacoes e sugestoes de categoria na importacao, sempre com gating premium.</div>
+          <div class="card"><strong>Operacao de plataforma</strong>Admin, notificacoes, exportacao de dados, exclusao de conta, health/readiness, logs e requestId.</div>
+        </div>
+      </section>
+
+      <section class="section" id="fontes">
+        <h2>Fontes principais analisadas</h2>
+        <table>
+          <thead>
+            <tr><th>Camada</th><th>Arquivos</th><th>Uso nesta documentacao</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Backend central</td><td><code>server/app.ts</code>, <code>server/database.js</code>, <code>server/server.ts</code></td><td>Mapa principal de endpoints, filtros, efeitos colaterais e health/logging.</td></tr>
+            <tr><td>Modulos</td><td><code>server/modules/auth/*</code>, <code>admin/*</code>, <code>notifications/*</code>, <code>invoices/*</code>, <code>user-data/*</code></td><td>Regras especificas de auth, admin, inbox, faturas e exportacao.</td></tr>
+            <tr><td>Importacao e IA</td><td><code>server/transaction-import.js</code>, <code>server/import/*</code>, <code>server/import-ai-service.js</code>, <code>server/chat-ai-service.js</code></td><td>Formatos aceitos, limites, parsing, uso de IA e telemetria.</td></tr>
+            <tr><td>Frontend</td><td><code>src/lib/api.ts</code>, <code>src/modules/auth/services/auth-service.ts</code>, <code>src/hooks/*</code>, <code>src/pages/*</code></td><td>Hooks consumidores, invalidacao de cache e telas associadas.</td></tr>
+            <tr><td>Banco</td><td><code>server/migrations/*.sql</code></td><td>Tabelas e historico de schema relevantes para cada dominio.</td></tr>
+            <tr><td>Testes</td><td><code>server/*.test.ts</code>, <code>server/modules/**/*.test.ts</code>, <code>src/**/*.test.tsx</code></td><td>Conferencias de contratos, health, premium e guards.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <footer class="footer">
+        Pagina gerada a partir da analise do repositorio. Fontes principais: <code>server/app.ts</code>,
+        <code>server/database.js</code>, <code>server/modules/*</code>, <code>src/lib/api.ts</code>,
+        <code>src/hooks/*</code>, <code>src/pages/*</code> e <code>server/migrations/*</code>.
+      </footer>
+    </main>
+  </body>
+</html>

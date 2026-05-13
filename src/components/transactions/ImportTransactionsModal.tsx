@@ -114,6 +114,15 @@ const filterOptions: Array<{ value: PreviewFilter; label: string }> = [
   { value: "duplicates", label: "Duplicatas" },
   { value: "ignored", label: "Ignoradas" },
 ];
+const reviewableDraftFields = new Set<keyof ImportReviewDraft>([
+  "description",
+  "amount",
+  "occurredOn",
+  "type",
+  "categoryId",
+  "bankConnectionId",
+  "sourceKind",
+]);
 const mappingFieldOptions: Array<{ field: ImportMappingField; label: string; required?: boolean }> = [
   { field: "date", label: "Data", required: true },
   { field: "description", label: "Descrição", required: true },
@@ -222,6 +231,7 @@ function buildDrafts(preview: ImportPreviewData): Record<string, ImportReviewDra
         exclude: item.defaultExclude,
         ignoreDuplicate: false,
         selected: false,
+        reviewed: false,
       },
     ]),
   );
@@ -301,6 +311,10 @@ function buildCommitItem(draft: ImportReviewDraft): ImportCommitItem {
   };
 }
 
+function patchTouchesReviewableField(patch: Partial<ImportReviewDraft>) {
+  return Object.keys(patch).some((key) => reviewableDraftFields.has(key as keyof ImportReviewDraft));
+}
+
 function reducer(state: ModalState, action: ModalAction): ModalState {
   switch (action.type) {
     case "reset":
@@ -328,17 +342,28 @@ function reducer(state: ModalState, action: ModalAction): ModalState {
         step: action.step ?? "preview",
         result: null,
       };
-    case "patch-draft":
+    case "patch-draft": {
+      const currentDraft = state.drafts[action.rowKey];
+
+      if (!currentDraft) {
+        return state;
+      }
+
+      const reviewed =
+        action.patch.reviewed === true || currentDraft.reviewed || patchTouchesReviewableField(action.patch);
+
       return {
         ...state,
         drafts: {
           ...state.drafts,
           [action.rowKey]: {
-            ...state.drafts[action.rowKey],
+            ...currentDraft,
             ...action.patch,
+            reviewed,
           },
         },
       };
+    }
     case "set-result":
       return { ...state, result: action.result, step: "result" };
     case "set-search":
@@ -389,9 +414,38 @@ function isInformationalIssue(issue: ImportPreviewItem["issues"][number]) {
 
   return (
     issue.message.startsWith("Compra parcelada detectada:") ||
-    issue.message === "Se nenhuma categoria for escolhida, a despesa sera importada como Compras." ||
+    issue.message.startsWith("Se nenhuma categoria for escolhida, a despesa") ||
     issue.message === "Selecione uma categoria antes de importar."
   );
+}
+
+function isReviewIssueResolved(issue: ImportPreviewItem["issues"][number], draft: ImportReviewDraft) {
+  if (issue.level !== "warning") {
+    return false;
+  }
+
+  if (isInformationalIssue(issue)) {
+    return true;
+  }
+
+  if (!draft.reviewed) {
+    return false;
+  }
+
+  switch (issue.field) {
+    case "description":
+      return draft.description.trim().length > 0;
+    case "occurredOn":
+      return draft.occurredOn.trim().length > 0;
+    case "amount":
+      return Number.isFinite(parseAmountInput(draft.amount));
+    case "categoryId":
+      return draft.type === "expense" || String(draft.categoryId ?? "").trim().length > 0;
+    case "sourceKind":
+      return Boolean(draft.sourceKind);
+    default:
+      return true;
+  }
 }
 
 function PreviewCountChip({
@@ -532,18 +586,22 @@ export default function ImportTransactionsModal({
       const hasCategory = String(draft.categoryId ?? "").trim().length > 0;
       const frontendErrors = validateDraft(draft, item);
       const backendHasError = item.issues.some((issue) => issue.level === "error");
-      const backendHasWarning = item.issues.some((issue) => issue.level === "warning" && !isInformationalIssue(issue));
+      const displayIssues = item.issues.filter((issue) => !isReviewIssueResolved(issue, draft));
+      const backendHasWarning = displayIssues.some((issue) => issue.level === "warning");
       const lowConfidence = (item.confidence ?? 1) < 0.75;
+      const lowConfidenceNeedsReview = lowConfidence && !draft.reviewed;
       const hasPendingCategorySelection = item.requiresCategorySelection && draft.type !== "expense" && !hasCategory;
-      const needsReview = lowConfidence || draft.type === "unknown" || hasPendingCategorySelection || backendHasWarning;
+      const hasError = backendHasError || frontendErrors.length > 0;
+      const needsReview = !hasError && (lowConfidenceNeedsReview || hasPendingCategorySelection || backendHasWarning);
 
       return {
         key,
         draft,
         item,
+        displayIssues,
         frontendErrors,
-        hasError: backendHasError || frontendErrors.length > 0,
-        hasWarning: backendHasWarning || lowConfidence,
+        hasError,
+        hasWarning: backendHasWarning || lowConfidenceNeedsReview,
         isDuplicate: item.possibleDuplicate,
         isIgnored: draft.exclude,
         needsReview,

@@ -1013,6 +1013,7 @@ export interface ImportReviewDraft {
   exclude: boolean;
   ignoreDuplicate: boolean;
   selected: boolean;
+  reviewed: boolean;
 }
 
 export interface ImportAiSuggestionItem {

@@ -16,6 +16,7 @@ export type ImportTransactionCardRow = {
   key: string;
   draft: ImportReviewDraft;
   item: ImportPreviewItem;
+  displayIssues: ImportPreviewItem["issues"];
   frontendErrors: string[];
   hasError: boolean;
   hasWarning: boolean;
@@ -75,7 +76,7 @@ export default function ImportTransactionCard({
   const categoryValue = String(draft.categoryId ?? "");
   const allIssues = [
     ...row.frontendErrors.map((message) => ({ kind: "error" as const, message })),
-    ...item.issues.map((issue) => ({
+    ...row.displayIssues.map((issue) => ({
       kind: issue.level === "error" ? ("error" as const) : ("warning" as const),
       message: issue.message,
     })),
@@ -275,6 +276,17 @@ export default function ImportTransactionCard({
               >
                 {draft.exclude ? "Restaurar" : "Ignorar"}
               </Button>
+              {!row.hasError && row.needsReview ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 rounded-lg text-xs"
+                  onClick={() => onChange({ reviewed: true })}
+                >
+                  Marcar revisado
+                </Button>
+              ) : null}
               {row.isDuplicate ? (
                 <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
                   <Checkbox

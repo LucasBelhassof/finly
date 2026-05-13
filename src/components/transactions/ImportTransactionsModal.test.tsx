@@ -34,8 +34,8 @@ vi.mock("@/components/transactions/ImportTransactionCard", () => ({
     row,
     onChange,
   }: {
-    row: { key: string; draft: { exclude: boolean } };
-    onChange: (patch: { exclude?: boolean }) => void;
+    row: { key: string; draft: { exclude: boolean }; hasError?: boolean; needsReview?: boolean };
+    onChange: (patch: { exclude?: boolean; categoryId?: string; reviewed?: boolean }) => void;
   }) => (
     <div data-testid={`import-card:${row.key}`}>
       <span data-testid={`row-status:${row.key}`}>{row.draft.exclude ? "ignored" : "included"}</span>
@@ -51,6 +51,11 @@ vi.mock("@/components/transactions/ImportTransactionCard", () => ({
       <button type="button" onClick={() => onChange({ categoryId: "99" })}>
         categorize-{row.key}
       </button>
+      {!row.hasError && row.needsReview ? (
+        <button type="button" onClick={() => onChange({ reviewed: true })}>
+          mark-reviewed-{row.key}
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -815,6 +820,67 @@ describe("ImportTransactionsModal", () => {
     expect(screen.getByTestId("row-review-status:preview-1:60")).toHaveTextContent("error");
     fireEvent.click(screen.getByRole("button", { name: "categorize-preview-1:60" }));
     expect(screen.getByTestId("row-review-status:preview-1:60")).toHaveTextContent("ready");
+  });
+
+  it("marks a review-only line as ready when the user explicitly confirms it", async () => {
+    previewMutateAsync.mockResolvedValueOnce(reviewOnlyPreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    expect(screen.getByTestId("row-review-status:preview-1:40")).toHaveTextContent("review");
+    expect(hasChip("Rev.", 1)).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "mark-reviewed-preview-1:40" }));
+
+    expect(screen.getByTestId("row-review-status:preview-1:40")).toHaveTextContent("ready");
+    expect(hasChip("Rev.", 1)).toBe(false);
+    expect(hasChip("OK", 1)).toBe(true);
+  });
+
+  it("commits a reviewed low-confidence row when importing valid lines", async () => {
+    previewMutateAsync.mockResolvedValueOnce(reviewOnlyPreviewData);
+
+    render(<ImportTransactionsModal open onOpenChange={vi.fn()} categories={[]} banks={banks} />);
+
+    const fileInput = screen.getByTestId("import-file-input") as HTMLInputElement;
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["descricao,valor"], "extrato.csv", { type: "text/csv" })],
+      },
+    });
+
+    selectBankItau();
+    fireEvent.click(screen.getByRole("button", { name: /gerar preview/i }));
+
+    await waitFor(() => expect(screen.getByTestId("import-preview-body")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "mark-reviewed-preview-1:40" }));
+    fireEvent.click(screen.getByRole("button", { name: /importar 1 linha válida/i }));
+
+    await waitFor(() =>
+      expect(commitMutateAsync).toHaveBeenCalledWith({
+        previewToken: "preview-1",
+        bankConnectionId: "2",
+        items: [
+          expect.objectContaining({
+            rowIndex: 40,
+            type: "expense",
+          }),
+        ],
+      }),
+    );
   });
 
   it("removes ignored rows from the review count", async () => {

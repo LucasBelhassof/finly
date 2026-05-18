@@ -8,8 +8,10 @@ import { cn } from "@/lib/utils";
 
 function mobileNavItemClassName(isActive: boolean) {
   return cn(
-    "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors",
-    isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
+    "flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-colors",
+    isActive
+      ? "bg-primary text-primary-foreground shadow-sm"
+      : "text-muted-foreground hover:bg-secondary/80 hover:text-foreground",
   );
 }
 
@@ -21,9 +23,9 @@ export default function MobileBottomNav() {
   return (
     <nav
       aria-label="Navegação principal mobile"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 backdrop-blur supports-[backdrop-filter]:bg-background/90"
+      className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
     >
-      <div className="mx-auto grid max-w-screen-sm grid-cols-5 gap-2">
+      <div className="grid w-full max-w-sm grid-cols-5 gap-2 rounded-[1.75rem] border border-border/60 bg-background/95 p-2 shadow-[0_20px_45px_rgba(15,23,42,0.18)] backdrop-blur supports-[backdrop-filter]:bg-background/90">
         {mobilePrimaryNavItems.map((item) => {
           const isActive = isNavItemActive(location.pathname, item);
 

@@ -3,6 +3,7 @@ import { LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
+import { KiplyLogo } from "@/components/brand/KiplyLogo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,15 +30,15 @@ export default function SignupPage() {
 
   return (
     <AuthScreen
-      eyebrow="Finly Auth"
+      eyebrow="Kiply Auth"
       title="Crie sua conta em segundos."
       description="Acesso imediato a dashboard, contas e automações com sessão protegida."
       showShowcase={false}
     >
       <Card className="overflow-hidden rounded-[2rem] border-border/60 bg-card/94 shadow-2xl backdrop-blur">
         <CardHeader className="space-y-3 pb-4">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-lg font-semibold text-primary">
-            F
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+            <KiplyLogo variant="icon" className="h-9 w-9" />
           </div>
           <div className="space-y-1">
             <CardTitle className="text-3xl">Criar conta</CardTitle>

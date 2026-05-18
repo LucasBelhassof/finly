@@ -64,7 +64,7 @@ export default function AppShell({ title, description, children, headerContent, 
                     <span>Torne-se Premium</span>
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Desbloqueie chat com IA, insights e planejamentos gerados com base em suas conversas!
+                    Desbloqueie conversas com Kip, insights e planejamentos gerados com base em suas conversas!
                   </p>
                 </div>
                 <Button type="button" className="shrink-0" onClick={() => navigate(appRoutes.pricing)}>

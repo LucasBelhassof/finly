@@ -114,10 +114,10 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function ChatLockedPage() {
   return (
-    <AppShell title="Chat IA" description="Converse com o assistente sobre gastos, contas e metas">
+    <AppShell title="Chat IA" description="Converse com Kip sobre gastos, contas, metas e planejamentos">
       <PremiumGate
         featureLabel="Chat IA"
-        description="Usuários Free podem visualizar esta área, mas o envio de mensagens e os históricos do assistente ficam disponíveis apenas na versão Premium."
+        description="Usuários Free podem visualizar esta área, mas o envio de mensagens e o histórico com Kip ficam disponíveis apenas na versão Premium."
       >
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="glass-card hidden min-h-[18rem] flex-col p-4 lg:flex">
@@ -135,7 +135,7 @@ function ChatLockedPage() {
           <div className="grid min-h-[28rem] grid-rows-[auto_minmax(0,1fr)] gap-3">
             <div className="flex min-h-10 items-center justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-foreground">Assistente Finly</h2>
+                <h2 className="text-base font-semibold text-foreground">Kip</h2>
                 <p className="text-sm text-muted-foreground">
                   Planeje gastos, tire dúvidas e gere estratégias a partir das suas finanças.
                 </p>
@@ -731,7 +731,7 @@ function PremiumChatPage() {
   );
 
   return (
-    <AppShell title="Chat IA" description="Converse com o assistente sobre gastos, contas e metas">
+    <AppShell title="Chat IA" description="Converse com Kip sobre gastos, contas, metas e planejamentos">
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="w-[22rem] max-w-[calc(100vw-1rem)] border-border/60 bg-card p-0">
           <div className="flex h-full min-h-0 flex-col">

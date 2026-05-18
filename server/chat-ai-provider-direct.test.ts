@@ -59,7 +59,7 @@ describe("chat-ai-provider-direct", () => {
 
     expect(request.url).toContain("models/gemini-test:generateContent");
     expect(request.headers["x-goog-api-key"]).toBe("gem-key");
-    expect(request.body.system_instruction.parts[0].text).toContain("Assistente Finly");
+    expect(request.body.system_instruction.parts[0].text).toContain("Kip");
     expect(request.body.contents[1]).toEqual({
       role: "model",
       parts: [{ text: "Vamos analisar." }],

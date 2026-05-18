@@ -3,7 +3,7 @@ import { LoaderCircle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 
-import { FinlyLoader } from "@/components/FinlyLoader";
+import { KiplyLoader } from "@/components/KiplyLoader";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,10 +30,10 @@ export default function LoginPage() {
 
   return (
     <div className="relative">
-      {loginMutation.isPending ? <FinlyLoader /> : null}
+      {loginMutation.isPending ? <KiplyLoader /> : null}
 
       <AuthScreen
-        eyebrow="Finly Auth"
+        eyebrow="Kiply Auth"
         title="Entre na sua area segura."
         description="Acesse dashboard, contas e automações com sessão protegida e refresh transparente."
         showShowcase={false}

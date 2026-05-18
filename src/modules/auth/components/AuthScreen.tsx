@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { KiplyLogo } from "@/components/brand/KiplyLogo";
+
 type AuthScreenProps = {
   aside?: ReactNode;
   children: ReactNode;
@@ -24,8 +26,8 @@ export function AuthScreen({ aside, children, description, eyebrow, showShowcase
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.24),transparent_24%),radial-gradient(circle_at_82%_18%,rgba(255,255,255,0.18),transparent_18%),radial-gradient(circle_at_60%_80%,rgba(255,255,255,0.12),transparent_20%)]" />
             <div className="relative flex h-full flex-col justify-between">
               <div className="space-y-6">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/14 text-xl font-semibold shadow-lg shadow-black/10">
-                  F
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/14 shadow-lg shadow-black/10">
+                  <KiplyLogo variant="icon" className="h-9 w-9" />
                 </div>
                 <div className="space-y-3">
                   <p className="text-sm uppercase tracking-[0.28em] text-primary-foreground/70">{eyebrow}</p>

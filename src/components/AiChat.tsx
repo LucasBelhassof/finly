@@ -1,6 +1,7 @@
-import { Bot, ExternalLink, FolderKanban, Send, User } from "lucide-react";
+import { ExternalLink, FolderKanban, Send, User } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
+import { KipAvatar } from "@/components/brand/KipAvatar";
 import { toast } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEFAULT_CHAT_LIMIT, useChatConversationMessages, useSendChatConversationMessages } from "@/hooks/use-chat";
@@ -24,11 +25,9 @@ function ChatLoadingState() {
     <div className="glass-card grid h-[min(72vh,38rem)] min-h-[26rem] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden animate-fade-in sm:h-[min(68vh,42rem)]">
       <div className="border-b border-border/50 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-            <Bot size={14} className="text-primary" />
-          </div>
+          <KipAvatar size="sm" />
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Assistente Finly</h3>
+            <h3 className="text-sm font-semibold text-foreground">Kip</h3>
             <div className="flex items-center gap-1">
               <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
               <span className="text-xs text-muted-foreground">Online</span>
@@ -237,11 +236,9 @@ export default function AiChat({
       <div className="border-b border-border/50 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <Bot size={14} className="text-primary" />
-            </div>
+            <KipAvatar size="sm" />
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Assistente Finly</h3>
+              <h3 className="text-sm font-semibold text-foreground">Kip</h3>
               <div className="flex items-center gap-1">
                 <span className="pulse-glow h-1.5 w-1.5 rounded-full bg-income" />
                 <span className="text-xs text-muted-foreground">Online</span>
@@ -259,7 +256,7 @@ export default function AiChat({
                   className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
                   <ExternalLink size={12} />
-                  Abrir no Chat IA
+                  Abrir chat completo
                 </button>
               ) : null}
             </div>
@@ -274,23 +271,19 @@ export default function AiChat({
         !planningInProgress &&
         !creatingConversation ? (
           <div className="rounded-lg border border-border/30 bg-secondary/30 p-4 text-sm text-muted-foreground">
-            {isError ? "Não foi possível carregar a conversa agora." : "Comece uma conversa com o assistente."}
+            {isError ? "Não foi possível carregar a conversa agora." : "Comece uma conversa com Kip."}
           </div>
         ) : (
           <>
             {messages.map((message) => (
               <div key={message.id} className={`flex gap-2.5 ${message.role === "user" ? "flex-row-reverse" : ""}`}>
-                <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                    message.role === "assistant" ? "bg-primary/10" : "bg-secondary"
-                  }`}
-                >
-                  {message.role === "assistant" ? (
-                    <Bot size={13} className="text-primary" />
-                  ) : (
+                {message.role === "assistant" ? (
+                  <KipAvatar size="sm" />
+                ) : (
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary">
                     <User size={13} className="text-muted-foreground" />
-                  )}
-                </div>
+                  </div>
+                )}
                 <div
                   className={`max-w-full rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed sm:max-w-[85%] ${
                     message.role === "assistant"
@@ -331,9 +324,7 @@ export default function AiChat({
             {queuedMessages.length || isSendingMessages || planningInProgress || creatingConversation ? (
               <>
                 <div className="flex gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Bot size={13} className="text-primary" />
-                  </div>
+                  <KipAvatar size="sm" />
                   <div className="max-w-full rounded-2xl rounded-tl-sm bg-secondary px-3.5 py-3 text-sm text-secondary-foreground sm:max-w-[85%]">
                     <TypingIndicator />
                   </div>

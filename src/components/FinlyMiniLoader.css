@@ -7,14 +7,9 @@
   justify-content: center;
 }
 
-.finly-mini-letter {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  color: transparent;
-  background: linear-gradient(135deg, #00ffae, #00c896);
-  background-clip: text;
-  -webkit-background-clip: text;
+.finly-mini-logo {
+  width: 28px;
+  height: 28px;
   filter: drop-shadow(0 0 6px rgba(0, 255, 174, 0.4));
   z-index: 1;
   user-select: none;
@@ -37,7 +32,7 @@
   animation: finly-trail 3s ease-in-out infinite;
 }
 
-/* ball SVG — rotates around the F */
+/* ball SVG — rotates around the brand icon */
 .finly-mini-ball-svg {
   position: absolute;
   inset: 0;

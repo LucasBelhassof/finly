@@ -19,16 +19,10 @@
   gap: 16px;
 }
 
-.finly-loader-text {
-  font-family: "Inter", sans-serif;
-  font-size: 48px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 8px;
-  color: transparent;
-  background: linear-gradient(90deg, #00ffae, #00c896);
-  background-clip: text;
-  -webkit-background-clip: text;
+.finly-loader-logo {
+  height: 72px;
+  width: auto;
+  max-width: min(320px, 72vw);
   position: relative;
   animation: finly-reveal 2.4s ease-in-out infinite;
   filter: drop-shadow(0 0 24px rgba(0, 255, 174, 0.3));

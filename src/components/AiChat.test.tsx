@@ -101,7 +101,7 @@ describe("AiChat", () => {
 
     render(<AiChat chatId="chat-1" onOpenFullChat={onOpenFullChat} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /abrir no chat ia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /abrir chat completo/i }));
 
     expect(onOpenFullChat).toHaveBeenCalled();
   });
@@ -128,7 +128,7 @@ describe("AiChat", () => {
 
     render(<AiChat chatId="chat-1" onOpenFullChat={vi.fn()} />);
 
-    expect(screen.queryByRole("button", { name: /abrir no chat ia/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /abrir chat completo/i })).not.toBeInTheDocument();
   });
 
   it("renders the review button for a pending plan draft action", () => {

@@ -1,9 +1,8 @@
 import {
   Bell,
   Building2,
-  ChevronLeft,
   ChevronDown,
-  ChevronRight,
+  ChevronLeft,
   FolderKanban,
   PiggyBank,
   Layers3,
@@ -18,6 +17,7 @@ import {
 import { useEffect, useRef } from "react";
 import { matchPath, useLocation, useNavigate } from "react-router-dom";
 
+import { KiplyLogo } from "@/components/brand/KiplyLogo";
 import { NavLink } from "@/components/NavLink";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -113,31 +113,21 @@ export default function Sidebar() {
     <SidebarRoot collapsible="icon" className="border-r border-sidebar-border bg-sidebar">
       <SidebarHeader className="p-4 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2">
         <div className="flex items-center gap-2 overflow-hidden rounded-lg px-2 py-1 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <button
-            type="button"
-            onClick={isCollapsed ? toggleSidebar : undefined}
-            className="group/logo relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary outline-none transition-all focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-            aria-label={isCollapsed ? "Expandir sidebar" : "Logo Finly"}
-            title={isCollapsed ? "Expandir sidebar" : undefined}
-          >
-            <span
-              className={
-                isCollapsed
-                  ? "text-sm font-bold text-primary-foreground transition-opacity group-hover/logo:opacity-0 group-focus-visible/logo:opacity-0"
-                  : "text-sm font-bold text-primary-foreground"
-              }
+          {isCollapsed ? (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg outline-none transition-all hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              aria-label="Expandir sidebar Kiply"
+              title="Expandir sidebar Kiply"
             >
-              F
-            </span>
-            {isCollapsed ? (
-              <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover/logo:opacity-100 group-focus-visible/logo:opacity-100">
-                <ChevronRight size={16} className="text-primary-foreground" />
-              </span>
-            ) : null}
-          </button>
-          <span className="truncate text-lg font-semibold text-foreground group-data-[collapsible=icon]:hidden">
-            Finly
-          </span>
+              <KiplyLogo variant="icon" className="h-8 w-8" />
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center" aria-label="Logo Kiply">
+              <KiplyLogo variant="full" className="h-10 w-auto max-w-[9rem]" />
+            </div>
+          )}
           {!isCollapsed ? (
             <button
               type="button"

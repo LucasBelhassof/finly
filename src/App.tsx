@@ -5,7 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { FinlyMiniLoader } from "@/components/FinlyMiniLoader";
+import { KiplyMiniLoader } from "@/components/KiplyMiniLoader";
 import { appRoutes } from "@/lib/routes";
 import { AdminRoute } from "@/modules/auth/components/AdminRoute";
 import { AuthProvider } from "@/modules/auth/components/AuthProvider";
@@ -51,7 +51,7 @@ const BillingCancelPage = lazy(() => import("./pages/BillingCancel.tsx"));
 function PageLoader() {
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <FinlyMiniLoader />
+      <KiplyMiniLoader />
     </div>
   );
 }

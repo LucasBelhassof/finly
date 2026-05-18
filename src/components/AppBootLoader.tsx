@@ -1,5 +1,5 @@
-import { FinlyLoader } from "@/components/FinlyLoader";
+import { KiplyLoader } from "@/components/KiplyLoader";
 
 export function AppBootLoader() {
-  return <FinlyLoader />;
+  return <KiplyLoader />;
 }

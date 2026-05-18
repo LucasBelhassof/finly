@@ -12,6 +12,7 @@ const loginMock = vi.fn<(...args: unknown[]) => Promise<AuthSessionPayload>>();
 const signupMock = vi.fn<(...args: unknown[]) => Promise<AuthSessionPayload>>();
 
 vi.mock("react-router-dom", () => ({
+  useLocation: () => ({ state: null }),
   useNavigate: () => mockNavigate,
 }));
 
@@ -43,6 +44,15 @@ const sessionPayload: AuthSessionPayload = {
     name: "Lucas",
     email: "lucas@example.com",
     role: "user",
+    hasCompletedOnboarding: true,
+  },
+};
+
+const newSignupPayload: AuthSessionPayload = {
+  ...sessionPayload,
+  user: {
+    ...sessionPayload.user,
+    hasCompletedOnboarding: false,
   },
 };
 
@@ -75,11 +85,11 @@ describe("auth navigation hooks", () => {
     });
 
     expect(applySessionMock).toHaveBeenCalledWith(sessionPayload);
-    expect(mockNavigate).toHaveBeenCalledWith(appRoutes.dashboard, { replace: true });
+    expect(mockNavigate).toHaveBeenCalledWith(appRoutes.dashboard, { replace: true, state: undefined });
   });
 
   it("sends new signups directly to primeiros passos", async () => {
-    signupMock.mockResolvedValue(sessionPayload);
+    signupMock.mockResolvedValue(newSignupPayload);
 
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -102,7 +112,7 @@ describe("auth navigation hooks", () => {
       } satisfies SignupInput);
     });
 
-    expect(applySessionMock).toHaveBeenCalledWith(sessionPayload);
-    expect(mockNavigate).toHaveBeenCalledWith(appRoutes.onboarding, { replace: true });
+    expect(applySessionMock).toHaveBeenCalledWith(newSignupPayload);
+    expect(mockNavigate).toHaveBeenCalledWith(appRoutes.onboarding, { replace: true, state: undefined });
   });
 });

@@ -85,7 +85,7 @@ export default function DashboardChatCard() {
     return (
       <PremiumGate
         featureLabel="Chat financeiro com IA"
-        description="Faça upgrade para desbloquear o assistente financeiro com contexto do seu histórico e conversas salvas."
+        description="Faça upgrade para conversar com Kip com contexto do seu histórico e conversas salvas."
       >
         <AiChat />
       </PremiumGate>

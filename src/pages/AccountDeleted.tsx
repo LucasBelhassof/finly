@@ -32,7 +32,7 @@ export default function AccountDeletedPage() {
             Você será redirecionado para a tela de login em instantes.
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Se quiser voltar a usar o Finly no futuro, será necessário criar uma nova conta.
+            Se quiser voltar a usar o Kiply no futuro, será necessário criar uma nova conta.
           </p>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">

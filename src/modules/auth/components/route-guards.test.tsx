@@ -85,7 +85,7 @@ describe("auth route guards", () => {
 
     renderProtectedRoute();
 
-    expect(screen.getByText(/finly/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /kiply/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /area interna/i })).not.toBeInTheDocument();
   });
 
@@ -314,7 +314,7 @@ describe("auth route guards", () => {
 
     renderProtectedRoute();
 
-    expect(screen.getByText(/finly/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /kiply/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /area interna/i })).not.toBeInTheDocument();
   });
 

@@ -23,19 +23,19 @@ const DOCS: Record<LegalType, LegalDoc> = {
     sections: [
       {
         heading: "1. Aceitação dos Termos",
-        body: "Ao acessar ou utilizar o Finly, você concorda com os presentes Termos de Uso. Caso não concorde com qualquer disposição, interrompa o uso imediatamente.",
+        body: "Ao acessar ou utilizar o Kiply, você concorda com os presentes Termos de Uso. Caso não concorde com qualquer disposição, interrompa o uso imediatamente.",
       },
       {
         heading: "2. Descrição do Serviço",
-        body: "O Finly é uma plataforma de gestão financeira pessoal que oferece funcionalidades de controle de transações, categorias, contas bancárias, parcelamentos, insights e chat com inteligência artificial (recursos premium).",
+        body: "O Kiply é uma plataforma de gestão financeira pessoal que oferece funcionalidades de controle de transações, categorias, contas bancárias, parcelamentos, insights e chat com inteligência artificial (recursos premium).",
       },
       {
         heading: "3. Cadastro e Conta",
-        body: "Você é responsável por manter a confidencialidade de suas credenciais de acesso. Informações fornecidas no cadastro devem ser verídicas e atualizadas. O Finly reserva-se o direito de suspender contas que violem estes termos.",
+        body: "Você é responsável por manter a confidencialidade de suas credenciais de acesso. Informações fornecidas no cadastro devem ser verídicas e atualizadas. O Kiply reserva-se o direito de suspender contas que violem estes termos.",
       },
       {
         heading: "4. Planos e Funcionalidades",
-        body: "O Finly oferece dois planos: Plano Free (dashboard, transações, categorias e contas) e Plano Premium (inclui todas as funcionalidades free, além de chat com IA, insights, planejamentos e importação inteligente). As condições de assinatura e cobrança do plano premium serão detalhadas quando o sistema de pagamento for integrado.",
+        body: "O Kiply oferece dois planos: Plano Free (dashboard, transações, categorias e contas) e Plano Premium (inclui todas as funcionalidades free, além de chat com IA, insights, planejamentos e importação inteligente). As condições de assinatura e cobrança do plano premium serão detalhadas quando o sistema de pagamento for integrado.",
       },
       {
         heading: "5. Uso Aceitável",
@@ -43,15 +43,15 @@ const DOCS: Record<LegalType, LegalDoc> = {
       },
       {
         heading: "6. Propriedade Intelectual",
-        body: "Todo o conteúdo, código e design da plataforma são propriedade do Finly ou de seus licenciadores. É vedada a reprodução sem autorização expressa.",
+        body: "Todo o conteúdo, código e design da plataforma são propriedade do Kiply ou de seus licenciadores. É vedada a reprodução sem autorização expressa.",
       },
       {
         heading: "7. Limitação de Responsabilidade",
-        body: "O Finly não se responsabiliza por decisões financeiras tomadas com base nas informações exibidas na plataforma. Os dados são apresentados para fins informativos e de organização pessoal.",
+        body: "O Kiply não se responsabiliza por decisões financeiras tomadas com base nas informações exibidas na plataforma. Os dados são apresentados para fins informativos e de organização pessoal.",
       },
       {
         heading: "8. Alterações nos Termos",
-        body: "O Finly pode atualizar estes Termos a qualquer momento. O uso continuado da plataforma após as alterações implica aceitação dos novos termos.",
+        body: "O Kiply pode atualizar estes Termos a qualquer momento. O uso continuado da plataforma após as alterações implica aceitação dos novos termos.",
       },
     ],
   },
@@ -61,11 +61,11 @@ const DOCS: Record<LegalType, LegalDoc> = {
     sections: [
       {
         heading: "1. Introdução",
-        body: "Esta Política de Privacidade descreve como o Finly coleta, armazena, usa e protege os dados pessoais dos usuários, em conformidade com a Lei Geral de Proteção de Dados (LGPD) — Lei nº 13.709/2018.",
+        body: "Esta Política de Privacidade descreve como o Kiply coleta, armazena, usa e protege os dados pessoais dos usuários, em conformidade com a Lei Geral de Proteção de Dados (LGPD) — Lei nº 13.709/2018.",
       },
       {
         heading: "2. Dados Coletados",
-        body: "O Finly pode coletar: dados de cadastro (nome, e-mail e senha criptografada); dados financeiros inseridos pelo usuário (transações, categorias, contas e parcelamentos); dados de uso (sessão, eventos de autenticação e preferências); e dados de endereço opcionalmente fornecidos no perfil.",
+        body: "O Kiply pode coletar: dados de cadastro (nome, e-mail e senha criptografada); dados financeiros inseridos pelo usuário (transações, categorias, contas e parcelamentos); dados de uso (sessão, eventos de autenticação e preferências); e dados de endereço opcionalmente fornecidos no perfil.",
       },
       {
         heading: "3. Finalidade do Tratamento",
@@ -73,7 +73,7 @@ const DOCS: Record<LegalType, LegalDoc> = {
       },
       {
         heading: "4. Compartilhamento de Dados",
-        body: "O Finly não vende dados pessoais a terceiros. Os dados podem ser compartilhados apenas com prestadores de serviços essenciais para o funcionamento da plataforma ou com autoridades competentes quando exigido por lei.",
+        body: "O Kiply não vende dados pessoais a terceiros. Os dados podem ser compartilhados apenas com prestadores de serviços essenciais para o funcionamento da plataforma ou com autoridades competentes quando exigido por lei.",
       },
       {
         heading: "5. Armazenamento e Segurança",
@@ -85,7 +85,7 @@ const DOCS: Record<LegalType, LegalDoc> = {
       },
       {
         heading: "7. Cookies e Sessão",
-        body: "O Finly utiliza cookies de sessão para autenticação segura. Não utilizamos cookies de rastreamento para publicidade.",
+        body: "O Kiply utiliza cookies de sessão para autenticação segura. Não utilizamos cookies de rastreamento para publicidade.",
       },
       {
         heading: "8. Retenção de Dados",
@@ -99,11 +99,11 @@ const DOCS: Record<LegalType, LegalDoc> = {
     sections: [
       {
         heading: "1. Plano Free",
-        body: "O Finly oferece um plano gratuito sem custo ou compromisso. Não há assinatura a cancelar no plano free. Você pode encerrar sua conta a qualquer momento pelo suporte.",
+        body: "O Kiply oferece um plano gratuito sem custo ou compromisso. Não há assinatura a cancelar no plano free. Você pode encerrar sua conta a qualquer momento pelo suporte.",
       },
       {
         heading: "2. Estado atual do Plano Premium",
-        body: "O cancelamento de assinatura pelo próprio aplicativo ainda não está disponível. O sistema de cobrança online do Finly está em desenvolvimento e será integrado em versão futura. Enquanto o sistema de pagamento não for integrado, o plano premium é gerenciado manualmente pela equipe do Finly. Para solicitar cancelamento ou alteração de plano, entre em contato com o suporte.",
+        body: "O cancelamento de assinatura pelo próprio aplicativo ainda não está disponível. O sistema de cobrança online do Kiply está em desenvolvimento e será integrado em versão futura. Enquanto o sistema de pagamento não for integrado, o plano premium é gerenciado manualmente pela equipe do Kiply. Para solicitar cancelamento ou alteração de plano, entre em contato com o suporte.",
       },
       {
         heading: "3. Política futura (após integração de cobrança)",

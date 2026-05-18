@@ -97,7 +97,7 @@ vi.mock("@/components/AiChat", () => ({
           <span>{initialMessage ?? "sem mensagem inicial"}</span>
           <span>{creatingConversation ? "criando chat" : "chat pronto"}</span>
           <button type="button" onClick={() => onOpenFullChat?.()}>
-            abrir no chat ia
+            abrir chat completo
           </button>
           <button type="button" onClick={() => void onStartConversation?.("Quero organizar minhas contas")}>
             enviar mensagem inicial
@@ -177,7 +177,7 @@ describe("DashboardChatCard", () => {
     fireEvent.change(screen.getByLabelText("Escolher conversa do chat financeiro"), {
       target: { value: "chat-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /abrir no chat ia/i }));
+    fireEvent.click(screen.getByRole("button", { name: /abrir chat completo/i }));
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(`${appRoutes.chat}/chat-1`);

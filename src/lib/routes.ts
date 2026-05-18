@@ -2,6 +2,8 @@ export const appRoutes = {
   dashboard: "/",
   login: "/login",
   signup: "/signup",
+  debugInitialLoading: "/dev/loading-inicial",
+  debugPageTransitionLoading: "/dev/loading-transicao",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   onboarding: "/primeiros-passos",

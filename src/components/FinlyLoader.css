@@ -16,20 +16,19 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
 }
 
 .finly-loader-logo {
-  height: 72px;
+  height: 144px;
   width: auto;
-  max-width: min(320px, 72vw);
+  max-width: min(640px, 86vw);
   position: relative;
   animation: finly-reveal 2.4s ease-in-out infinite;
   filter: drop-shadow(0 0 24px rgba(0, 255, 174, 0.3));
 }
 
 .finly-loader-line {
-  width: 120px;
+  width: 240px;
   height: 2px;
   border-radius: 2px;
   background: linear-gradient(90deg, transparent, #00ffae, transparent);

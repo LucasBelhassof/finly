@@ -125,7 +125,7 @@ export default function Sidebar() {
             </button>
           ) : (
             <div className="flex min-w-0 items-center" aria-label="Logo Kiply">
-              <KiplyLogo variant="full" className="h-10 w-auto max-w-[9rem]" />
+              <KiplyLogo variant="full" className="h-12 w-auto max-w-[12rem]" />
             </div>
           )}
           {!isCollapsed ? (

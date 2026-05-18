@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { KiplyLoader } from "@/components/KiplyLoader";
 import { KiplyMiniLoader } from "@/components/KiplyMiniLoader";
 import { appRoutes } from "@/lib/routes";
 import { AdminRoute } from "@/modules/auth/components/AdminRoute";
@@ -56,6 +57,18 @@ function PageLoader() {
   );
 }
 
+function InitialLoadingPreview() {
+  return <KiplyLoader />;
+}
+
+function PageTransitionLoadingPreview() {
+  return (
+    <div className="min-h-screen bg-background">
+      <PageLoader />
+    </div>
+  );
+}
+
 function RouteErrorBoundary({ children }: { children: ReactNode }) {
   const location = useLocation();
 
@@ -74,6 +87,9 @@ const App = () => (
           <ProductTourProvider>
             <RouteErrorBoundary>
               <Routes>
+                <Route path={appRoutes.debugInitialLoading} element={<InitialLoadingPreview />} />
+                <Route path={appRoutes.debugPageTransitionLoading} element={<PageTransitionLoadingPreview />} />
+
                 <Route element={<PublicOnlyRoute />}>
                   <Route path={appRoutes.login} element={<LoginPage />} />
                   <Route path={appRoutes.signup} element={<SignupPage />} />

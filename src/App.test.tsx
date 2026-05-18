@@ -79,6 +79,22 @@ describe("App routes", () => {
     expect(await screen.findByRole("heading", { name: /métricas|metricas/i })).toBeInTheDocument();
   });
 
+  it("renders the initial loading preview route", async () => {
+    window.history.pushState({}, "", appRoutes.debugInitialLoading);
+
+    render(<App />);
+
+    expect(await screen.findByRole("img", { name: /kiply/i })).toBeInTheDocument();
+  });
+
+  it("renders the page transition loading preview route", async () => {
+    window.history.pushState({}, "", appRoutes.debugPageTransitionLoading);
+
+    render(<App />);
+
+    expect(await screen.findByRole("img", { name: /kiply/i })).toBeInTheDocument();
+  });
+
   it("renders the recurring income route", async () => {
     window.history.pushState({}, "", appRoutes.expenseManagementRecurringIncome);
 

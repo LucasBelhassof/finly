@@ -124,9 +124,14 @@ export default function Sidebar() {
               <KiplyLogo variant="icon" className="h-8 w-8" />
             </button>
           ) : (
-            <div className="flex min-w-0 items-center" aria-label="Logo Kiply">
+            <NavLink
+              to={appRoutes.dashboard}
+              className="flex min-w-0 items-center rounded-lg outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              aria-label="Ir para dashboard Kiply"
+              title="Ir para dashboard Kiply"
+            >
               <KiplyLogo variant="full" className="h-12 w-auto max-w-[12rem]" />
-            </div>
+            </NavLink>
           )}
           {!isCollapsed ? (
             <button

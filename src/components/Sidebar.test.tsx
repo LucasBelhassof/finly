@@ -149,6 +149,15 @@ describe("Sidebar", () => {
     expect(screen.queryByText(/primeiros passos/i)).not.toBeInTheDocument();
   });
 
+  it("links the expanded sidebar logo to the dashboard", () => {
+    renderSidebar(appRoutes.transactions, true);
+
+    expect(screen.getByRole("link", { name: /ir para dashboard kiply/i })).toHaveAttribute(
+      "href",
+      appRoutes.dashboard,
+    );
+  });
+
   it("toggles the collapsed control between chevrons in the header", () => {
     renderSidebar(appRoutes.dashboard, true);
 

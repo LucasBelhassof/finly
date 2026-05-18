@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy as reactLazy, Suspense, type ComponentType, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -17,6 +17,26 @@ import ForgotPasswordPage from "@/modules/auth/pages/ForgotPasswordPage";
 import LoginPage from "@/modules/auth/pages/LoginPage";
 import ResetPasswordPage from "@/modules/auth/pages/ResetPasswordPage";
 import SignupPage from "@/modules/auth/pages/SignupPage";
+
+const PAGE_LOADER_MINIMUM_ORBIT_MS = import.meta.env.MODE === "test" ? 0 : 500;
+
+function waitForMinimumPageLoaderTime() {
+  if (PAGE_LOADER_MINIMUM_ORBIT_MS <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, PAGE_LOADER_MINIMUM_ORBIT_MS);
+  });
+}
+
+function lazy<TProps>(loadPage: () => Promise<{ default: ComponentType<TProps> }>) {
+  return reactLazy(async () => {
+    const [module] = await Promise.all([loadPage(), waitForMinimumPageLoaderTime()]);
+
+    return module;
+  });
+}
 
 const AccountsPage = lazy(() => import("./pages/Accounts.tsx"));
 const AccountDeletedPage = lazy(() => import("./pages/AccountDeleted.tsx"));

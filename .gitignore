@@ -35,4 +35,5 @@ index.html
 /.cursor
 /.codex-logs
 /.codex
+.codex-*.log
 docs/relatorio-integracoes-comercializacao-web.md
